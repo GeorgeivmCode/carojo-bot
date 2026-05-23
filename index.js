@@ -1,4 +1,8 @@
 require('dotenv').config();
+
+process.on('uncaughtException', err => console.error('Uncaught:', err));
+process.on('unhandledRejection', err => console.error('Unhandled:', err));
+
 const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
