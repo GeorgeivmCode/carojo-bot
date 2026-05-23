@@ -173,7 +173,11 @@ const PAYMENT_WRONG_AMOUNT = (monto, esperado) =>
 
 Por favor envia el monto exacto y enviame el comprobante de ese pago. 📸`;
 
-const STOPPED_MSG = `Listo, no te escribo mas. Si en algun momento quieres los packs, aqui estamos! 💛`;
+const STOPPED_MSG = `Entendido! 🌸 Acabo de pausar los mensajes para no interrumpirte mas.
+
+Te agradezco mucho por tu tiempo y tu interes en nuestros cursos. Si en algun momento del futuro quieres retomar tu lado creativo, aqui dejaremos las puertas abiertas para ti.
+
+Te deseo un dia hermoso y de mucho exito! 👋✨`;
 
 // Triggers de cliente antiguo (sin acceso)
 const OLD_CLIENT_TRIGGERS = [
