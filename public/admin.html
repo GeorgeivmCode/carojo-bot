@@ -272,9 +272,9 @@ function getAuth() {
     const p = prompt('Contrasena del panel:');
     if (!p) return null;
     sessionStorage.setItem('adminPass', p);
-    return 'Basic ' + btoa(':' + p);
+    return 'Basic ' + btoa('CarojoAdmin:' + p);
   }
-  return 'Basic ' + btoa(':' + pass);
+  return 'Basic ' + btoa('CarojoAdmin:' + pass);
 }
 
 async function apiFetch(url, opts = {}) {
