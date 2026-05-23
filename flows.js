@@ -72,10 +72,18 @@ async function processMessage(phone, msgType, content, wamidIn) {
     return;
   }
 
-  // Salir
+  // Salir — detiene remarketing pero deja el bot activo por si vuelve
   if (['salir', 'stop', 'no gracias', 'no me interesa', 'para', 'detener'].includes(text)) {
-    db.updateContact(phone, { state: 'stopped', bot_active: 0 });
+    db.updateContact(phone, { state: 'stopped' });
     await sendAndSave(phone, STOPPED_MSG);
+    return;
+  }
+
+  // Cliente que dijo Salir antes pero vuelve a escribir — reiniciar flujo
+  if (contact.state === 'stopped') {
+    db.updateContact(phone, { state: 'new', r1_sent: 0, r2_sent: 0 });
+    contact = db.getContact(phone);
+    await handleNew(contact, text);
     return;
   }
 
