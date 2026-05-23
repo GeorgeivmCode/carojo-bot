@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
 const { carolRespond, verifyPayment } = require('./carol');
@@ -12,8 +13,10 @@ const {
   deliveryMessage
 } = require('./content');
 
-const JORGE_PHONE    = process.env.JORGE_PHONE;
-const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL;
+const JORGE_PHONE     = process.env.JORGE_PHONE;
+const META_PIXEL_ID   = process.env.META_PIXEL_ID;
+const META_CAPI_TOKEN = process.env.META_CAPI_TOKEN;
+const GAS_SHEETS_URL  = process.env.GAS_SHEETS_URL;
 
 // Monto → pack
 const AMOUNT_TO_PACK = { 5000: 'basico', 10000: 'oro', 15000: 'diamante' };
@@ -44,19 +47,42 @@ async function notifyJorge(contact, text) {
 }
 
 async function fireCapi(contact, pack) {
-  if (!MAKE_WEBHOOK_URL) return;
+  if (!META_PIXEL_ID || !META_CAPI_TOKEN) return;
   try {
-    await axios.post(MAKE_WEBHOOK_URL, {
-      phone:     contact.phone,
-      name:      contact.name,
+    const ph = crypto.createHash('sha256').update(contact.phone.replace(/\D/g, '')).digest('hex');
+    const event = {
+      event_name:    'Purchase',
+      event_time:    Math.floor(Date.now() / 1000),
+      action_source: 'other',
+      event_id:      `${contact.phone}_${Date.now()}`,
+      user_data:     { ph: [ph] },
+      custom_data:   { currency: 'COP', value: PACK_PRICES[pack] || 0, content_name: pack, content_type: 'product' }
+    };
+    if (contact.ctwa_clid) event.user_data.ctwa_clid = contact.ctwa_clid;
+    await axios.post(
+      `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
+      { data: [event] },
+      { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
+    );
+    console.log('CAPI Purchase fired:', pack, contact.phone);
+  } catch (e) { console.error('CAPI error:', e.message); }
+}
+
+async function logSaleToSheets(contact, pack, email) {
+  if (!GAS_SHEETS_URL) return;
+  try {
+    await axios.post(GAS_SHEETS_URL, {
+      fecha:     new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
+      telefono:  contact.phone,
+      nombre:    contact.name  || '',
       pack,
-      amount:    PACK_PRICES[pack] || 0,
+      monto:     PACK_PRICES[pack] || 0,
+      email,
       ctwa_clid: contact.ctwa_clid || '',
       ad_id:     contact.ad_id     || '',
-      ad_name:   contact.ad_name   || '',
-      event:     'Purchase'
+      ad_name:   contact.ad_name   || ''
     }, { timeout: 10000 });
-  } catch (e) { console.error('CAPI error:', e.message); }
+  } catch (e) { console.error('Sheets error:', e.message); }
 }
 
 async function processMessage(phone, msgType, content, wamidIn) {
@@ -294,6 +320,7 @@ async function handleEmail(contact, emailText) {
   db.updateContact(phone, { state: 'delivered', tag: 'Cliente' });
 
   await fireCapi(contact, pack);
+  await logSaleToSheets(contact, pack, email);
   await notifyJorge(contact,
     `ENTREGA completada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
   );
