@@ -196,6 +196,8 @@
         <button class="qr-btn" onclick="insertQR('oro')">Oro</button>
         <button class="qr-btn" onclick="insertQR('basico')">Basico</button>
         <button class="qr-btn" onclick="insertQR('pago')">Confirmar pago</button>
+        <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
+        <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
       </div>
       <div class="input-row">
         <textarea class="msg-input" id="msgInput" placeholder="Escribe un mensaje..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
@@ -579,6 +581,17 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function sendGalleryFromPanel(type) {
+  if (!currentPhone) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/gallery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type })
+  });
+  if (res?.ok) showToast(type === 'mostrario' ? 'Mostrario enviado!' : 'Testimonios enviados!', 'success');
+  else showToast('Error al enviar', 'error');
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────

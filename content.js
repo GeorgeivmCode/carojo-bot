@@ -173,6 +173,44 @@ const PAYMENT_WRONG_AMOUNT = (monto, esperado) =>
 
 Por favor envia el monto exacto y enviame el comprobante de ese pago. 📸`;
 
+const BASE_URL = 'https://carojo-bot.onrender.com/media';
+
+const MOSTRARIO = {
+  text: `Mira lo que te llevas! 👀✨
+
+Esto es solo una probadita de todo el contenido que viene dentro de los packs. Imaginate aprender esto desde tu casa, a tu ritmo y de por vida! 🖊️💛
+
+Si quieres arrancar hoy escribe el numero de tu pack:
+1️⃣ Diamante $15.000
+2️⃣ Oro $10.000
+3️⃣ Basico $5.000`,
+  images: [`${BASE_URL}/mostrario1.jpeg`, `${BASE_URL}/mostrario2.jpg`]
+};
+
+const TESTIMONIOS = {
+  text: `Mira lo que dicen nuestras estudiantes! 💬💛
+
+Ellas tambien dudaron al principio... y hoy nos escriben para contarnos sus logros. Tu historia puede ser la proxima! 🌟
+
+Dale una oportunidad a tu lado creativo. Escribe el numero de tu pack:
+1️⃣ Diamante $15.000
+2️⃣ Oro $10.000
+3️⃣ Basico $5.000`,
+  images: [`${BASE_URL}/testimonio1.png`, `${BASE_URL}/testimonio2.png`]
+};
+
+const MOSTRARIO_TRIGGERS = [
+  'muéstrame', 'muestrame', 'que incluye', 'qué incluye', 'como es', 'cómo es',
+  'que trae', 'qué trae', 'quiero ver', 'puedo ver', 'foto', 'fotos',
+  'preview', 'muestra', 'ejemplo', 'ejemplos'
+];
+
+const TESTIMONIOS_TRIGGERS = [
+  'es confiable', 'es serio', 'es estafa', 'estafa', 'no confio', 'no confío',
+  'desconfio', 'desconfío', 'prueba', 'pruebas', 'testimonio', 'testimonios',
+  'resultado', 'resultados', 'funciona', 'de verdad', 'en serio'
+];
+
 const STOPPED_MSG = `Entendido! 🌸 Acabo de pausar los mensajes para no interrumpirte mas.
 
 Te agradezco mucho por tu tiempo y tu interes en nuestros cursos. Si en algun momento del futuro quieres retomar tu lado creativo, aqui dejaremos las puertas abiertas para ti.
@@ -202,5 +240,6 @@ module.exports = {
   R1_MESSAGE, R2_MESSAGE,
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS,
+  MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   deliveryMessage
 };

@@ -34,4 +34,16 @@ async function downloadMedia(url) {
   return { buffer: Buffer.from(res.data), mimeType: res.headers['content-type'] || 'image/jpeg' };
 }
 
-module.exports = { sendText, getMediaUrl, downloadMedia };
+async function sendImage(to, imageUrl, caption = '') {
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'image',
+    image: { link: imageUrl }
+  };
+  if (caption) body.image.caption = caption;
+  const res = await axios.post(BASE, body, { headers: headers() });
+  return res.data?.messages?.[0]?.id || '';
+}
+
+module.exports = { sendText, sendImage, getMediaUrl, downloadMedia };

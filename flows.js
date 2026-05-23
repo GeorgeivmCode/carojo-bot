@@ -1,5 +1,5 @@
 const db = require('./db');
-const { sendText } = require('./whatsapp');
+const { sendText, sendImage } = require('./whatsapp');
 const { carolRespond, verifyPayment } = require('./carol');
 const { grantDriveAccess } = require('./drive');
 const axios = require('axios');
@@ -8,6 +8,7 @@ const {
   BASICO_DETAILS, BASICO_UPSELL, PAYMENT_RECEIVED_ASK_EMAIL,
   PLANTILLA_ACCESO, STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
+  MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   deliveryMessage
 } = require('./content');
 
@@ -25,6 +26,16 @@ function isValidGmail(email) {
 function isOldClientTrigger(text) {
   const t = text.toLowerCase();
   return OLD_CLIENT_TRIGGERS.some(trigger => t.includes(trigger));
+}
+
+async function sendGallery(phone, plantilla) {
+  const { images, text } = plantilla;
+  for (const url of images) {
+    await sendImage(phone, url);
+    db.saveMessage(phone, 'out', 'image', url, '');
+  }
+  const wamid = await sendText(phone, text);
+  db.saveMessage(phone, 'out', 'text', text, wamid);
 }
 
 async function notifyJorge(contact, text) {
@@ -98,6 +109,19 @@ async function processMessage(phone, msgType, content, wamidIn) {
       return;
     }
     return;
+  }
+
+  // Deteccion automatica de mostrario y testimonios
+  if (msgType === 'text') {
+    const tl = text.toLowerCase();
+    if (MOSTRARIO_TRIGGERS.some(t => tl.includes(t))) {
+      await sendGallery(phone, MOSTRARIO);
+      return;
+    }
+    if (TESTIMONIOS_TRIGGERS.some(t => tl.includes(t))) {
+      await sendGallery(phone, TESTIMONIOS);
+      return;
+    }
   }
 
   switch (contact.state) {
