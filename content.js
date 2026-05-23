@@ -74,14 +74,6 @@ Escribeme el correo *GMAIL* con el que estas conectada *AHORA* en tu celular.
 ⚠️ *MUY IMPORTANTE:* el acceso se envia unicamente a ese correo. Si pides acceso con uno diferente no va a funcionar.
 ⚠️ Solo funciona con *GMAIL* (@gmail.com)
 ━━━━━━━━━━━━━━━━━━
-
-⏰ *Horario de atencion: 8:00 am a 10:00 pm*
-_(mira la hora actual en tu celular 📱)_
-
-Si escribes fuera del horario, tranquila! 🙌
-Tu cupo esta 100% seguro y te entregamos todo a las 8:00 am ☀️
-
-━━━━━━━━━━━━━━━━━━
 A que *GMAIL* te enviamos tu pack? 📩✨`;
 
 const DELIVERY_BASICO = `Hola! 🎉✨
