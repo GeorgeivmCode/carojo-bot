@@ -69,7 +69,9 @@ const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Recibimos tu comprobante. 🎉
 ━━━━━━━━━━━━━━━━━━
 📧 Para enviarte tu pack necesito un dato:
 
-A que correo *GMAIL* te lo enviamos?
+Escribeme el correo *GMAIL* con el que estas conectada *AHORA* en tu celular.
+
+⚠️ *MUY IMPORTANTE:* el acceso se envia unicamente a ese correo. Si pides acceso con uno diferente no va a funcionar.
 ⚠️ Solo funciona con *GMAIL* (@gmail.com)
 ━━━━━━━━━━━━━━━━━━
 
