@@ -11,6 +11,7 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 const VERIFY_TOKEN   = process.env.VERIFY_TOKEN;
 const APP_SECRET     = process.env.WA_APP_SECRET;
+const ADMIN_USER     = process.env.ADMIN_USER     || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 
 const sseClients = new Set();
@@ -84,8 +85,8 @@ function adminAuth(req, res, next) {
   const auth = req.headers['authorization'] || '';
   const [type, encoded] = auth.split(' ');
   if (type !== 'Basic' || !encoded) return res.set('WWW-Authenticate', 'Basic realm="Admin"').sendStatus(401);
-  const [, pass] = Buffer.from(encoded, 'base64').toString().split(':');
-  if (pass !== ADMIN_PASSWORD) return res.set('WWW-Authenticate', 'Basic realm="Admin"').sendStatus(401);
+  const [user, pass] = Buffer.from(encoded, 'base64').toString().split(':');
+  if (user !== ADMIN_USER || pass !== ADMIN_PASSWORD) return res.set('WWW-Authenticate', 'Basic realm="Admin"').sendStatus(401);
   next();
 }
 
