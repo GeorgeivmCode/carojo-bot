@@ -133,15 +133,24 @@ Para activarte solo necesito un dato:
 
 En cuanto lo reciba, te llega la notificacion de *GMAIL* con tu material listo! 🚀🎨✨`;
 
-const R1_MESSAGE = `Hola! Soy Carol de Carojo Aprende y Emprende. 👋
+const R1_MESSAGE = `Veo que nuestro chat quedo en pausa y no quiero que pierdas tu cupo ni los descuentos de hoy. 🫣
 
-Vi que estabas viendo nuestros packs de lettering pero no terminaste tu compra.
+Tienes alguna dudita con los packs que te pueda resolver rapidito?
 
-Tenemos un *BONO RELAMPAGO* disponible hoy: si compras ahora te regalamos 1 curso extra a elegir entre: Arte en Resina Epoxica, Globoflexia o Bordados Florales. Solo 5 bonos disponibles!
+🚨 *BONO RELAMPAGO* 🚨
 
-Escribe *1* para Diamante, *2* para Oro o *3* para Basico y te ayudo con todo!
+Para que te animes a arrancar de una vez, te acabo de habilitar un bono exclusivo. Si confirmas tu pago de $15.000 (💎 *MEGA PACK DIAMANTE*) hoy, te activare un curso completo adicional 100% GRATIS 🎁
 
-_(Si no deseas recibir mas mensajes escribe *Salir*)_`;
+Solo tengo habilitados 5 bonos relampago para hoy y se estan agotando rapido.
+
+Elige el que mas te guste:
+🌸 Bordados Florales
+✨ Resina Epoxica
+🎈 Globoflexia y Decoracion
+
+Alcanzas a enviarme el comprobante hoy para separarte el regalo? 👇
+
+_(PD: Si ya no deseas recibir mas info, solo escribeme *Salir* y no te molestare mas 🌸)_`;
 
 const R2_MESSAGE = `Hola de nuevo! Carol de Carojo. 💛
 
