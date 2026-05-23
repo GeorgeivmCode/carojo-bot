@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: carojo-bot
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: WA_TOKEN
+        sync: false
+      - key: WA_PHONE_ID
+        sync: false
+      - key: WA_APP_SECRET
+        sync: false
+      - key: VERIFY_TOKEN
+        sync: false
+      - key: CLAUDE_API_KEY
+        sync: false
+      - key: MAKE_WEBHOOK_URL
+        sync: false
+      - key: GAS_URL
+        sync: false
+      - key: JORGE_PHONE
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

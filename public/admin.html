@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carojo Bot - Panel</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #111b21;
+    --panel:    #222e35;
+    --hover:    #2a3942;
+    --border:   #313d45;
+    --sent:     #005c4b;
+    --received: #202c33;
+    --text:     #e9edef;
+    --sub:      #8696a0;
+    --green:    #00a884;
+    --red:      #f15c6d;
+    --yellow:   #f0b429;
+    --blue:     #53bdeb;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; }
+
+  /* ── Left Nav ── */
+  .sidenav { width: 60px; background: var(--panel); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; border-right: 1px solid var(--border); flex-shrink: 0; }
+  .sidenav-logo { width: 40px; height: 40px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: #fff; margin-bottom: 8px; }
+  .nav-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--sub); transition: background .15s, color .15s; font-size: 20px; }
+  .nav-icon:hover, .nav-icon.active { background: var(--hover); color: var(--text); }
+  .nav-icon.active { color: var(--green); }
+  .nav-spacer { flex: 1; }
+
+  /* ── Contact List ── */
+  .contact-list { width: 360px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid var(--border); flex-shrink: 0; }
+  .contact-list-header { padding: 16px; border-bottom: 1px solid var(--border); }
+  .contact-list-header h2 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+  .search-box { width: 100%; background: var(--bg); border: none; border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 14px; outline: none; }
+  .search-box::placeholder { color: var(--sub); }
+  .filter-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .filter-btn { padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--sub); font-size: 12px; cursor: pointer; transition: all .15s; }
+  .filter-btn:hover, .filter-btn.active { background: var(--green); border-color: var(--green); color: #fff; }
+  .contacts-scroll { flex: 1; overflow-y: auto; }
+  .contacts-scroll::-webkit-scrollbar { width: 4px; }
+  .contacts-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .contact-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .15s; position: relative; }
+  .contact-card:hover { background: var(--hover); }
+  .contact-card.active { background: var(--hover); }
+  .contact-avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; position: relative; }
+  .bot-dot { position: absolute; bottom: 1px; right: 1px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--panel); }
+  .bot-dot.on { background: var(--green); }
+  .bot-dot.off { background: var(--sub); }
+  .contact-info { flex: 1; min-width: 0; }
+  .contact-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .contact-last { font-size: 13px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .contact-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .contact-time { font-size: 11px; color: var(--sub); }
+  .unread-badge { background: var(--green); color: #fff; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .tag-pill { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: var(--border); color: var(--sub); }
+  .tag-pill.cliente { background: #1a3a2a; color: var(--green); }
+  .tag-pill.potencial { background: #2a2a1a; color: var(--yellow); }
+
+  /* ── Chat ── */
+  .chat-panel { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+  .chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--sub); gap: 12px; }
+  .chat-empty svg { width: 80px; height: 80px; opacity: .3; }
+  .chat-header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .chat-header-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .chat-header-info { flex: 1; min-width: 0; }
+  .chat-header-name { font-size: 16px; font-weight: 600; }
+  .chat-header-sub { font-size: 12px; color: var(--sub); }
+  .chat-actions { display: flex; align-items: center; gap: 8px; }
+  .icon-btn { background: none; border: none; color: var(--sub); cursor: pointer; padding: 6px; border-radius: 6px; font-size: 18px; transition: color .15s, background .15s; display: flex; align-items: center; justify-content: center; }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+
+  .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .bubble-wrap { display: flex; max-width: 70%; }
+  .bubble-wrap.out { align-self: flex-end; }
+  .bubble-wrap.in { align-self: flex-start; }
+  .bubble { padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; word-break: break-word; position: relative; }
+  .bubble-wrap.out .bubble { background: var(--sent); border-top-right-radius: 2px; }
+  .bubble-wrap.in .bubble { background: var(--received); border-top-left-radius: 2px; }
+  .bubble-time { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 4px; text-align: right; }
+  .bubble-img { max-width: 220px; border-radius: 6px; cursor: pointer; }
+  .date-divider { text-align: center; color: var(--sub); font-size: 12px; padding: 8px 0; }
+
+  .chat-footer { background: var(--panel); border-top: 1px solid var(--border); padding: 10px 16px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+  .quick-replies { display: flex; gap: 6px; flex-wrap: wrap; }
+  .qr-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--blue); font-size: 12px; cursor: pointer; transition: all .15s; }
+  .qr-btn:hover { background: var(--blue); color: var(--bg); }
+  .input-row { display: flex; gap: 10px; align-items: flex-end; }
+  .msg-input { flex: 1; background: var(--bg); border: none; border-radius: 20px; padding: 10px 16px; color: var(--text); font-size: 14px; outline: none; resize: none; max-height: 120px; font-family: inherit; }
+  .msg-input::placeholder { color: var(--sub); }
+  .send-btn { background: var(--green); border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; flex-shrink: 0; font-size: 18px; transition: background .15s; }
+  .send-btn:hover { background: #00c99c; }
+
+  /* ── Right sidebar ── */
+  .right-panel { width: 300px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+  .right-panel::-webkit-scrollbar { width: 4px; }
+  .right-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .info-section { padding: 16px; border-bottom: 1px solid var(--border); }
+  .info-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--sub); margin-bottom: 10px; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+  .info-row span:first-child { color: var(--sub); }
+  .info-val { font-weight: 500; }
+
+  .toggle-bot { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .toggle-label { font-size: 14px; font-weight: 500; }
+  .switch { position: relative; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; cursor: pointer; transition: .3s; }
+  .slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .3s; }
+  input:checked + .slider { background: var(--green); }
+  input:checked + .slider::before { transform: translateX(20px); }
+
+  .tag-select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--text); font-size: 13px; outline: none; margin-top: 4px; }
+
+  .state-badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .state-new { background: #1e2a38; color: var(--blue); }
+  .state-awaiting_choice { background: #2a2a1a; color: var(--yellow); }
+  .state-offered_diamante, .state-offered_oro, .state-offered_basico { background: #1a2a3a; color: var(--blue); }
+  .state-awaiting_comprobante { background: #2a1a1a; color: var(--red); }
+  .state-awaiting_email { background: #2a2a1a; color: var(--yellow); }
+  .state-delivered { background: #1a3a2a; color: var(--green); }
+  .state-stopped { background: #222; color: var(--sub); }
+
+  .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .stat-box { background: var(--bg); border-radius: 8px; padding: 10px; text-align: center; }
+  .stat-num { font-size: 20px; font-weight: 700; color: var(--green); }
+  .stat-label { font-size: 10px; color: var(--sub); margin-top: 2px; }
+
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 13px; z-index: 9999; transform: translateY(80px); transition: transform .3s; }
+  .toast.show { transform: translateY(0); }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  @media (max-width: 1100px) { .right-panel { display: none; } }
+  @media (max-width: 760px) { .contact-list { width: 260px; } }
+</style>
+</head>
+<body>
+
+<!-- Left Nav -->
+<nav class="sidenav">
+  <div class="sidenav-logo">C</div>
+  <div class="nav-icon active" title="Chats">&#128172;</div>
+  <div class="nav-icon" title="Estadisticas" id="nav-stats">&#128200;</div>
+  <div class="nav-spacer"></div>
+  <div class="nav-icon" title="Ajustes">&#9881;&#65039;</div>
+</nav>
+
+<!-- Contact List -->
+<section class="contact-list">
+  <div class="contact-list-header">
+    <h2>Conversaciones</h2>
+    <input class="search-box" id="searchInput" type="text" placeholder="Buscar por nombre o numero...">
+    <div class="filter-row">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="unread">No leidos</button>
+      <button class="filter-btn" data-filter="tag-Cliente">Clientes</button>
+      <button class="filter-btn" data-filter="tag-Potencial">Potenciales</button>
+    </div>
+  </div>
+  <div class="contacts-scroll" id="contactsList"></div>
+</section>
+
+<!-- Chat Panel -->
+<section class="chat-panel" id="chatPanel">
+  <div class="chat-empty" id="chatEmpty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
+    <p>Selecciona una conversacion</p>
+  </div>
+
+  <div id="chatContent" style="display:none; flex:1; flex-direction:column; min-height:0; display:none;">
+    <div class="chat-header">
+      <div class="chat-header-avatar" id="chatAvatar">?</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name" id="chatName">-</div>
+        <div class="chat-header-sub" id="chatSub">-</div>
+      </div>
+      <div class="chat-actions">
+        <button class="icon-btn" title="Marcar leido" onclick="markRead()">&#10003;</button>
+        <button class="icon-btn" title="Refrescar" onclick="loadMessages(currentPhone)">&#8635;</button>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages"></div>
+
+    <div class="chat-footer">
+      <div class="quick-replies" id="quickReplies">
+        <button class="qr-btn" onclick="insertQR('bienvenida')">Bienvenida</button>
+        <button class="qr-btn" onclick="insertQR('diamante')">Diamante</button>
+        <button class="qr-btn" onclick="insertQR('oro')">Oro</button>
+        <button class="qr-btn" onclick="insertQR('basico')">Basico</button>
+        <button class="qr-btn" onclick="insertQR('pago')">Confirmar pago</button>
+      </div>
+      <div class="input-row">
+        <textarea class="msg-input" id="msgInput" placeholder="Escribe un mensaje..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" onclick="sendMessage()">&#9658;</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Right Panel -->
+<aside class="right-panel" id="rightPanel" style="display:none;">
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-box"><div class="stat-num" id="sTotal">-</div><div class="stat-label">Total</div></div>
+    <div class="stat-box"><div class="stat-num" id="sDelivered">-</div><div class="stat-label">Ventas</div></div>
+    <div class="stat-box"><div class="stat-num" id="sToday">-</div><div class="stat-label">Hoy</div></div>
+  </div>
+
+  <div class="toggle-bot">
+    <span class="toggle-label">Bot activo</span>
+    <label class="switch">
+      <input type="checkbox" id="botToggle" onchange="toggleBot(this.checked)">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="info-section">
+    <h4>Informacion</h4>
+    <div class="info-row"><span>Telefono</span><span class="info-val" id="infoPhone">-</span></div>
+    <div class="info-row"><span>Estado</span><span id="infoState">-</span></div>
+    <div class="info-row"><span>Pack</span><span class="info-val" id="infoPack">-</span></div>
+    <div class="info-row"><span>Ad</span><span class="info-val" id="infoAd" style="font-size:11px; max-width:120px; text-align:right; word-break:break-all;">-</span></div>
+    <div class="info-row"><span>Ingreso</span><span class="info-val" id="infoCreated">-</span></div>
+  </div>
+
+  <div class="info-section">
+    <h4>Etiqueta</h4>
+    <select class="tag-select" id="tagSelect" onchange="updateTag(this.value)">
+      <option value="Sin etiqueta">Sin etiqueta</option>
+      <option value="Potencial">Potencial</option>
+      <option value="Cliente">Cliente</option>
+      <option value="Inactivo">Inactivo</option>
+      <option value="Soporte">Soporte</option>
+    </select>
+  </div>
+
+  <div class="info-section">
+    <h4>Remarketing</h4>
+    <div class="info-row"><span>R1 enviado</span><span class="info-val" id="infoR1">-</span></div>
+    <div class="info-row"><span>R2 enviado</span><span class="info-val" id="infoR2">-</span></div>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let currentPhone = null;
+let allContacts = [];
+let currentFilter = 'all';
+
+const QUICK_REPLIES = {
+  bienvenida: `Hola! Soy Carol de Carojo Aprende y Emprende.\n\nTenemos 3 packs de lettering y caligrafia para ti:\n\n1. Pack Diamante - $15.000 COP\n2. Pack Oro - $10.000 COP\n3. Pack Basico - $5.000 COP\n\nEscribe el numero del pack que te interesa!`,
+  diamante: `Pack Diamante - $15.000 COP\n\nIncluye:\n- Lettering desde cero\n- Caligrafia avanzada\n- Plantillas\n- Diseno comercial\n- Soporte 30 dias\n\nPaga a Nequi 3058989359 o Daviplata 3217239198 y enviame el comprobante.`,
+  oro: `Pack Oro - $10.000 COP\n\nIncluye:\n- Lettering desde cero\n- Caligrafia avanzada\n- Plantillas\n\nPaga a Nequi 3058989359 o Daviplata 3217239198.`,
+  basico: `Pack Basico - $5.000 COP\n\nIncluye el curso completo de lettering desde cero.\n\nPaga a Nequi 3058989359 o Daviplata 3217239198.`,
+  pago: `Listo! Tu pago fue confirmado. Necesito tu correo de Gmail para enviarte el acceso.`
+};
+
+// ── Auth header ────────────────────────────────────────────────────────────────
+function getAuth() {
+  const pass = sessionStorage.getItem('adminPass');
+  if (!pass) {
+    const p = prompt('Contrasena del panel:');
+    if (!p) return null;
+    sessionStorage.setItem('adminPass', p);
+    return 'Basic ' + btoa(':' + p);
+  }
+  return 'Basic ' + btoa(':' + pass);
+}
+
+async function apiFetch(url, opts = {}) {
+  const auth = getAuth();
+  if (!auth) return null;
+  opts.headers = { ...(opts.headers || {}), Authorization: auth };
+  const res = await fetch(url, opts);
+  if (res.status === 401) {
+    sessionStorage.removeItem('adminPass');
+    showToast('Contrasena incorrecta', 'error');
+    return null;
+  }
+  return res;
+}
+
+// ── SSE ────────────────────────────────────────────────────────────────────────
+function startSSE() {
+  const auth = getAuth();
+  if (!auth) return;
+  const url = '/admin/events';
+  const evtSource = new EventSource(url, { withCredentials: false });
+
+  // We need to pass auth — EventSource doesn't support headers natively
+  // so we'll poll lightly as fallback and rely on SSE for push
+  evtSource.addEventListener('message', () => {});
+  evtSource.addEventListener('contact_updated', e => {
+    const c = JSON.parse(e.data);
+    updateContactInList(c);
+    if (currentPhone === c.phone) renderRightPanel(c);
+  });
+  evtSource.addEventListener('message', e => {
+    const d = JSON.parse(e.data);
+    const c = d.contact;
+    if (c) updateContactInList(c);
+    if (currentPhone === c?.phone) {
+      appendBubble(d.direction, d.type, d.content, new Date().toISOString());
+      scrollBottom();
+    }
+  });
+  evtSource.onerror = () => {
+    evtSource.close();
+    setTimeout(startSSE, 5000);
+  };
+}
+
+// ── Contact list ───────────────────────────────────────────────────────────────
+async function loadContacts(filter) {
+  currentFilter = filter || currentFilter;
+  let url = '/api/contacts';
+  const q = document.getElementById('searchInput').value.trim();
+  if (q) url += '?q=' + encodeURIComponent(q);
+  else if (currentFilter === 'unread') url += '?filter=unread';
+  else if (currentFilter.startsWith('tag-')) url += '?tag=' + encodeURIComponent(currentFilter.slice(4));
+
+  const res = await apiFetch(url);
+  if (!res) return;
+  allContacts = await res.json();
+  renderContacts();
+  loadStats();
+}
+
+function renderContacts() {
+  const el = document.getElementById('contactsList');
+  if (!allContacts.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--sub);padding:24px;font-size:13px;">Sin resultados</div>';
+    return;
+  }
+  el.innerHTML = allContacts.map(c => contactCardHTML(c)).join('');
+}
+
+function contactCardHTML(c) {
+  const name = c.name || c.phone;
+  const initials = name.charAt(0).toUpperCase();
+  const lastMsg = c.last_message ? escHtml(c.last_message.substring(0, 45)) : '';
+  const time = c.last_message_at ? formatTime(c.last_message_at) : '';
+  const unread = c.unread_count > 0 ? `<div class="unread-badge">${c.unread_count}</div>` : '';
+  const botDot = `<span class="bot-dot ${c.bot_active ? 'on' : 'off'}"></span>`;
+  const tagClass = c.tag === 'Cliente' ? 'cliente' : c.tag === 'Potencial' ? 'potencial' : '';
+  const tagPill = c.tag && c.tag !== 'Sin etiqueta' ? `<span class="tag-pill ${tagClass}">${c.tag}</span>` : '';
+  const active = currentPhone === c.phone ? 'active' : '';
+  return `<div class="contact-card ${active}" onclick="selectContact('${c.phone}')">
+    <div class="contact-avatar">${initials}${botDot}</div>
+    <div class="contact-info">
+      <div class="contact-name">${escHtml(name)}</div>
+      <div class="contact-last">${lastMsg}</div>
+    </div>
+    <div class="contact-meta">
+      <span class="contact-time">${time}</span>
+      ${unread}${tagPill}
+    </div>
+  </div>`;
+}
+
+function updateContactInList(c) {
+  const idx = allContacts.findIndex(x => x.phone === c.phone);
+  if (idx >= 0) allContacts[idx] = c;
+  else allContacts.unshift(c);
+  allContacts.sort((a, b) => (b.last_message_at || '').localeCompare(a.last_message_at || ''));
+  renderContacts();
+}
+
+// ── Select contact ─────────────────────────────────────────────────────────────
+async function selectContact(phone) {
+  currentPhone = phone;
+  document.getElementById('chatEmpty').style.display = 'none';
+  const cc = document.getElementById('chatContent');
+  cc.style.display = 'flex';
+  cc.style.flexDirection = 'column';
+  document.getElementById('rightPanel').style.display = 'flex';
+  document.getElementById('rightPanel').style.flexDirection = 'column';
+
+  renderContacts();
+  const c = allContacts.find(x => x.phone === phone);
+  if (c) {
+    renderChatHeader(c);
+    renderRightPanel(c);
+  }
+  await loadMessages(phone);
+  await markRead();
+}
+
+function renderChatHeader(c) {
+  const name = c.name || c.phone;
+  document.getElementById('chatAvatar').textContent = name.charAt(0).toUpperCase();
+  document.getElementById('chatName').textContent = name;
+  document.getElementById('chatSub').textContent = c.phone + (c.ad_name ? ' | Ad: ' + c.ad_name : '');
+}
+
+function renderRightPanel(c) {
+  document.getElementById('botToggle').checked = !!c.bot_active;
+  document.getElementById('infoPhone').textContent = c.phone;
+  document.getElementById('infoState').innerHTML = `<span class="state-badge state-${c.state || 'new'}">${c.state || 'new'}</span>`;
+  document.getElementById('infoPack').textContent = c.pack_selected || '-';
+  document.getElementById('infoAd').textContent = c.ad_name || c.ctwa_clid || '-';
+  document.getElementById('infoCreated').textContent = c.created_at ? c.created_at.substring(0, 10) : '-';
+  document.getElementById('infoR1').textContent = c.r1_sent ? (c.r1_sent_at || 'Si') : 'No';
+  document.getElementById('infoR2').textContent = c.r2_sent ? (c.r2_sent_at || 'Si') : 'No';
+  const sel = document.getElementById('tagSelect');
+  sel.value = c.tag || 'Sin etiqueta';
+  loadStats();
+}
+
+// ── Messages ───────────────────────────────────────────────────────────────────
+async function loadMessages(phone) {
+  const res = await apiFetch(`/api/contacts/${phone}/messages`);
+  if (!res) return;
+  const msgs = await res.json();
+  const el = document.getElementById('chatMessages');
+  el.innerHTML = '';
+  let lastDate = '';
+  for (const m of msgs) {
+    const d = (m.created_at || '').substring(0, 10);
+    if (d !== lastDate) {
+      el.insertAdjacentHTML('beforeend', `<div class="date-divider">${formatDate(d)}</div>`);
+      lastDate = d;
+    }
+    appendBubble(m.direction, m.type, m.content, m.created_at, false);
+  }
+  scrollBottom();
+}
+
+function appendBubble(direction, type, content, ts, scroll = true) {
+  const el = document.getElementById('chatMessages');
+  const dir = direction === 'out' ? 'out' : 'in';
+  const time = ts ? ts.substring(11, 16) : '';
+  let body = '';
+
+  if (type === 'image') {
+    body = `<img class="bubble-img" src="data:image/jpeg;base64,..." alt="Imagen" onerror="this.alt='[imagen]'">`;
+  } else {
+    body = escHtml(content).replace(/\n/g, '<br>');
+  }
+
+  el.insertAdjacentHTML('beforeend', `
+    <div class="bubble-wrap ${dir}">
+      <div class="bubble">${body}<div class="bubble-time">${time}</div></div>
+    </div>`);
+  if (scroll) scrollBottom();
+}
+
+function scrollBottom() {
+  const el = document.getElementById('chatMessages');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const inp = document.getElementById('msgInput');
+  const text = inp.value.trim();
+  if (!text || !currentPhone) return;
+  inp.value = '';
+  autoResize(inp);
+
+  const res = await apiFetch(`/api/contacts/${currentPhone}/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) {
+    appendBubble('out', 'text', text, new Date().toISOString());
+    scrollBottom();
+  } else {
+    showToast('Error al enviar: ' + (data.error || ''), 'error');
+  }
+}
+
+async function toggleBot(val) {
+  if (!currentPhone) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bot_active: val ? 1 : 0 })
+  });
+  if (res) showToast(val ? 'Bot activado' : 'Bot pausado', 'success');
+}
+
+async function updateTag(tag) {
+  if (!currentPhone) return;
+  await apiFetch(`/api/contacts/${currentPhone}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tag })
+  });
+  await loadContacts();
+}
+
+async function markRead() {
+  if (!currentPhone) return;
+  await apiFetch(`/api/contacts/${currentPhone}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ unread_count: 0 })
+  });
+  await loadContacts();
+}
+
+function insertQR(key) {
+  const inp = document.getElementById('msgInput');
+  inp.value = QUICK_REPLIES[key] || '';
+  autoResize(inp);
+  inp.focus();
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const res = await apiFetch('/api/stats');
+  if (!res) return;
+  const s = await res.json();
+  document.getElementById('sTotal').textContent = s.total;
+  document.getElementById('sDelivered').textContent = s.delivered;
+  document.getElementById('sToday').textContent = s.today;
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadContacts(btn.dataset.filter);
+  });
+});
+
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => loadContacts(), 350);
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ', 'T') + 'Z');
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 86400000) return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+  if (diff < 604800000) return d.toLocaleDateString('es-CO', { weekday: 'short' });
+  return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit' });
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const today = new Date().toISOString().substring(0, 10);
+  if (d === today) return 'Hoy';
+  return d;
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+loadContacts('all');
+startSSE();
+setInterval(() => loadContacts(), 30000);
+</script>
+</body>
+</html>
