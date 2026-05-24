@@ -415,7 +415,7 @@ function renderChatHeader(c) {
 function renderRightPanel(c) {
   document.getElementById('botToggle').checked = !!c.bot_active;
   document.getElementById('infoPhone').textContent = c.phone;
-  document.getElementById('infoState').innerHTML = `<span class="state-badge state-${c.state || 'new'}">${c.state || 'new'}</span>`;
+  document.getElementById('infoState').innerHTML = `<span class="state-badge state-${c.state || 'new'}">${stateLabel(c.state)}</span>`;
   document.getElementById('infoPack').textContent = c.pack_selected || '-';
   document.getElementById('infoAd').textContent = c.ad_name || c.ctwa_clid || '-';
   document.getElementById('infoCreated').textContent = c.created_at ? c.created_at.substring(0, 10) : '-';
@@ -557,6 +557,22 @@ document.getElementById('searchInput').addEventListener('input', () => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => loadContacts(), 350);
 });
+
+// ── State labels ───────────────────────────────────────────────────────────────
+function stateLabel(state) {
+  const map = {
+    'new':                  'Nuevo',
+    'awaiting_choice':      'Eligiendo pack',
+    'offered_diamante':     'Oferta Diamante',
+    'offered_oro':          'Oferta Oro',
+    'offered_basico':       'Oferta Basico',
+    'awaiting_comprobante': 'Esperando pago',
+    'awaiting_email':       'Esperando Gmail',
+    'delivered':            'Entregado',
+    'stopped':              'Pausado'
+  };
+  return map[state] || state || 'Nuevo';
+}
 
 // ── Tab navigation ─────────────────────────────────────────────────────────────
 function showTab(tab) {
