@@ -4,7 +4,7 @@ const { sendText, sendImage } = require('./whatsapp');
 const { carolRespond, verifyPayment } = require('./carol');
 
 async function carol(history, text) {
-  const raw = await carol(history, text);
+  const raw = await carolRespond(history, text);
   const parts = raw.split('---SPLIT---').map(p => p.trim()).filter(Boolean);
   return parts.length > 1 ? parts : raw;
 }
