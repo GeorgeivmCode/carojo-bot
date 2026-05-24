@@ -125,17 +125,11 @@ Aqui tienes nuestras cuentas autorizadas:
 
 Porfa, enviame el comprobante por aqui con el NOMBRE DE LA PERSONA QUE DEPOSITA para poder verificarlo mas ligero. 📲`;
 
-const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Recibimos tu comprobante. 🎉
+const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Pago recibido. 🎉
 
-━━━━━━━━━━━━━━━━━━
-📧 Para enviarte tu pack necesito un dato:
+Para activarte el acceso solo necesito tu correo Gmail. El sistema te manda la notificacion directamente ahi — es la forma mas rapida y segura de entregarte el material.
 
-Escribeme el correo *GMAIL* con el que estas conectada *AHORA* en tu celular.
-
-⚠️ *MUY IMPORTANTE:* el acceso se envia unicamente a ese correo. Si pides acceso con uno diferente no va a funcionar.
-⚠️ Solo funciona con *GMAIL* (@gmail.com)
-━━━━━━━━━━━━━━━━━━
-A que *GMAIL* te enviamos tu pack? 📩✨`;
+📧 A que *Gmail* te lo enviamos? (debe terminar en @gmail.com) 💌`;
 
 const DELIVERY_BASICO = `Hola! 🎉✨
 
