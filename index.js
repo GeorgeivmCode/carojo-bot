@@ -249,6 +249,22 @@ app.get('/api/stats', adminAuth, (req, res) => {
   res.json(db.getStats());
 });
 
+// ── Test endpoint (temporal) ───────────────────────────────────────────────────
+app.post('/test/comprobante', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const { phone, buffer, mimeType } = req.body;
+  if (!phone || !buffer) return res.status(400).json({ error: 'phone y buffer requeridos' });
+  try {
+    const payload = JSON.stringify({ buffer, mimeType: mimeType || 'image/jpeg' });
+    await processMessage(phone, 'image', payload, `wamid.test_img_${Date.now()}`);
+    const updated = db.getContact(phone);
+    broadcast('refresh', { phone, contact: updated });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Remarketing Scheduler ──────────────────────────────────────────────────────
 function colombiaHour() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' })).getHours();
