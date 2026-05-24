@@ -1,11 +1,12 @@
-const WELCOME_MESSAGE = `✍️ ¡Bienvenida al mundo de la escritura creativa! 🎨
+const WELCOME_MESSAGE = [
+`✍️ ¡Bienvenida al mundo de la escritura creativa! 🎨
 
 Imagina poder crear frases hermosas, decorar agendas, personalizar libretas o incluso vender tus propios diseños… ¡todo desde cero y con tu propio estilo!
 
 Con nuestros cursos digitales aprenderás paso a paso Lettering, Letra Timoteo y mucho más,
-de forma fácil, práctica y muy divertida 💕
+de forma fácil, práctica y muy divertida 💕`,
 
-✨ Tenemos 3 packs con precio especial para ti:
+`✨ Tenemos 3 packs con precio especial para ti:
 
 1️⃣💎 💎 *MEGA PACK DIAMANTE* 💎💎($15.000)
 *(5 Cursos + 11 Bonos Premium — el pack más completo para emprender y el más vendido)* ⭐⭐⭐⭐⭐
@@ -16,9 +17,11 @@ de forma fácil, práctica y muy divertida 💕
 3️⃣📖 PACK BÁSICO ($5.000)
 (Curso de Lettering + Cartillas — tu primer paso en el mundo creativo)
 
-👉 Escríbeme el número de tu opción (1, 2 o 3) y te envío todos los detalles al instante 💌`;
+👉 Escríbeme el número de tu opción (1, 2 o 3) y te envío todos los detalles al instante 💌`
+];
 
-const DIAMANTE_DETAILS = `🚀 Excelente eleccion! Esta es, sin duda, la MEJOR opcion.
+const DIAMANTE_DETAILS = [
+`🚀 Excelente eleccion! Esta es, sin duda, la MEJOR opcion.
 Es un verdadero arsenal para emprender.
 
 💎✨ 💎✨ 💎✨ 💎✨ 💎✨
@@ -31,9 +34,9 @@ Incluye los 5 CURSOS COMPLETOS:
 ✔ 2. Curso de Marcado de Cuadernos
 ✔ 3. Curso de Moldes 3D (Cajas, Flores, Letras)
 ✔ 4. Pack Papeleria Creativa
-✔ 5. Pack Agendas Personalizadas
+✔ 5. Pack Agendas Personalizadas`,
 
-✨ Y ahora, mira todos los REGALOS que se activan GRATIS ✨
+`✨ Y ahora, mira todos los REGALOS que se activan GRATIS ✨
 
 🎁 BONO 1: El Pack de Papeleria Creativa
 Mas de 85.000 diseños editables en Canva! Listos para usar en fiestas, eventos y celebraciones.
@@ -53,24 +56,26 @@ Mas de 85.000 diseños editables en Canva! Listos para usar en fiestas, eventos 
 
 🎁 BONO 4: 500 Dibujos para Colorear!
 
-Es acceso de por vida a todo! 🎉
+Es acceso de por vida a todo! 🎉`,
 
-Para asegurar tu MEGA PACK DIAMANTE, puedes enviar tu pago de $15.000 a nuestras cuentas autorizadas:
+`Para asegurar tu MEGA PACK DIAMANTE, puedes enviar tu pago de $15.000 a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 
-Quedo atenta a tu comprobante por aqui. 📲🚀`;
+Quedo atenta a tu comprobante por aqui. 📲🚀`
+];
 
-const ORO_UPSELL = `Genial! El SUPERPACK ORO es super completo para empezar.
+const ORO_UPSELL = [
+`Genial! El SUPERPACK ORO es super completo para empezar.
 (Precio Promo: $10.000)
 
 Incluye 3 CURSOS COMPLETOS:
 ✔ 1. Curso de Lettering y Letra Timoteo (con 34 cartillas)
 ✔ 2. Curso de Marcado de Cuadernos (mas de 300 paginas)
 ✔ 3. Curso de Moldes de Cajas, Flores y Letras 3D
-🎁 BONO: 500 dibujos para colorear.
+🎁 BONO: 500 dibujos para colorear.`,
 
-Es una super eleccion...
+`Es una super eleccion...
 
 🔥 PERO ANTES DE CONFIRMAR... dejame contarte algo rapido.
 Justo HOY, por solo $5.000 mas, puedes llevarte el 💎 MEGA PACK DIAMANTE.
@@ -81,7 +86,8 @@ Con esa MEJORA, ademas de los 3 cursos que ya elegiste, sumarias:
 ✔ Y los 6 REGALOS PREMIUM (cajas, flores, kits escolares, etc.)
 
 Es muchisimo mas contenido por una diferencia minima.
-Te gustaria aprovechar y subir al MEGA PACK DIAMANTE por $15.000 en total? 💬`;
+Te gustaria aprovechar y subir al MEGA PACK DIAMANTE por $15.000 en total? 💬`
+];
 
 const ORO_DETAILS = `Genial! Puedes hacer tu pago por la aplicacion que mejor te quede.
 Aqui tienes nuestras cuentas autorizadas:
@@ -90,15 +96,16 @@ Aqui tienes nuestras cuentas autorizadas:
 
 Porfa, enviame el comprobante por aqui con el NOMBRE DE LA PERSONA QUE DEPOSITA para poder verificarlo mas ligero. 📲`;
 
-const BASICO_UPSELL = `Claro! El PACK BASICO es ideal para empezar solo con Lettering.
+const BASICO_UPSELL = [
+`Claro! El PACK BASICO es ideal para empezar solo con Lettering.
 (Precio Promo: $5.000)
 
 Incluye:
 ✔ 1. Curso de Lettering y Letra Timoteo
 ✔ 34 cartillas con mas de 2.400 paginas
-🎁 BONO: 500 dibujos para colorear.
+🎁 BONO: 500 dibujos para colorear.`,
 
-Es perfecto para aprender la tecnica...
+`Es perfecto para aprender la tecnica...
 
 🔥 PERO ANTES DE CONFIRMAR... dejame contarte algo rapido.
 Justo HOY, por solo $5.000 mas (pagando $10.000 en total), puedes llevarte el ✨ SUPERPACK ORO.
@@ -108,7 +115,8 @@ Ademas del curso de Lettering que ya elegiste, sumarias:
 ✔ El Curso de Moldes de Cajas, Flores y Letras 3D
 
 Es el triple de cursos por solo $5.000 mas.
-Te gustaria aprovechar y subir al SUPERPACK ORO? 💬`;
+Te gustaria aprovechar y subir al SUPERPACK ORO? 💬`
+];
 
 const BASICO_DETAILS = `Genial! Puedes hacer tu pago por la aplicacion que mejor te quede.
 Aqui tienes nuestras cuentas autorizadas:

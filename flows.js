@@ -337,9 +337,13 @@ async function handlePostDelivery(contact, text) {
   await sendAndSave(phone, reply);
 }
 
-async function sendAndSave(phone, text) {
-  const wamid = await sendText(phone, text);
-  db.saveMessage(phone, 'out', 'text', text, wamid);
+async function sendAndSave(phone, textOrParts) {
+  const parts = Array.isArray(textOrParts) ? textOrParts : [textOrParts];
+  for (let i = 0; i < parts.length; i++) {
+    const wamid = await sendText(phone, parts[i]);
+    db.saveMessage(phone, 'out', 'text', parts[i], wamid);
+    if (i < parts.length - 1) await new Promise(r => setTimeout(r, 700));
+  }
 }
 
 module.exports = { processMessage, sendAndSave };
