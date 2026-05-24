@@ -1,12 +1,22 @@
-const WELCOME_MESSAGE = `Hola! Soy Carol de Carojo Aprende y Emprende. ✍️
+const WELCOME_MESSAGE = `✍️ ¡Bienvenida al mundo de la escritura creativa! 🎨
 
-Tenemos 3 packs de lettering y caligrafia para ti:
+Imagina poder crear frases hermosas, decorar agendas, personalizar libretas o incluso vender tus propios diseños… ¡todo desde cero y con tu propio estilo!
 
-1️⃣ *MEGA PACK DIAMANTE* 💎 — $15.000 COP
-2️⃣ *SUPER PACK ORO* ✨ — $10.000 COP
-3️⃣ *PACK BÁSICO* 📖 — $5.000 COP
+Con nuestros cursos digitales aprenderás paso a paso Lettering, Letra Timoteo y mucho más,
+de forma fácil, práctica y muy divertida 💕
 
-Escribe el numero del pack que te interesa y te cuento todo!`;
+✨ Tenemos 3 packs con precio especial para ti:
+
+1️⃣💎 💎 *MEGA PACK DIAMANTE* 💎💎($15.000)
+*(5 Cursos + 11 Bonos Premium — el pack más completo para emprender y el más vendido)* ⭐⭐⭐⭐⭐
+
+2️⃣✨ SUPERPACK ORO ($10.000)
+(3 Cursos + Bonos — ideal para arrancar tu negocio creativo)
+
+3️⃣📖 PACK BÁSICO ($5.000)
+(Curso de Lettering + Cartillas — tu primer paso en el mundo creativo)
+
+👉 Escríbeme el número de tu opción (1, 2 o 3) y te envío todos los detalles al instante 💌`;
 
 const DIAMANTE_DETAILS = `*MEGA PACK DIAMANTE* 💎 — $15.000 COP
 
