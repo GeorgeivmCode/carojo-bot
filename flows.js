@@ -167,9 +167,11 @@ async function processMessage(phone, msgType, content, wamidIn) {
     case 'offered_basico':
       await handleOfferedBasico(contact, text);
       break;
-    case 'awaiting_comprobante':
-      await sendAndSave(phone, 'Enviame la foto del comprobante de pago para verificarlo! 📸');
+    case 'awaiting_comprobante': {
+      const history = db.getRecentMessages(phone, 8);
+      await sendAndSave(phone, await carolRespond(history, text));
       break;
+    }
     case 'awaiting_email':
       await handleEmail(contact, text);
       break;
