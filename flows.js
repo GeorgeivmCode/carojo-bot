@@ -9,6 +9,7 @@ const {
   BASICO_DETAILS, BASICO_UPSELL, PAYMENT_RECEIVED_ASK_EMAIL,
   PLANTILLA_ACCESO, STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
+  PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   deliveryMessage
 } = require('./content');
@@ -271,15 +272,16 @@ async function handleComprobante(contact, mediaContent) {
   const result = await verifyPayment(imageBuffer, mimeType, contact.pack_selected || 'basico');
 
   if (!result.valido) {
-    if (result.monto && AMOUNT_TO_PACK[result.monto]) {
-      // Monto valido pero destinatario incorrecto
-      await sendAndSave(phone, PAYMENT_REJECTED_MSG(result.razon_rechazo));
-    } else if (result.monto && !AMOUNT_TO_PACK[result.monto]) {
-      // Monto no corresponde a ningun pack
-      const opciones = '$5.000 (Basico), $10.000 (Oro) o $15.000 (Diamante)';
-      await sendAndSave(phone, `El pago es por $${Number(result.monto).toLocaleString('es-CO')} pero nuestros packs son: ${opciones}. Verifica el monto y enviame el comprobante correcto. 📸`);
+    const { razon_rechazo, monto } = result;
+    if (razon_rechazo === 'destinatario_invalido') {
+      await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
+    } else if (razon_rechazo === 'transaccion_no_exitosa') {
+      await sendAndSave(phone, PAYMENT_NOT_SUCCESSFUL);
+    } else if (razon_rechazo === 'monto_invalido' || (monto && !AMOUNT_TO_PACK[monto])) {
+      const pack = contact.pack_selected || 'basico';
+      await sendAndSave(phone, PAYMENT_WRONG_AMOUNT(monto, PACK_PRICES[pack]));
     } else {
-      await sendAndSave(phone, PAYMENT_REJECTED_MSG(result.razon_rechazo));
+      await sendAndSave(phone, PAYMENT_REJECTED_MSG(null));
     }
     return;
   }

@@ -269,9 +269,6 @@ async function carolRespond(history, userMessage) {
 }
 
 async function verifyPayment(imageBuffer, mimeType, packSelected) {
-  const prices = { basico: 5000, oro: 10000, diamante: 15000, escolar: 10000 };
-  const expectedAmount = prices[packSelected] || 5000;
-
   const res = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 400,
@@ -289,21 +286,32 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
 Extrae:
 1. Monto pagado (numero solo, sin puntos ni $)
 2. Numero de celular o cuenta destino
-3. Fecha y hora del pago
-4. Estado de la transaccion (exitosa/fallida/pendiente)
+3. Nombre del destinatario que aparece en el comprobante
+4. Fecha y hora del pago
+5. Estado de la transaccion (exitosa/fallida/pendiente)
 
-Luego verifica:
-- El monto debe ser exactamente ${expectedAmount} COP
-- El destino debe ser 3058989359 o 3217239198
+Verifica estas condiciones:
+A) Monto valido: debe ser exactamente 5000, 10000 o 15000 COP
+B) Destinatario valido: el numero destino es 3058989359 o 3217239198, O el nombre del destinatario es uno de: "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar", "Carol Lizeth Apolinar Wilches" (acepta variaciones menores de mayusculas o tildes)
+C) Estado exitoso: la transaccion debe estar aprobada o exitosa (no pendiente ni fallida)
 
-Responde SOLO en este formato JSON:
+valido = true SOLO si A, B y C se cumplen todos.
+
+Si valido es false, indica en razon_rechazo:
+- "monto_invalido" si el monto no es 5000/10000/15000
+- "destinatario_invalido" si el numero y el nombre no coinciden con los autorizados
+- "transaccion_no_exitosa" si el estado es fallida o pendiente
+- "imagen_no_legible" si no se puede leer el comprobante
+
+Responde SOLO en este formato JSON (sin texto adicional):
 {
   "valido": true/false,
-  "monto": numero,
-  "destino": "numero",
-  "fecha": "texto",
-  "estado": "exitosa/fallida/pendiente",
-  "razon_rechazo": "motivo si no es valido o null"
+  "monto": numero_o_null,
+  "destino": "numero_o_null",
+  "nombre_destinatario": "nombre_o_null",
+  "fecha": "texto_o_null",
+  "estado": "exitosa/fallida/pendiente/desconocido",
+  "razon_rechazo": "codigo_o_null"
 }`
         }
       ]
@@ -313,10 +321,10 @@ Responde SOLO en este formato JSON:
   try {
     const text = res.content[0].text.trim();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return { valido: false, razon_rechazo: 'No se pudo leer el comprobante' };
+    if (!jsonMatch) return { valido: false, razon_rechazo: 'imagen_no_legible' };
     return JSON.parse(jsonMatch[0]);
   } catch {
-    return { valido: false, razon_rechazo: 'Error al procesar la imagen' };
+    return { valido: false, razon_rechazo: 'imagen_no_legible' };
   }
 }
 

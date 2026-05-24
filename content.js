@@ -172,6 +172,18 @@ Si quieres intentarlo escribe el numero del pack y listo!
 
 _(Si no deseas recibir mas mensajes escribe *Salir*)_`;
 
+const PAYMENT_WRONG_RECIPIENT = `Hmm, el destinatario en tu comprobante no coincide con nuestras cuentas. 🤔
+
+Asegurate de enviar el pago exactamente a:
+• Nequi / BRE-B: *3058989359* (Jorge Vanegas)
+• Daviplata: *3217239198* (Carol Apolinar)
+
+Una vez lo confirmes, enviame el comprobante aqui. 📸`;
+
+const PAYMENT_NOT_SUCCESSFUL = `Veo que la transaccion no aparece como exitosa. 😕
+
+Verifica que el pago quede *aprobado* en tu app y luego enviame el comprobante. 📸`;
+
 const INVALID_EMAIL_MSG = `Ese correo no parece valido. Necesito un Gmail completo para enviarte el acceso.
 
 Escribe tu correo completo, por ejemplo: tunombre@gmail.com 📩`;
@@ -252,6 +264,7 @@ module.exports = {
   PLANTILLA_ACCESO,
   R1_MESSAGE, R2_MESSAGE,
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
+  PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   deliveryMessage
