@@ -57,8 +57,10 @@
   .contact-time { font-size: 11px; color: var(--sub); }
   .unread-badge { background: var(--green); color: #fff; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
   .tag-pill { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: var(--border); color: var(--sub); }
-  .tag-pill.cliente { background: #1a3a2a; color: var(--green); }
+  .tag-pill.facturado { background: #1a3a2a; color: var(--green); }
   .tag-pill.potencial { background: #2a2a1a; color: var(--yellow); }
+  #sheetPanel { flex: 1; display: none; flex-direction: column; background: var(--bg); }
+  #sheetPanel iframe { flex: 1; border: none; width: 100%; height: 100%; }
 
   /* ── Chat ── */
   .chat-panel { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
@@ -146,7 +148,8 @@
 <!-- Left Nav -->
 <nav class="sidenav">
   <div class="sidenav-logo">C</div>
-  <div class="nav-icon active" title="Chats">&#128172;</div>
+  <div class="nav-icon active" id="nav-chats" title="Chats" onclick="showTab('chats')">&#128172;</div>
+  <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
   <div class="nav-icon" title="Estadisticas" id="nav-stats">&#128200;</div>
   <div class="nav-spacer"></div>
   <div class="nav-icon" title="Ajustes">&#9881;&#65039;</div>
@@ -160,11 +163,16 @@
     <div class="filter-row">
       <button class="filter-btn active" data-filter="all">Todos</button>
       <button class="filter-btn" data-filter="unread">No leidos</button>
-      <button class="filter-btn" data-filter="tag-Cliente">Clientes</button>
+      <button class="filter-btn" data-filter="tag-Facturado">Facturados</button>
       <button class="filter-btn" data-filter="tag-Potencial">Potenciales</button>
     </div>
   </div>
   <div class="contacts-scroll" id="contactsList"></div>
+</section>
+
+<!-- Sheet Panel -->
+<section id="sheetPanel">
+  <iframe src="https://docs.google.com/spreadsheets/d/1IT2q5Km6bkXqw7bDbi_Mgy_QeW4qg0ZiMaJ3QxiRbcA/edit?gid=0&rm=minimal" allowfullscreen></iframe>
 </section>
 
 <!-- Chat Panel -->
@@ -348,7 +356,7 @@ function contactCardHTML(c) {
   const time = c.last_message_at ? formatTime(c.last_message_at) : '';
   const unread = c.unread_count > 0 ? `<div class="unread-badge">${c.unread_count}</div>` : '';
   const botDot = `<span class="bot-dot ${c.bot_active ? 'on' : 'off'}"></span>`;
-  const tagClass = c.tag === 'Cliente' ? 'cliente' : c.tag === 'Potencial' ? 'potencial' : '';
+  const tagClass = c.tag === 'Facturado' ? 'facturado' : c.tag === 'Potencial' ? 'potencial' : '';
   const tagPill = c.tag && c.tag !== 'Sin etiqueta' ? `<span class="tag-pill ${tagClass}">${c.tag}</span>` : '';
   const active = currentPhone === c.phone ? 'active' : '';
   return `<div class="contact-card ${active}" onclick="selectContact('${c.phone}')">
@@ -439,7 +447,11 @@ function appendBubble(direction, type, content, ts, scroll = true) {
   let body = '';
 
   if (type === 'image') {
-    body = `<img class="bubble-img" src="data:image/jpeg;base64,..." alt="Imagen" onerror="this.alt='[imagen]'">`;
+    try {
+      const parsed = JSON.parse(content);
+      const mime = parsed.mimeType || 'image/jpeg';
+      body = `<img class="bubble-img" src="data:${mime};base64,${parsed.buffer}" alt="Comprobante">`;
+    } catch { body = '[imagen]'; }
   } else {
     body = escHtml(content).replace(/\n/g, '<br>');
   }
@@ -540,6 +552,17 @@ document.getElementById('searchInput').addEventListener('input', () => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => loadContacts(), 350);
 });
+
+// ── Tab navigation ─────────────────────────────────────────────────────────────
+function showTab(tab) {
+  const isChats = tab === 'chats';
+  document.getElementById('chatPanel').style.display   = isChats ? '' : 'none';
+  document.getElementById('sheetPanel').style.display  = isChats ? 'none' : 'flex';
+  document.getElementById('rightPanel').style.display  = isChats ? '' : 'none';
+  document.querySelector('.contact-list').style.display = isChats ? '' : 'none';
+  document.getElementById('nav-chats').classList.toggle('active', isChats);
+  document.getElementById('nav-ventas').classList.toggle('active', !isChats);
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function escHtml(str) {
