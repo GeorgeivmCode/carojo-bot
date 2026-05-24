@@ -2,6 +2,12 @@ const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
 const { carolRespond, verifyPayment } = require('./carol');
+
+async function carol(history, text) {
+  const raw = await carol(history, text);
+  const parts = raw.split('---SPLIT---').map(p => p.trim()).filter(Boolean);
+  return parts.length > 1 ? parts : raw;
+}
 const { grantDriveAccess } = require('./drive');
 const axios = require('axios');
 const {
@@ -169,7 +175,7 @@ async function processMessage(phone, msgType, content, wamidIn) {
       break;
     case 'awaiting_comprobante': {
       const history = db.getRecentMessages(phone, 8);
-      await sendAndSave(phone, await carolRespond(history, text));
+      await sendAndSave(phone, await carol(history, text));
       break;
     }
     case 'awaiting_email':
@@ -208,7 +214,7 @@ async function handleChoice(contact, text) {
     await sendAndSave(phone, BASICO_UPSELL);
   } else {
     const history = db.getRecentMessages(phone, 8);
-    const reply = await carolRespond(history, text);
+    const reply = await carol(history, text);
     await sendAndSave(phone, reply);
   }
 }
@@ -220,7 +226,7 @@ async function handleOfferedDiamante(contact, text) {
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else {
     const history = db.getRecentMessages(phone, 8);
-    await sendAndSave(phone, await carolRespond(history, text));
+    await sendAndSave(phone, await carol(history, text));
   }
 }
 
@@ -234,7 +240,7 @@ async function handleOfferedOro(contact, text) {
     await sendAndSave(phone, ORO_DETAILS);
   } else {
     const history = db.getRecentMessages(phone, 8);
-    await sendAndSave(phone, await carolRespond(history, text));
+    await sendAndSave(phone, await carol(history, text));
   }
 }
 
@@ -251,7 +257,7 @@ async function handleOfferedBasico(contact, text) {
     await sendAndSave(phone, BASICO_DETAILS);
   } else {
     const history = db.getRecentMessages(phone, 8);
-    await sendAndSave(phone, await carolRespond(history, text));
+    await sendAndSave(phone, await carol(history, text));
   }
 }
 
@@ -333,7 +339,7 @@ async function handleEmail(contact, emailText) {
 async function handlePostDelivery(contact, text) {
   const phone = contact.phone;
   const history = db.getRecentMessages(phone, 6);
-  const reply = await carolRespond(history, text);
+  const reply = await carol(history, text);
   await sendAndSave(phone, reply);
 }
 
