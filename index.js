@@ -30,7 +30,7 @@ app.listen(PORT, () => {
 });
 
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
-let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave;
+let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave, transcribeAudio;
 let R1_MESSAGE, R2_MESSAGE;
 let initialized = false;
 
@@ -55,6 +55,9 @@ async function init() {
     R1_MESSAGE = content.R1_MESSAGE;
     R2_MESSAGE = content.R2_MESSAGE;
     console.log('content OK');
+
+    transcribeAudio = require('./transcribe').transcribeAudio;
+    console.log('transcribe OK');
 
     initialized = true;
     console.log('All modules loaded — bot is ready');
@@ -154,7 +157,22 @@ app.post('/webhook', verifySignature, async (req, res) => {
         await processMessage(phone, 'image', payload, wamid);
       }
 
-    } else if (['audio', 'video', 'document'].includes(msgType)) {
+    } else if (msgType === 'audio') {
+      const mediaId = msg.audio?.id;
+      if (mediaId) {
+        try {
+          const mediaUrl = await getMediaUrl(mediaId);
+          const { buffer, mimeType } = await downloadMedia(mediaUrl);
+          const transcription = await transcribeAudio(buffer, mimeType);
+          content = transcription;
+          console.log(`Audio transcrito [${phone}]: ${transcription.substring(0, 80)}`);
+          await processMessage(phone, 'text', transcription, wamid);
+        } catch (e) {
+          console.error('Transcripcion error:', e.message);
+          await processMessage(phone, 'text', '[audio]', wamid);
+        }
+      }
+    } else if (['video', 'document'].includes(msgType)) {
       content = `[${msgType}]`;
       await processMessage(phone, msgType, content, wamid);
     }
