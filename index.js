@@ -160,11 +160,17 @@ app.post('/webhook', verifySignature, async (req, res) => {
   }
 
   const updated = db.getContact(phone);
-  broadcast('message', { contact: updated, direction: 'in', type: msgType, content });
+  broadcast('refresh', { phone, contact: updated });
 });
 
 // ── Admin SSE ──────────────────────────────────────────────────────────────────
-app.get('/admin/events', adminAuth, (req, res) => {
+// EventSource no soporta headers — auth via query token
+app.get('/admin/events', (req, res) => {
+  try {
+    const [user, pass] = Buffer.from(req.query.token || '', 'base64').toString().split(':');
+    if (user !== ADMIN_USER || pass !== ADMIN_PASSWORD) return res.sendStatus(401);
+  } catch { return res.sendStatus(401); }
+
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
   res.flushHeaders();
   res.write('event: connected\ndata: {}\n\n');
@@ -207,7 +213,7 @@ app.post('/api/contacts/:phone/send', adminAuth, async (req, res) => {
   try {
     await sendAndSave(req.params.phone, text);
     const updated = db.getContact(req.params.phone);
-    broadcast('message', { contact: updated, direction: 'out', type: 'text', content: text });
+    broadcast('refresh', { phone: req.params.phone, contact: updated });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -256,7 +262,7 @@ function startScheduler() {
         await sendText(c.phone, R1_MESSAGE);
         db.saveMessage(c.phone, 'out', 'text', R1_MESSAGE, '');
         db.updateContact(c.phone, { r1_sent: 1, r1_sent_at: db.now() });
-        broadcast('message', { contact: c, direction: 'out', type: 'text', content: R1_MESSAGE });
+        broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('R1 error', c.phone, e.message); }
     }
 
@@ -265,7 +271,7 @@ function startScheduler() {
         await sendText(c.phone, R2_MESSAGE);
         db.saveMessage(c.phone, 'out', 'text', R2_MESSAGE, '');
         db.updateContact(c.phone, { r2_sent: 1, r2_sent_at: db.now() });
-        broadcast('message', { contact: c, direction: 'out', type: 'text', content: R2_MESSAGE });
+        broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('R2 error', c.phone, e.message); }
     }
   }, 2 * 60 * 1000);

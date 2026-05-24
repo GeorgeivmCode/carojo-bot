@@ -292,26 +292,22 @@ async function apiFetch(url, opts = {}) {
 
 // ── SSE ────────────────────────────────────────────────────────────────────────
 function startSSE() {
-  const auth = getAuth();
-  if (!auth) return;
-  const url = '/admin/events';
-  const evtSource = new EventSource(url, { withCredentials: false });
+  const pass = sessionStorage.getItem('adminPass');
+  if (!pass) return;
+  const token = encodeURIComponent(btoa('CarojoAdmin:' + pass));
+  const evtSource = new EventSource(`/admin/events?token=${token}`);
 
-  // We need to pass auth — EventSource doesn't support headers natively
-  // so we'll poll lightly as fallback and rely on SSE for push
-  evtSource.addEventListener('message', () => {});
   evtSource.addEventListener('contact_updated', e => {
     const c = JSON.parse(e.data);
     updateContactInList(c);
     if (currentPhone === c.phone) renderRightPanel(c);
   });
-  evtSource.addEventListener('message', e => {
+  evtSource.addEventListener('refresh', e => {
     const d = JSON.parse(e.data);
-    const c = d.contact;
-    if (c) updateContactInList(c);
-    if (currentPhone === c?.phone) {
-      appendBubble(d.direction, d.type, d.content, new Date().toISOString());
-      scrollBottom();
+    if (d.contact) updateContactInList(d.contact);
+    if (currentPhone === d.phone) {
+      loadMessages(d.phone);
+      renderRightPanel(d.contact);
     }
   });
   evtSource.onerror = () => {

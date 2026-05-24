@@ -18,61 +18,104 @@ de forma fácil, práctica y muy divertida 💕
 
 👉 Escríbeme el número de tu opción (1, 2 o 3) y te envío todos los detalles al instante 💌`;
 
-const DIAMANTE_DETAILS = `*MEGA PACK DIAMANTE* 💎 — $15.000 COP
+const DIAMANTE_DETAILS = `🚀 Excelente eleccion! Esta es, sin duda, la MEJOR opcion.
+Es un verdadero arsenal para emprender.
 
-El mas completo! Incluye 5 cursos + 11 bonos exclusivos. Todo de por vida!
+💎✨ 💎✨ 💎✨ 💎✨ 💎✨
+💎 MEGA PACK DIAMANTE 💎
+💎✨ 💎✨ 💎✨ 💎✨ 💎✨
+(Precio Promo: $15.000)
 
-Para pagar envia exactamente *$15.000 COP* a:
-• Nequi / BRE-B: *3058989359* (Jorge Vanegas)
-• Daviplata: *3217239198* (Carol Apolinar)
+Incluye los 5 CURSOS COMPLETOS:
+✔ 1. Curso de Lettering y Letra Timoteo
+✔ 2. Curso de Marcado de Cuadernos
+✔ 3. Curso de Moldes 3D (Cajas, Flores, Letras)
+✔ 4. Pack Papeleria Creativa
+✔ 5. Pack Agendas Personalizadas
 
-Luego enviame la foto del comprobante aqui mismo. 📸`;
+✨ Y ahora, mira todos los REGALOS que se activan GRATIS ✨
 
-const ORO_UPSELL = `*SUPER PACK ORO* ✨ — $10.000 COP
+🎁 BONO 1: El Pack de Papeleria Creativa
+Mas de 85.000 diseños editables en Canva! Listos para usar en fiestas, eventos y celebraciones.
 
-Incluye 3 cursos completos + bonos. Todo de por vida!
+🎁 BONO 2: Los 6 Regalos Premium Exclusivos
+  1. +130 moldes de cajas exclusivas
+  2. Flores de papel editables
+  3. Kits escolares + etiquetas
+  4. Libritos para colorear + cajitas
+  5. Invitaciones editables (Canva/PPT)
+  6. Pizarras y plantillas creativas
 
-Psst... por solo *$5.000 mas* llevas el *MEGA PACK DIAMANTE* con 5 cursos + 11 bonos. Vale mucho la pena! 💎
+🎁 BONO 3: Bonos del Pack de Agendas
+  1. 100 Diseños para Cuadros Fotograficos
+  2. 50 Plantillas de Bullet Journal
+  3. Guia de Productividad + Intro a PowerPoint
 
-Si quieres el Oro → paga *$10.000 COP*
-Si prefieres el Diamante → paga *$15.000 COP*
+🎁 BONO 4: 500 Dibujos para Colorear!
 
-A cualquiera de estas cuentas:
-• Nequi / BRE-B: *3058989359* (Jorge Vanegas)
-• Daviplata: *3217239198* (Carol Apolinar)
+Es acceso de por vida a todo! 🎉
 
-Enviame la foto del comprobante cuando hayas pagado! 📸`;
+Para asegurar tu MEGA PACK DIAMANTE, puedes enviar tu pago de $15.000 a nuestras cuentas autorizadas:
+🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
+🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 
-const ORO_DETAILS = `*SUPER PACK ORO* ✨ — $10.000 COP
+Quedo atenta a tu comprobante por aqui. 📲🚀`;
 
-Para pagar envia exactamente *$10.000 COP* a:
-• Nequi / BRE-B: *3058989359* (Jorge Vanegas)
-• Daviplata: *3217239198* (Carol Apolinar)
+const ORO_UPSELL = `Genial! El SUPERPACK ORO es super completo para empezar.
+(Precio Promo: $10.000)
 
-Luego enviame la foto del comprobante aqui mismo. 📸`;
+Incluye 3 CURSOS COMPLETOS:
+✔ 1. Curso de Lettering y Letra Timoteo (con 34 cartillas)
+✔ 2. Curso de Marcado de Cuadernos (mas de 300 paginas)
+✔ 3. Curso de Moldes de Cajas, Flores y Letras 3D
+🎁 BONO: 500 dibujos para colorear.
 
-const BASICO_UPSELL = `*PACK BÁSICO* 📖 — $5.000 COP
+Es una super eleccion...
 
-Incluye el curso de Lettering + cartillas. Todo de por vida!
+🔥 PERO ANTES DE CONFIRMAR... dejame contarte algo rapido.
+Justo HOY, por solo $5.000 mas, puedes llevarte el 💎 MEGA PACK DIAMANTE.
 
-Una cosita... por solo *$5.000 mas* llevas el *SUPER PACK ORO* con 3 cursos completos. Muchisimo mas completo! ✨
+Con esa MEJORA, ademas de los 3 cursos que ya elegiste, sumarias:
+✔ El Pack de Papeleria Creativa (que son 85.000 diseños en Canva!)
+✔ El Pack de Agendas (con sus 3 bonos internos)
+✔ Y los 6 REGALOS PREMIUM (cajas, flores, kits escolares, etc.)
 
-Si quieres el Basico → paga *$5.000 COP*
-Si prefieres el Oro → paga *$10.000 COP*
+Es muchisimo mas contenido por una diferencia minima.
+Te gustaria aprovechar y subir al MEGA PACK DIAMANTE por $15.000 en total? 💬`;
 
-A cualquiera de estas cuentas:
-• Nequi / BRE-B: *3058989359* (Jorge Vanegas)
-• Daviplata: *3217239198* (Carol Apolinar)
+const ORO_DETAILS = `Genial! Puedes hacer tu pago por la aplicacion que mejor te quede.
+Aqui tienes nuestras cuentas autorizadas:
+🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
+🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 
-Enviame la foto del comprobante cuando hayas pagado! 📸`;
+Porfa, enviame el comprobante por aqui con el NOMBRE DE LA PERSONA QUE DEPOSITA para poder verificarlo mas ligero. 📲`;
 
-const BASICO_DETAILS = `*PACK BÁSICO* 📖 — $5.000 COP
+const BASICO_UPSELL = `Claro! El PACK BASICO es ideal para empezar solo con Lettering.
+(Precio Promo: $5.000)
 
-Para pagar envia exactamente *$5.000 COP* a:
-• Nequi / BRE-B: *3058989359* (Jorge Vanegas)
-• Daviplata: *3217239198* (Carol Apolinar)
+Incluye:
+✔ 1. Curso de Lettering y Letra Timoteo
+✔ 34 cartillas con mas de 2.400 paginas
+🎁 BONO: 500 dibujos para colorear.
 
-Luego enviame la foto del comprobante aqui mismo. 📸`;
+Es perfecto para aprender la tecnica...
+
+🔥 PERO ANTES DE CONFIRMAR... dejame contarte algo rapido.
+Justo HOY, por solo $5.000 mas (pagando $10.000 en total), puedes llevarte el ✨ SUPERPACK ORO.
+
+Ademas del curso de Lettering que ya elegiste, sumarias:
+✔ El Curso de Marcado de Cuadernos
+✔ El Curso de Moldes de Cajas, Flores y Letras 3D
+
+Es el triple de cursos por solo $5.000 mas.
+Te gustaria aprovechar y subir al SUPERPACK ORO? 💬`;
+
+const BASICO_DETAILS = `Genial! Puedes hacer tu pago por la aplicacion que mejor te quede.
+Aqui tienes nuestras cuentas autorizadas:
+🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
+🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
+
+Porfa, enviame el comprobante por aqui con el NOMBRE DE LA PERSONA QUE DEPOSITA para poder verificarlo mas ligero. 📲`;
 
 const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Recibimos tu comprobante. 🎉
 
