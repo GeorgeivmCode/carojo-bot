@@ -146,6 +146,16 @@
 
   @media (max-width: 1100px) { .right-panel { display: none; } }
   @media (max-width: 760px) { .contact-list { width: 260px; } }
+  @media (max-width: 600px) {
+    .contact-list { width: calc(100% - 60px) !important; border-right: none; }
+    .chat-panel { position: fixed; inset: 0; z-index: 100; display: none !important; }
+    .chat-panel.mobile-open { display: flex !important; }
+    .right-panel { display: none !important; }
+    .back-btn { display: flex !important; }
+    .bubble-wrap { max-width: 90%; }
+    .chat-footer { padding: 8px 10px; }
+    .chat-messages { padding: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -195,6 +205,7 @@
         <div class="chat-header-sub" id="chatSub">-</div>
       </div>
       <div class="chat-actions">
+        <button class="icon-btn back-btn" style="display:none" title="Volver" onclick="backToContacts()">&#8592;</button>
         <button class="icon-btn" title="Marcar leido" onclick="markRead()">&#10003;</button>
         <button class="icon-btn" title="Refrescar" onclick="loadMessages(currentPhone)">&#8635;</button>
       </div>
@@ -392,8 +403,13 @@ async function selectContact(phone) {
   const cc = document.getElementById('chatContent');
   cc.style.display = 'flex';
   cc.style.flexDirection = 'column';
-  document.getElementById('rightPanel').style.display = 'flex';
-  document.getElementById('rightPanel').style.flexDirection = 'column';
+
+  if (window.innerWidth <= 600) {
+    document.getElementById('chatPanel').classList.add('mobile-open');
+  } else {
+    document.getElementById('rightPanel').style.display = 'flex';
+    document.getElementById('rightPanel').style.flexDirection = 'column';
+  }
 
   renderContacts();
   const c = allContacts.find(x => x.phone === phone);
@@ -403,6 +419,12 @@ async function selectContact(phone) {
   }
   await loadMessages(phone);
   await markRead();
+}
+
+function backToContacts() {
+  document.getElementById('chatPanel').classList.remove('mobile-open');
+  currentPhone = null;
+  renderContacts();
 }
 
 function renderChatHeader(c) {
