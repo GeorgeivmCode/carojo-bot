@@ -148,13 +148,13 @@
   @media (max-width: 760px) { .contact-list { width: 260px; } }
   @media (max-width: 600px) {
     .contact-list { width: calc(100% - 60px) !important; border-right: none; }
-    .chat-panel { position: fixed; inset: 0; z-index: 100; display: none !important; }
-    .chat-panel.mobile-open { display: flex !important; }
+    .chat-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; z-index: 100; display: none !important; flex-direction: column; overflow: hidden; }
+    .chat-panel.mobile-open { display: flex !important; flex-direction: column; }
     .right-panel { display: none !important; }
     .back-btn { display: flex !important; }
     .bubble-wrap { max-width: 90%; }
     .chat-footer { padding: 8px 10px; }
-    .chat-messages { padding: 10px; }
+    .chat-messages { padding: 10px; overflow-y: auto; flex: 1; }
   }
 </style>
 </head>
@@ -206,6 +206,7 @@
       </div>
       <div class="chat-actions">
         <button class="icon-btn back-btn" style="display:none" title="Volver" onclick="backToContacts()">&#8592;</button>
+        <button class="icon-btn" id="headerBotToggle" onclick="headerToggleBot()" title="Pausar/activar bot" style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--sub)">BOT</button>
         <button class="icon-btn" title="Marcar leido" onclick="markRead()">&#10003;</button>
         <button class="icon-btn" title="Refrescar" onclick="loadMessages(currentPhone)">&#8635;</button>
       </div>
@@ -432,10 +433,12 @@ function renderChatHeader(c) {
   document.getElementById('chatAvatar').textContent = name.charAt(0).toUpperCase();
   document.getElementById('chatName').textContent = name;
   document.getElementById('chatSub').textContent = c.phone + (c.ad_name ? ' | Ad: ' + c.ad_name : '');
+  updateHeaderBotBtn(c.bot_active);
 }
 
 function renderRightPanel(c) {
   document.getElementById('botToggle').checked = !!c.bot_active;
+  updateHeaderBotBtn(c.bot_active);
   document.getElementById('infoPhone').textContent = c.phone;
   document.getElementById('infoState').innerHTML = `<span class="state-badge state-${c.state || 'new'}">${stateLabel(c.state)}</span>`;
   document.getElementById('infoPack').textContent = c.pack_selected || '-';
@@ -520,12 +523,27 @@ async function sendMessage() {
 
 async function toggleBot(val) {
   if (!currentPhone) return;
+  updateHeaderBotBtn(val);
   const res = await apiFetch(`/api/contacts/${currentPhone}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bot_active: val ? 1 : 0 })
   });
   if (res) showToast(val ? 'Bot activado' : 'Bot pausado', 'success');
+}
+
+function updateHeaderBotBtn(botActive) {
+  const btn = document.getElementById('headerBotToggle');
+  if (btn) btn.style.color = botActive ? 'var(--green)' : 'var(--red)';
+}
+
+async function headerToggleBot() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  if (!c) return;
+  const newVal = c.bot_active ? 0 : 1;
+  c.bot_active = newVal;
+  await toggleBot(newVal === 1);
 }
 
 async function updateTag(tag) {

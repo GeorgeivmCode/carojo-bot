@@ -229,9 +229,30 @@ const PAYMENT_NOT_SUCCESSFUL = `Veo que la transaccion no aparece como exitosa. 
 
 Verifica que el pago quede *aprobado* en tu app y luego enviame el comprobante. 📸`;
 
-const INVALID_EMAIL_MSG = `Ese correo no parece valido. Necesito un Gmail completo para enviarte el acceso.
+const INVALID_EMAIL_MSG = `Ese correo no sirve para el acceso. Solo aceptamos Gmail.
 
-Escribe tu correo completo, por ejemplo: tunombre@gmail.com 📩`;
+Si tienes Hotmail, Outlook, Yahoo u otro correo, no te va a llegar la notificacion del material.
+
+Escribe tu correo de Gmail completo asi:
+tunombre@gmail.com 📩`;
+
+const SEND_COMPROBANTE_MSG = `Para confirmar tu pago necesito ver el comprobante. 📸
+
+Abre tu app (Nequi, Daviplata, Bancolombia, etc.), busca el comprobante de ese pago y enviamelo aqui como imagen o PDF.`;
+
+const GIFT_OFFER_MSG = `Y como te lo prometi, tienes un *CURSO DE REGALO* para elegir! 🎁
+
+Cual de estos tres te llama mas la atencion?
+
+🌸 Bordados Florales
+✨ Arte en Resina Epoxica
+🎈 Globoflexia y Decoracion
+
+Escribeme el que mas te guste y te mando el acceso de inmediato. 💌`;
+
+const COMPROBANTE_FALSO_MSG = `Ese comprobante no lo puedo verificar. La app que aparece ahi no es reconocida como metodo de pago valido.
+
+Por favor enviam el comprobante desde tu app real: Nequi, Daviplata, Bancolombia, Davivienda, BBVA u otro banco colombiano. 📸`;
 
 const PAYMENT_REJECTED_MSG = (razon) =>
   `Hmm, no pude verificar tu pago. ${razon || 'Asegurate de enviar el monto exacto al numero correcto.'}
@@ -310,6 +331,7 @@ module.exports = {
   R1_MESSAGE, R2_MESSAGE,
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
+  SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   deliveryMessage

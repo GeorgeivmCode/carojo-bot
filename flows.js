@@ -16,9 +16,48 @@ const {
   PLANTILLA_ACCESO, STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
+  SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   deliveryMessage
 } = require('./content');
+
+// Estados donde el cliente está activamente en flujo de compra
+const ACTIVE_PAYMENT_STATES = new Set([
+  'awaiting_comprobante', 'offered_diamante', 'offered_oro', 'offered_basico', 'awaiting_choice'
+]);
+
+// Detectar cuando dicen "ya pagué" sin enviar comprobante
+const PAGO_SIN_COMPROBANTE = [
+  'ya pague', 'ya pagué', 'ya transferi', 'ya transferí', 'ya mande', 'ya mandé',
+  'ya deposite', 'ya deposité', 'ya hice el pago', 'ya realice', 'ya realicé',
+  'acabo de pagar', 'acabe de pagar', 'ya lo pague', 'ya lo pagué',
+  'ya envie', 'ya envié', 'ya hice la transferencia', 'te pague', 'te pagué',
+  'ya hice el deposito', 'ya deposité', 'ya realice el pago'
+];
+
+function isPagoSinComprobante(text) {
+  const t = text.toLowerCase();
+  return PAGO_SIN_COMPROBANTE.some(p => t.includes(p));
+}
+
+function isAskingForGift(text) {
+  const t = text.toLowerCase();
+  return ['regalo', 'regalito', 'curso gratis', 'gratis', 'resina', 'globo', 'globoflexia', 'bordado', 'epoxi'].some(k => t.includes(k));
+}
+
+const GIFT_URLS = {
+  resina:      'https://drive.google.com/drive/folders/1iZ6y6PtYg5APKftiR4296bT8i2rlJG0L',
+  bordados:    'https://drive.google.com/drive/u/0/folders/1XpP3s7KXEnOUDizYTxlTN8jkry_uSQEY',
+  globoflexia: 'https://drive.google.com/drive/folders/1YyTR18FTIR5vhmISZ6IPgTRFs5mnqW98'
+};
+
+function detectGiftChoice(text) {
+  const t = text.toLowerCase();
+  if (t.includes('resina') || t.includes('epoxi')) return GIFT_URLS.resina;
+  if (t.includes('globo') || t.includes('decoracion') || t.includes('decoración')) return GIFT_URLS.globoflexia;
+  if (t.includes('bordado') || t.includes('floral')) return GIFT_URLS.bordados;
+  return null;
+}
 
 const JORGE_PHONE     = process.env.JORGE_PHONE;
 const META_PIXEL_ID   = process.env.META_PIXEL_ID;
@@ -108,8 +147,8 @@ async function processMessage(phone, msgType, content, wamidIn) {
 
   const text = (msgType === 'text' ? content : '').trim().toLowerCase();
 
-  // Cliente antiguo sin acceso — apagar bot, enviar plantilla acceso
-  if (msgType === 'text' && isOldClientTrigger(text)) {
+  // Cliente antiguo sin acceso — solo si NO está en flujo activo de compra
+  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state)) {
     await sendAndSave(phone, PLANTILLA_ACCESO);
     db.updateContact(phone, { bot_active: 0, state: 'stopped', tag: 'Soporte' });
     await notifyJorge(contact, `CLIENTE ANTIGUO sin acceso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nMensaje: ${content.substring(0, 100)}`);
@@ -131,9 +170,16 @@ async function processMessage(phone, msgType, content, wamidIn) {
     return;
   }
 
-  // Imagen = posible comprobante
-  if (msgType === 'image') {
-    if (['awaiting_comprobante', 'awaiting_choice', 'offered_diamante', 'offered_oro', 'offered_basico', 'new'].includes(contact.state)) {
+  // Imagen o PDF/documento = posible comprobante
+  if (msgType === 'image' || msgType === 'document') {
+    // Documento no descargable (ej. Word) — pedir imagen o PDF
+    if (content === '[documento]') {
+      if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new') {
+        await sendAndSave(phone, 'Para verificar tu pago necesito la imagen o PDF del comprobante. Los documentos de Word o Excel no los puedo revisar. 📸');
+      }
+      return;
+    }
+    if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new') {
       await handleComprobante(contact, content);
       return;
     }
@@ -174,6 +220,10 @@ async function processMessage(phone, msgType, content, wamidIn) {
       await handleOfferedBasico(contact, text);
       break;
     case 'awaiting_comprobante': {
+      if (isPagoSinComprobante(text)) {
+        await sendAndSave(phone, SEND_COMPROBANTE_MSG);
+        break;
+      }
       const history = db.getRecentMessages(phone, 8);
       await sendAndSave(phone, await carol(history, text));
       break;
@@ -281,7 +331,9 @@ async function handleComprobante(contact, mediaContent) {
 
   if (!result.valido) {
     const { razon_rechazo, monto } = result;
-    if (razon_rechazo === 'destinatario_invalido') {
+    if (razon_rechazo === 'comprobante_falso') {
+      await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
+    } else if (razon_rechazo === 'destinatario_invalido') {
       await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
     } else if (razon_rechazo === 'transaccion_no_exitosa') {
       await sendAndSave(phone, PAYMENT_NOT_SUCCESSFUL);
@@ -301,8 +353,13 @@ async function handleComprobante(contact, mediaContent) {
   db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack });
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
 
+  const destino = result.destino || '';
+  const paraQuien = destino.includes('3058989359') ? 'Jorge - Nequi/BRE-B' :
+                    destino.includes('3217239198') ? 'Carol - Daviplata' :
+                    result.nombre_destinatario || 'no identificado';
+
   await notifyJorge(contact,
-    `PAGO verificado!\nPack: ${pack} ($${PACK_PRICES[pack]?.toLocaleString('es-CO')})\nContacto: ${contact.name || phone}\nTel: ${phone}`
+    `PAGO verificado!\nPack: ${pack}\nMonto: $${result.monto?.toLocaleString('es-CO') || PACK_PRICES[pack]?.toLocaleString('es-CO')}\nApp: ${result.app || 'desconocida'}\nPago a: ${paraQuien}\nCliente: ${contact.name || phone}\nTel: ${phone}`
   );
 }
 
@@ -338,6 +395,24 @@ async function handleEmail(contact, emailText) {
 
 async function handlePostDelivery(contact, text) {
   const phone = contact.phone;
+
+  if (contact.pack_selected === 'diamante' && contact.r1_sent && !contact.gift_sent) {
+    // Si ya sabe cual curso quiere → entregar link directo
+    const giftLink = detectGiftChoice(text);
+    if (giftLink) {
+      await sendAndSave(phone,
+        `Tu curso de regalo esta listo!\n\n${giftLink}\n\nToca el enlace para abrirlo. Disfruta mucho!`
+      );
+      db.updateContact(phone, { gift_sent: 1 });
+      return;
+    }
+    // Si pregunta por el regalo en general → ofrecer opciones
+    if (isAskingForGift(text)) {
+      await sendAndSave(phone, GIFT_OFFER_MSG);
+      return;
+    }
+  }
+
   const history = db.getRecentMessages(phone, 6);
   const reply = await carol(history, text);
   await sendAndSave(phone, reply);

@@ -316,48 +316,69 @@ async function carolRespond(history, userMessage) {
 }
 
 async function verifyPayment(imageBuffer, mimeType, packSelected) {
+  const isPDF = mimeType === 'application/pdf';
+  const mediaBlock = isPDF
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: imageBuffer.toString('base64') } }
+    : { type: 'image',    source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBuffer.toString('base64') } };
+
   const res = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 400,
     messages: [{
       role: 'user',
       content: [
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: mimeType, data: imageBuffer.toString('base64') }
-        },
+        mediaBlock,
         {
           type: 'text',
-          text: `Analiza este comprobante de pago colombiano (Nequi o Daviplata).
+          text: `Analiza este comprobante de pago colombiano.
+
+APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
+1. Nequi: app morada/rosada, muestra "Detalle del movimiento", "Envio Realizado", QR code, campo "Para:", "Numero Nequi", "De donde salio la plata?: Disponible".
+2. Bancolombia Bre-B (tema claro o negro): swirls de colores azul/amarillo/naranja/rojo, "Transferencia exitosa!", "Comprobante No.", "Producto destino: Nequi [numero]".
+3. BBVA: fondo oscuro, "Transferencia con llave", "Envio por Bre-B", "Llave que recibe:", "Entidad que recibe: Nequi".
+4. NuBank/Nu: fondo blanco, logo "nu", "Comprobante de transferencia", "Via: Bre-B", "Estado: Completada".
+5. Lulo Bank: fondo blanco/gris, logo "lulo bank", "Plata enviada $X", iconos de emisor y receptor con nombres.
+6. DaviPlata: colores rojo/blanco, logo "DaviPlata" o "Davi plata", "Transaccion exitosa", "Pasaste Plata a otro DaviPlata", QR code.
+7. Davivienda: colores rojo/blanco, logo Davivienda (casita), "Transferencia exitosa", "Usted envio $X", "a la llave Nequi [numero] de [Nombre]".
+8. Banco de Bogota: fondo blanco, logo "Banco de Bogota", "Valor de la transferencia" en caja verde, "Enviaste a:", "Entidad: NEQUI".
+9. Corresponsal Wompi/Bancolombia (tirilla papel): logo "W Wompi / Corresponsal Bancolombia", "TRANSACCION EXITOSA", "Monto:", "Numero Nequi:", "Titular:".
+10. Corresponsal Redeban (tirilla papel): logo "Redeban", "CORRESPONSAL BANCOLOMBIA", "RECARGA NEQU", "VALOR $X", "Producto: [numero]", "TITULAR: [nombre]".
+
+COMPROBANTES FALSOS — rechazar con "comprobante_falso":
+- Marca "NEKI" (color turquesa/azul cielo, NO es Nequi que es morado) → FALSO
+- Cualquier marca de app/banco que NO este en la lista de 10 apps reales de arriba → FALSO
+- Layouts genericos con colores inconsistentes con las apps reales
+
+Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
 
 Extrae:
-1. Monto pagado (numero solo, sin puntos ni $)
-2. Numero de celular o cuenta destino
-3. Nombre del destinatario que aparece en el comprobante
-4. Fecha y hora del pago
-5. Estado de la transaccion (exitosa/fallida/pendiente)
+1. Monto pagado (numero sin puntos ni $: debe ser 5000, 10000 o 15000)
+2. Numero destinatario (debe ser 3058989359 o 3217239198)
+3. Nombre destinatario
+4. Estado de la transaccion
+5. Si la app/banco es reconocida como real colombiana
+6. Nombre exacto de la app/banco usada para pagar (ej: "Nequi", "Daviplata", "Bancolombia Bre-B", "BBVA", "NuBank", "Lulo Bank", "Davivienda", "Banco de Bogota", "Corresponsal Wompi", "Corresponsal Redeban")
 
-Verifica estas condiciones:
-A) Monto valido: debe ser exactamente 5000, 10000 o 15000 COP
-B) Destinatario valido (aplica logica flexible):
-   - Si el numero destino es 3058989359 o 3217239198 → valido
-   - Si el nombre es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches" → valido
-   - Si es una transferencia interbancaria (desde Bancolombia, Davivienda, PSE u otro banco) y NO muestra nombre ni numero del destinatario → considera el destinatario como valido (los bancos no siempre muestran esos datos en transferencias interbancarias)
-   - Solo marca "destinatario_invalido" si el nombre o numero que SI aparece claramente NO coincide con los autorizados
-C) Estado exitoso: la transaccion debe estar aprobada o exitosa (no pendiente ni fallida)
+Destinatario valido si:
+- Numero es 3058989359 o 3217239198
+- Nombre es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches"
+- En transferencias donde NO aparece nombre/numero del destinatario → asumir valido
+- SOLO rechazar si aparece nombre/numero claramente diferente a los autorizados
 
-valido = true SOLO si A, B y C se cumplen todos.
+valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + app reconocida como real.
 
-Si valido es false, indica en razon_rechazo:
-- "monto_invalido" si el monto no es 5000/10000/15000
-- "destinatario_invalido" si aparece un nombre o numero de destinatario que claramente no coincide con los autorizados
-- "transaccion_no_exitosa" si el estado es fallida o pendiente
-- "imagen_no_legible" si no se puede leer el comprobante
+razon_rechazo:
+- "comprobante_falso" → app no reconocida (ej. NEKI, marcas inventadas)
+- "monto_invalido" → monto no es 5000/10000/15000
+- "destinatario_invalido" → nombre/numero claramente no coincide
+- "transaccion_no_exitosa" → estado fallida o pendiente
+- "imagen_no_legible" → no se puede leer
 
-Responde SOLO en este formato JSON (sin texto adicional):
+Responde SOLO en JSON (sin texto adicional):
 {
   "valido": true/false,
   "monto": numero_o_null,
+  "app": "nombre_app_o_null",
   "destino": "numero_o_null",
   "nombre_destinatario": "nombre_o_null",
   "fecha": "texto_o_null",

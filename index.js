@@ -172,9 +172,28 @@ app.post('/webhook', verifySignature, async (req, res) => {
           await processMessage(phone, 'text', '[audio]', wamid);
         }
       }
-    } else if (['video', 'document'].includes(msgType)) {
-      content = `[${msgType}]`;
-      await processMessage(phone, msgType, content, wamid);
+    } else if (msgType === 'document') {
+      const doc = msg.document;
+      const mime = doc?.mime_type || '';
+      const mediaId = doc?.id;
+      if (mediaId && (mime === 'application/pdf' || mime.startsWith('image/'))) {
+        try {
+          const mediaUrl = await getMediaUrl(mediaId);
+          const { buffer, mimeType: resolvedMime } = await downloadMedia(mediaUrl);
+          const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: resolvedMime || mime });
+          content = payload;
+          await processMessage(phone, 'image', payload, wamid);
+        } catch (e) {
+          console.error('Document download error:', e.message);
+          await processMessage(phone, 'document', '[documento]', wamid);
+        }
+      } else {
+        content = '[documento]';
+        await processMessage(phone, 'document', '[documento]', wamid);
+      }
+    } else if (msgType === 'video') {
+      content = '[video]';
+      await processMessage(phone, 'video', '[video]', wamid);
     }
   } catch (err) {
     console.error('Webhook handler error:', err.message);
