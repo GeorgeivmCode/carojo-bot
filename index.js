@@ -30,7 +30,7 @@ app.listen(PORT, () => {
 });
 
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
-let db, sendText, getMediaUrl, downloadMedia, processMessage, sendAndSave;
+let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave;
 let R1_MESSAGE, R2_MESSAGE;
 let initialized = false;
 
@@ -41,6 +41,7 @@ async function init() {
 
     const wa = require('./whatsapp');
     sendText      = wa.sendText;
+    markRead      = wa.markRead;
     getMediaUrl   = wa.getMediaUrl;
     downloadMedia = wa.downloadMedia;
     console.log('whatsapp OK');
@@ -134,6 +135,8 @@ app.post('/webhook', verifySignature, async (req, res) => {
     const c = db.getContact(phone);
     if (!c || c.name === '') db.updateContact(phone, { name: profile.name });
   }
+
+  markRead(wamid);
 
   let content = '';
   try {

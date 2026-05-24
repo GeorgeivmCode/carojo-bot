@@ -46,4 +46,14 @@ async function sendImage(to, imageUrl, caption = '') {
   return res.data?.messages?.[0]?.id || '';
 }
 
-module.exports = { sendText, sendImage, getMediaUrl, downloadMedia };
+async function markRead(messageId) {
+  try {
+    await axios.post(BASE, {
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: messageId
+    }, { headers: headers() });
+  } catch {}
+}
+
+module.exports = { sendText, sendImage, getMediaUrl, downloadMedia, markRead };
