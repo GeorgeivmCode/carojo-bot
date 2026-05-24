@@ -339,14 +339,18 @@ Extrae:
 
 Verifica estas condiciones:
 A) Monto valido: debe ser exactamente 5000, 10000 o 15000 COP
-B) Destinatario valido: el numero destino es 3058989359 o 3217239198, O el nombre del destinatario es uno de: "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar", "Carol Lizeth Apolinar Wilches" (acepta variaciones menores de mayusculas o tildes)
+B) Destinatario valido (aplica logica flexible):
+   - Si el numero destino es 3058989359 o 3217239198 → valido
+   - Si el nombre es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches" → valido
+   - Si es una transferencia interbancaria (desde Bancolombia, Davivienda, PSE u otro banco) y NO muestra nombre ni numero del destinatario → considera el destinatario como valido (los bancos no siempre muestran esos datos en transferencias interbancarias)
+   - Solo marca "destinatario_invalido" si el nombre o numero que SI aparece claramente NO coincide con los autorizados
 C) Estado exitoso: la transaccion debe estar aprobada o exitosa (no pendiente ni fallida)
 
 valido = true SOLO si A, B y C se cumplen todos.
 
 Si valido es false, indica en razon_rechazo:
 - "monto_invalido" si el monto no es 5000/10000/15000
-- "destinatario_invalido" si el numero y el nombre no coinciden con los autorizados
+- "destinatario_invalido" si aparece un nombre o numero de destinatario que claramente no coincide con los autorizados
 - "transaccion_no_exitosa" si el estado es fallida o pendiente
 - "imagen_no_legible" si no se puede leer el comprobante
 
