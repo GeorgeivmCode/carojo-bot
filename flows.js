@@ -463,4 +463,4 @@ async function sendAndSave(phone, textOrParts) {
   }
 }
 
-module.exports = { processMessage, sendAndSave };
+module.exports = { processMessage, sendAndSave, fireCapi, logSaleToSheets, notifyJorge };

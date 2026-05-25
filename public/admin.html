@@ -262,7 +262,8 @@
         <button class="qr-btn" onclick="insertQR('diamante')">Diamante</button>
         <button class="qr-btn" onclick="insertQR('oro')">Oro</button>
         <button class="qr-btn" onclick="insertQR('basico')">Basico</button>
-        <button class="qr-btn" onclick="approvePayment()" style="color:var(--green);font-weight:700">✅ Aprobar pago</button>
+        <button class="qr-btn" onclick="registerSale()" style="color:var(--green);font-weight:700">💾 Registrar venta</button>
+        <button class="qr-btn" onclick="approvePayment()" style="color:var(--blue)">✅ Aprobar pago</button>
         <button class="qr-btn" onclick="insertQR('pago')">Confirmar pago</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
@@ -761,6 +762,24 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function registerSale() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  const packOpts = ['diamante', 'oro', 'basico'];
+  const packDefault = c?.pack_selected || 'diamante';
+  const pack = prompt(`Pack vendido (diamante / oro / basico):`, packDefault);
+  if (!pack || !packOpts.includes(pack.toLowerCase().trim())) { showToast('Pack invalido', 'error'); return; }
+  const email = prompt('Gmail del cliente:');
+  if (!email || !email.includes('@')) { showToast('Email invalido', 'error'); return; }
+  const res = await apiFetch(`/api/contacts/${currentPhone}/register-sale`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pack: pack.toLowerCase().trim(), email: email.trim().toLowerCase() })
+  });
+  if (res?.ok) showToast('Venta registrada en Sheet y CAPI!', 'success');
+  else showToast('Error al registrar venta', 'error');
 }
 
 async function approvePayment() {

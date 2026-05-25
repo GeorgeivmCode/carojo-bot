@@ -44,6 +44,7 @@ app.listen(PORT, () => {
 
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
 let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave, transcribeAudio;
+let fireCapi, logSaleToSheets, notifyJorge;
 let R1_MESSAGE, R2_MESSAGE;
 let initialized = false;
 
@@ -62,6 +63,9 @@ async function init() {
     const flows = require('./flows');
     processMessage = flows.processMessage;
     sendAndSave    = flows.sendAndSave;
+    fireCapi       = flows.fireCapi;
+    logSaleToSheets = flows.logSaleToSheets;
+    notifyJorge    = flows.notifyJorge;
     console.log('flows OK');
 
     const content = require('./content');
@@ -303,6 +307,23 @@ app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
   const updated = db.getContact(req.params.phone);
   broadcast('contact_updated', updated);
   res.json(updated);
+});
+
+app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const { email, pack } = req.body;
+  if (!email || !pack) return res.status(400).json({ error: 'email y pack requeridos' });
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now() });
+  const updated = db.getContact(phone);
+  try { await fireCapi(updated, pack); } catch (e) { console.error('CAPI error:', e.message); }
+  try { await logSaleToSheets(updated, pack, email); } catch (e) { console.error('Sheets error:', e.message); }
+  try { await notifyJorge(updated, `VENTA MANUAL registrada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${updated.name || '-'}`); } catch {}
+  broadcast('sale', { pack, name: updated.name || 'Cliente' });
+  broadcast('refresh', { phone, contact: db.getContact(phone) });
+  res.json({ ok: true });
 });
 
 app.post('/api/contacts/:phone/approve-payment', adminAuth, async (req, res) => {
