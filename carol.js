@@ -381,11 +381,13 @@ Extrae:
 5. Si la app/banco es reconocida como real colombiana
 6. Nombre exacto de la app/banco usada para pagar (ej: "Nequi", "Daviplata", "Bancolombia Bre-B", "BBVA", "NuBank", "Lulo Bank", "Davivienda", "Banco de Bogota", "Corresponsal Wompi", "Corresponsal Redeban")
 
-Destinatario valido si:
-- Numero es 3058989359 o 3217239198
-- Nombre es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches"
-- En transferencias donde NO aparece nombre/numero del destinatario → asumir valido
-- SOLO rechazar si aparece nombre/numero claramente diferente a los autorizados
+Destinatario valido — CUALQUIERA de estas condiciones es suficiente:
+- El NUMERO visible es 3058989359 o 3217239198 (el nombre no importa, el numero solo ya es suficiente)
+- El NOMBRE visible es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches" (aunque no aparezca el numero)
+- No aparece ni nombre ni numero del destinatario → asumir valido
+
+RECHAZAR destinatario SOLO si aparece un numero claramente DIFERENTE a 3058989359 y 3217239198, o un nombre claramente diferente a los autorizados.
+Numero correcto sin nombre = VALIDO. Nombre correcto sin numero = VALIDO. Ninguno de los dos = VALIDO.
 
 valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + app reconocida como real + fecha de hoy o no legible.
 
