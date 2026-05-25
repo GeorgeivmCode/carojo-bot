@@ -125,6 +125,7 @@ app.post('/webhook', verifySignature, async (req, res) => {
   const referral = msg.referral;
   console.log(`[referral] phone=${phone} referral=${JSON.stringify(referral || null)}`);
   if (referral?.ctwa_clid) {
+    db.createContact(phone);
     const c = db.getContact(phone);
     if (!c?.ctwa_clid) {
       db.updateContact(phone, {
