@@ -16,6 +16,14 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 
 const sseClients = new Set();
 
+const AD_MAP = {
+  '120224823866840501': { name: 'F1 - Messi',              campaign: 'Messi' },
+  '120236759033280501': { name: 'V2 - Messi',              campaign: 'Messi' },
+  '120245983517370501': { name: 'Tu propio dinero - LAL',  campaign: 'Carojo LAL' },
+  '120245712723010501': { name: 'Emprende desde casa - LAL', campaign: 'Carojo LAL' },
+  '120245712720490501': { name: '3200 mujeres - LAL',      campaign: 'Carojo LAL' },
+};
+
 // ── Arrange Express BEFORE loading heavy modules ───────────────────────────────
 app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
@@ -129,9 +137,10 @@ app.post('/webhook', verifySignature, async (req, res) => {
     const c = db.getContact(phone);
     if (!c?.ctwa_clid) {
       db.updateContact(phone, {
-        ctwa_clid: referral.ctwa_clid,
-        ad_id:     referral.source_id || '',
-        ad_name:   referral.headline || referral.source_id || referral.source_url || ''
+        ctwa_clid:    referral.ctwa_clid,
+        ad_id:        referral.source_id || '',
+        ad_name:      AD_MAP[referral.source_id]?.name || referral.headline || referral.source_id || '',
+        ad_image_url: referral.image_url || ''
       });
     }
   }

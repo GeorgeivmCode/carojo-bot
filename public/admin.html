@@ -274,6 +274,9 @@
     <div class="info-row"><span>Estado</span><span id="infoState">-</span></div>
     <div class="info-row"><span>Pack</span><span class="info-val" id="infoPack">-</span></div>
     <div class="info-row"><span>Ad</span><span class="info-val" id="infoAd" style="font-size:11px; max-width:120px; text-align:right; word-break:break-all;">-</span></div>
+    <div id="infoAdImageWrap" style="display:none; padding:6px 0; text-align:center;">
+      <img id="infoAdImage" src="" style="width:100%; border-radius:6px; max-height:80px; object-fit:cover;">
+    </div>
     <div class="info-row"><span>Ingreso</span><span class="info-val" id="infoCreated">-</span></div>
   </div>
 
@@ -478,7 +481,11 @@ function renderRightPanel(c) {
   document.getElementById('infoPhone').textContent = c.phone;
   document.getElementById('infoState').innerHTML = `<span class="state-badge state-${c.state || 'new'}">${stateLabel(c.state)}</span>`;
   document.getElementById('infoPack').textContent = c.pack_selected || '-';
-  document.getElementById('infoAd').textContent = c.ad_name || c.ctwa_clid || '-';
+  document.getElementById('infoAd').textContent = c.ad_name || '-';
+  const adImg = document.getElementById('infoAdImage');
+  const adImgWrap = document.getElementById('infoAdImageWrap');
+  if (c.ad_image_url) { adImg.src = c.ad_image_url; adImgWrap.style.display = 'block'; }
+  else { adImgWrap.style.display = 'none'; }
   document.getElementById('infoCreated').textContent = c.created_at ? c.created_at.substring(0, 10) : '-';
   document.getElementById('infoR1').textContent = c.r1_sent ? (c.r1_sent_at || 'Si') : 'No';
   document.getElementById('infoR2').textContent = c.r2_sent ? (c.r2_sent_at || 'Si') : 'No';

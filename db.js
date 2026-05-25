@@ -41,6 +41,7 @@ db.exec(`
 
 // Migrations — safe on existing DBs
 try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_sent INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN ad_image_url TEXT DEFAULT ''`); } catch (_) {}
 
 function now() {
   return new Date().toISOString().replace('T', ' ').substring(0, 19);
