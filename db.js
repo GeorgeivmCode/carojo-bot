@@ -44,8 +44,17 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_sent INTEGER DEFAULT 0`); } 
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ad_image_url TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN delivered_at TEXT DEFAULT ''`); } catch (_) {}
 
-// Backfill: contactos entregados antes de que existiera delivered_at
-db.exec(`UPDATE contacts SET delivered_at = last_message_at WHERE state = 'delivered' AND (delivered_at IS NULL OR delivered_at = '') AND last_message_at != ''`);
+// Backfill: usa el timestamp real del mensaje de entrega (contiene "carpeta personal")
+db.exec(`
+  UPDATE contacts SET delivered_at = (
+    SELECT m.created_at FROM messages m
+    WHERE m.phone = contacts.phone
+      AND m.direction = 'out'
+      AND m.content LIKE '%carpeta personal%'
+    ORDER BY m.created_at ASC LIMIT 1
+  )
+  WHERE state = 'delivered'
+`);
 
 function now() {
   return new Date().toISOString().replace('T', ' ').substring(0, 19);
