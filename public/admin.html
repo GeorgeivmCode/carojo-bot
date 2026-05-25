@@ -516,7 +516,7 @@ async function loadMessages(phone) {
 function appendBubble(direction, type, content, ts, scroll = true) {
   const el = document.getElementById('chatMessages');
   const dir = direction === 'out' ? 'out' : 'in';
-  const time = ts ? ts.substring(11, 16) : '';
+  const time = ts ? new Date(ts.replace(' ','T')+'Z').toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',timeZone:'America/Bogota'}) : '';
   let body = '';
 
   if (type === 'image') {
