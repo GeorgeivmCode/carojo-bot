@@ -44,6 +44,9 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_sent INTEGER DEFAULT 0`); } 
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ad_image_url TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN delivered_at TEXT DEFAULT ''`); } catch (_) {}
 
+// Backfill: contactos entregados antes de que existiera delivered_at
+db.exec(`UPDATE contacts SET delivered_at = last_message_at WHERE state = 'delivered' AND (delivered_at IS NULL OR delivered_at = '') AND last_message_at != ''`);
+
 function now() {
   return new Date().toISOString().replace('T', ' ').substring(0, 19);
 }
