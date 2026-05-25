@@ -22,6 +22,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (_req, res) => res.json({ ok: true, initialized }));
+app.get('/', (_req, res) => res.redirect('/admin.html'));
 
 // Start listening immediately so Render health check passes
 app.listen(PORT, () => {

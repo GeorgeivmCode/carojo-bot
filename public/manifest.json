@@ -2,7 +2,7 @@
   "name": "Carojo Bot Panel",
   "short_name": "CarojoBot",
   "description": "Panel de administracion del bot de WhatsApp",
-  "start_url": "/",
+  "start_url": "/admin.html",
   "display": "standalone",
   "background_color": "#111b21",
   "theme_color": "#00a884",
