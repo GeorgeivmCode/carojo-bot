@@ -147,10 +147,10 @@ async function processMessage(phone, msgType, content, wamidIn) {
 
   const text = (msgType === 'text' ? content : '').trim().toLowerCase();
 
-  // Cliente antiguo sin acceso — solo si NO está en flujo activo de compra ni ya en recuperación
-  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'recovering_access') {
+  // Cliente antiguo sin acceso — solo si NO está en flujo activo de compra
+  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state)) {
     await sendAndSave(phone, PLANTILLA_ACCESO);
-    db.updateContact(phone, { state: 'recovering_access', tag: 'Soporte' });
+    db.updateContact(phone, { bot_active: 0, state: 'stopped', tag: 'Soporte' });
     await notifyJorge(contact, `CLIENTE ANTIGUO sin acceso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nMensaje: "${content.substring(0, 100)}"`);
     return;
   }
@@ -185,10 +185,6 @@ async function processMessage(phone, msgType, content, wamidIn) {
     }
     if (contact.state === 'awaiting_email') {
       await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
-      return;
-    }
-    if (contact.state === 'recovering_access') {
-      await sendAndSave(phone, 'Para activarte el acceso necesito tu correo Gmail. Escribelo asi: tunombre@gmail.com 📩');
       return;
     }
     return;
@@ -234,9 +230,6 @@ async function processMessage(phone, msgType, content, wamidIn) {
     }
     case 'awaiting_email':
       await handleEmail(contact, text);
-      break;
-    case 'recovering_access':
-      await handleRecoveryEmail(contact, text);
       break;
     case 'delivered':
       await handlePostDelivery(contact, text);
@@ -423,34 +416,6 @@ async function handlePostDelivery(contact, text) {
   const history = db.getRecentMessages(phone, 6);
   const reply = await carol(history, text);
   await sendAndSave(phone, reply);
-}
-
-async function handleRecoveryEmail(contact, emailText) {
-  const phone = contact.phone;
-  const email = emailText.trim().toLowerCase();
-
-  if (!isValidGmail(email)) {
-    await sendAndSave(phone, INVALID_EMAIL_MSG);
-    return;
-  }
-
-  const pack = 'diamante';
-
-  try {
-    await grantDriveAccess(email, pack);
-  } catch (e) {
-    console.error('Drive recovery error:', e.message);
-    await sendAndSave(phone, 'Hubo un problema al activarte el acceso. Jorge ya fue avisado y lo resuelve en minutos!');
-    await notifyJorge(contact, `ERROR recuperacion Drive:\nEmail: ${email}\nTel: ${phone}\nError: ${e.message}`);
-    return;
-  }
-
-  await sendAndSave(phone, deliveryMessage(pack));
-  db.updateContact(phone, { state: 'delivered', bot_active: 0, tag: 'Facturado', pack_selected: pack });
-
-  await notifyJorge(contact,
-    `RECUPERACION completada (automatica):\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
-  );
 }
 
 async function sendAndSave(phone, textOrParts) {
