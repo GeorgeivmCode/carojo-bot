@@ -397,12 +397,13 @@ VALIDACION DE FECHA:
 - Solo rechazar si la fecha ES visible y claramente no es de hoy
 
 razon_rechazo:
+- "no_es_comprobante" → la imagen claramente NO es un comprobante de pago bancario: foto personal, selfie, captura de cursos o Drive, foto de productos, meme, imagen decorativa, conversacion de WhatsApp, cualquier cosa que no sea una transaccion bancaria colombiana
 - "comprobante_falso" → app no reconocida (ej. NEKI, marcas inventadas)
 - "fecha_incorrecta" → fecha del comprobante es claramente de un dia anterior
 - "monto_invalido" → monto no es 5000/10000/15000
 - "destinatario_invalido" → nombre/numero claramente no coincide
 - "transaccion_no_exitosa" → estado fallida o pendiente
-- "imagen_no_legible" → no se puede leer
+- "imagen_no_legible" → es un comprobante bancario real pero no se puede leer bien
 
 Responde SOLO en JSON (sin texto adicional):
 {

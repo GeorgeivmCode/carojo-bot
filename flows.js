@@ -375,7 +375,22 @@ async function handleComprobante(contact, mediaContent) {
 
   if (!result.valido) {
     const { razon_rechazo, monto } = result;
-    if (razon_rechazo === 'comprobante_falso') {
+    if (razon_rechazo === 'no_es_comprobante') {
+      if (contact.state === 'new') {
+        // En estado 'new' enviando imagen que no es comprobante = probable cliente antiguo
+        await sendAndSave(phone, PLANTILLA_ACCESO);
+        db.updateContact(phone, { bot_active: 0, state: 'stopped', tag: 'Soporte' });
+        await notifyJorge(contact,
+          `POSIBLE CLIENTE ANTIGUO (envio imagen que no es comprobante):\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+        );
+      } else {
+        // En flujo activo de pago = cliente confundido, pedir el comprobante correcto
+        await sendAndSave(phone,
+          'Esa imagen no parece ser un comprobante de transferencia bancaria. Necesito la captura de tu pago por Nequi, Daviplata u otra app. Si ya compraste antes y tienes problemas de acceso, escribeme "ya compre" y lo resolvemos!'
+        );
+      }
+      return;
+    } else if (razon_rechazo === 'comprobante_falso') {
       await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
     } else if (razon_rechazo === 'fecha_incorrecta') {
       await sendAndSave(phone, PAYMENT_OLD_DATE_MSG);
