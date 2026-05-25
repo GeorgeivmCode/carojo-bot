@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="CarojoBot">
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="apple-touch-icon" href="/logo.png">
 <title>Carojo Bot - Panel</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -29,7 +29,8 @@
 
   /* ── Left Nav ── */
   .sidenav { width: 60px; background: var(--panel); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; border-right: 1px solid var(--border); flex-shrink: 0; }
-  .sidenav-logo { width: 40px; height: 40px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: #fff; margin-bottom: 8px; }
+  .sidenav-logo { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; margin-bottom: 8px; flex-shrink: 0; }
+  .sidenav-logo img { width: 100%; height: 100%; object-fit: cover; }
   .nav-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--sub); transition: background .15s, color .15s; font-size: 20px; }
   .nav-icon:hover, .nav-icon.active { background: var(--hover); color: var(--text); }
   .nav-icon.active { color: var(--green); }
@@ -181,7 +182,7 @@
 
 <!-- Left Nav -->
 <nav class="sidenav">
-  <div class="sidenav-logo">C</div>
+  <div class="sidenav-logo"><img src="/logo.png" alt="Carojo"></div>
   <div class="nav-icon active" id="nav-chats" title="Chats" onclick="showTab('chats')">&#128172;</div>
   <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
   <div class="nav-icon" title="Estadisticas" id="nav-stats">&#128200;</div>
