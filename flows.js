@@ -53,9 +53,22 @@ const GIFT_URLS = {
 
 function detectGiftChoice(text) {
   const t = text.toLowerCase();
-  if (t.includes('resina') || t.includes('epoxi')) return GIFT_URLS.resina;
-  if (t.includes('globo') || t.includes('decoracion') || t.includes('decoración')) return GIFT_URLS.globoflexia;
-  if (t.includes('bordado') || t.includes('floral')) return GIFT_URLS.bordados;
+
+  // Si hay palabras de pregunta el cliente esta consultando, no eligiendo
+  const esPreg = ['como', 'cómo', 'que es', 'qué es', 'de que', 'de qué', 'cuéntame', 'cuentame',
+    'me cuentas', 'informacion', 'información', 'explica', 'trata', 'tiene', '?'].some(p => t.includes(p));
+  if (esPreg) return null;
+
+  const eResina  = t.includes('resina') || t.includes('epoxi');
+  const eGlobo   = t.includes('globo') || t.includes('decoracion') || t.includes('decoración');
+  const eBordado = t.includes('bordado') || t.includes('floral');
+
+  // Si menciona mas de uno esta preguntando por ambos, no eligiendo
+  if ([eResina, eGlobo, eBordado].filter(Boolean).length > 1) return null;
+
+  if (eResina)  return GIFT_URLS.resina;
+  if (eGlobo)   return GIFT_URLS.globoflexia;
+  if (eBordado) return GIFT_URLS.bordados;
   return null;
 }
 
@@ -417,10 +430,6 @@ async function handleEmail(contact, emailText) {
 
   await sendAndSave(phone, deliveryMessage(pack));
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now() });
-
-  if (pack === 'diamante' && contact.r1_sent && !contact.gift_sent) {
-    await sendAndSave(phone, GIFT_OFFER_MSG);
-  }
 
   await fireCapi(contact, pack);
   await logSaleToSheets(contact, pack, email);
