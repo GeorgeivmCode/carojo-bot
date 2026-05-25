@@ -300,6 +300,22 @@ OBJECIONES COMUNES:
 - "No tengo tiempo": "Los cursos son para tu propio ritmo, los ves cuando quieras, son de por vida! ♾️"
 - "Solo tengo X pesos": Ofrece el pack que más se ajuste a su presupuesto.`;
 
+async function withRetry(fn, label = 'API') {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (e.status === 429 && attempt < 4) {
+        const wait = attempt * 20000;
+        console.log(`[${label}] rate limit 429, reintento ${attempt}/3 en ${wait/1000}s`);
+        await new Promise(r => setTimeout(r, wait));
+      } else {
+        throw e;
+      }
+    }
+  }
+}
+
 async function carolRespond(history, userMessage) {
   const messages = history.map(m => ({
     role: m.direction === 'in' ? 'user' : 'assistant',
@@ -307,12 +323,12 @@ async function carolRespond(history, userMessage) {
   }));
   messages.push({ role: 'user', content: userMessage });
 
-  const res = await client.messages.create({
+  const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1000,
     system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
     messages
-  });
+  }), 'carol');
 
   return res.content[0].text.trim();
 }
@@ -327,7 +343,7 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
     timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', year: 'numeric'
   });
 
-  const res = await client.messages.create({
+  const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 400,
     messages: [{
@@ -400,7 +416,7 @@ Responde SOLO en JSON (sin texto adicional):
         }
       ]
     }]
-  });
+  }), 'verifyPayment');
 
   try {
     const text = res.content[0].text.trim();
