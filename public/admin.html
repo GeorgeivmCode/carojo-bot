@@ -262,6 +262,7 @@
         <button class="qr-btn" onclick="insertQR('diamante')">Diamante</button>
         <button class="qr-btn" onclick="insertQR('oro')">Oro</button>
         <button class="qr-btn" onclick="insertQR('basico')">Basico</button>
+        <button class="qr-btn" onclick="approvePayment()" style="color:var(--green);font-weight:700">✅ Aprobar pago</button>
         <button class="qr-btn" onclick="insertQR('pago')">Confirmar pago</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
@@ -760,6 +761,14 @@ function showToast(msg, type = 'success') {
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function approvePayment() {
+  if (!currentPhone) return;
+  if (!confirm('Aprobar pago manualmente? El bot le pedira el Gmail al cliente para completar la entrega.')) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/approve-payment`, { method: 'POST' });
+  if (res?.ok) showToast('Pago aprobado - bot pidiendo Gmail', 'success');
+  else showToast('Error al aprobar pago', 'error');
 }
 
 async function sendGalleryFromPanel(type) {

@@ -305,6 +305,19 @@ app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
   res.json(updated);
 });
 
+app.post('/api/contacts/:phone/approve-payment', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  const { PAYMENT_RECEIVED_ASK_EMAIL } = require('./content');
+  db.updateContact(phone, { state: 'awaiting_email' });
+  await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true });
+});
+
 app.post('/api/contacts/:phone/send', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const { text } = req.body;
