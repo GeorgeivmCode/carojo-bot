@@ -20,6 +20,15 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 
 const sseClients = new Set();
 
+// Cola por telefono: evita condicion de carrera cuando llegan 2 mensajes simultaneos
+const phoneQueues = new Map();
+function enqueueForPhone(phone, fn) {
+  const prev = phoneQueues.get(phone) || Promise.resolve();
+  const next = prev.then(fn).catch(err => console.error(`Queue error [${phone}]:`, err.message));
+  phoneQueues.set(phone, next);
+  next.finally(() => { if (phoneQueues.get(phone) === next) phoneQueues.delete(phone); });
+}
+
 const AD_MAP = {
   '120224823866840501': { name: 'F1 - Messi',              campaign: 'Messi' },
   '120236759033280501': { name: 'V2 - Messi',              campaign: 'Messi' },
@@ -174,6 +183,7 @@ app.post('/webhook', verifySignature, async (req, res) => {
   const wamid   = msg.id;
   const msgType = msg.type;
 
+  // Referral y nombre se guardan antes de la cola (no afectan el estado del flujo)
   const referral = msg.referral;
   if (referral?.source_id || referral?.ctwa_clid) {
     console.log(`[referral] phone=${phone} source_id=${referral.source_id} ctwa_clid=${referral.ctwa_clid || 'none'}`);
@@ -197,73 +207,76 @@ app.post('/webhook', verifySignature, async (req, res) => {
 
   markRead(wamid);
 
-  const beforeState = db.getContact(phone)?.state || null;
-  let content = '';
-  try {
-    if (msgType === 'text') {
-      content = msg.text?.body || '';
-      await processMessage(phone, 'text', content, wamid);
+  // Cola por telefono: mensajes del mismo numero se procesan uno a la vez
+  enqueueForPhone(phone, async () => {
+    const beforeState = db.getContact(phone)?.state || null;
+    let content = '';
+    try {
+      if (msgType === 'text') {
+        content = msg.text?.body || '';
+        await processMessage(phone, 'text', content, wamid);
 
-    } else if (msgType === 'image') {
-      const mediaId = msg.image?.id;
-      if (mediaId) {
-        const mediaUrl = await getMediaUrl(mediaId);
-        const { buffer, mimeType } = await downloadMedia(mediaUrl);
-        const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType });
-        content = payload;
-        await processMessage(phone, 'image', payload, wamid);
-      }
-
-    } else if (msgType === 'audio') {
-      const mediaId = msg.audio?.id;
-      if (mediaId) {
-        try {
+      } else if (msgType === 'image') {
+        const mediaId = msg.image?.id;
+        if (mediaId) {
           const mediaUrl = await getMediaUrl(mediaId);
           const { buffer, mimeType } = await downloadMedia(mediaUrl);
-          const transcription = await transcribeAudio(buffer, mimeType);
-          content = transcription;
-          console.log(`Audio transcrito [${phone}]: ${transcription.substring(0, 80)}`);
-          await processMessage(phone, 'text', transcription, wamid);
-        } catch (e) {
-          console.error('Transcripcion error:', e.message);
-          await processMessage(phone, 'text', '[audio]', wamid);
-        }
-      }
-    } else if (msgType === 'document') {
-      const doc = msg.document;
-      const mime = doc?.mime_type || '';
-      const mediaId = doc?.id;
-      if (mediaId && (mime === 'application/pdf' || mime.startsWith('image/'))) {
-        try {
-          const mediaUrl = await getMediaUrl(mediaId);
-          const { buffer, mimeType: resolvedMime } = await downloadMedia(mediaUrl);
-          const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: resolvedMime || mime });
+          const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType });
           content = payload;
           await processMessage(phone, 'image', payload, wamid);
-        } catch (e) {
-          console.error('Document download error:', e.message);
+        }
+
+      } else if (msgType === 'audio') {
+        const mediaId = msg.audio?.id;
+        if (mediaId) {
+          try {
+            const mediaUrl = await getMediaUrl(mediaId);
+            const { buffer, mimeType } = await downloadMedia(mediaUrl);
+            const transcription = await transcribeAudio(buffer, mimeType);
+            content = transcription;
+            console.log(`Audio transcrito [${phone}]: ${transcription.substring(0, 80)}`);
+            await processMessage(phone, 'text', transcription, wamid);
+          } catch (e) {
+            console.error('Transcripcion error:', e.message);
+            await processMessage(phone, 'text', '[audio]', wamid);
+          }
+        }
+      } else if (msgType === 'document') {
+        const doc = msg.document;
+        const mime = doc?.mime_type || '';
+        const mediaId = doc?.id;
+        if (mediaId && (mime === 'application/pdf' || mime.startsWith('image/'))) {
+          try {
+            const mediaUrl = await getMediaUrl(mediaId);
+            const { buffer, mimeType: resolvedMime } = await downloadMedia(mediaUrl);
+            const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: resolvedMime || mime });
+            content = payload;
+            await processMessage(phone, 'image', payload, wamid);
+          } catch (e) {
+            console.error('Document download error:', e.message);
+            await processMessage(phone, 'document', '[documento]', wamid);
+          }
+        } else {
+          content = '[documento]';
           await processMessage(phone, 'document', '[documento]', wamid);
         }
-      } else {
-        content = '[documento]';
-        await processMessage(phone, 'document', '[documento]', wamid);
+      } else if (msgType === 'video') {
+        content = '[video]';
+        await processMessage(phone, 'video', '[video]', wamid);
       }
-    } else if (msgType === 'video') {
-      content = '[video]';
-      await processMessage(phone, 'video', '[video]', wamid);
+    } catch (err) {
+      console.error('Webhook handler error:', err.message);
     }
-  } catch (err) {
-    console.error('Webhook handler error:', err.message);
-  }
 
-  const updated = db.getContact(phone);
-  if (updated?.state === 'delivered' && beforeState !== 'delivered') {
-    const saleData = { pack: updated.pack_selected || 'pack', name: updated.name || 'Cliente' };
-    broadcast('sale', saleData);
-    sendPushToAll(saleData).catch(() => {});
-    console.log(`VENTA detectada: ${updated.name} - ${updated.pack_selected}`);
-  }
-  broadcast('refresh', { phone, contact: updated });
+    const updated = db.getContact(phone);
+    if (updated?.state === 'delivered' && beforeState !== 'delivered') {
+      const saleData = { pack: updated.pack_selected || 'pack', name: updated.name || 'Cliente' };
+      broadcast('sale', saleData);
+      sendPushToAll(saleData).catch(() => {});
+      console.log(`VENTA detectada: ${updated.name} - ${updated.pack_selected}`);
+    }
+    broadcast('refresh', { phone, contact: updated });
+  });
 });
 
 // ── Admin SSE ──────────────────────────────────────────────────────────────────
