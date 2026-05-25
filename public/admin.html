@@ -144,6 +144,15 @@
   .toast.success { border-color: var(--green); color: var(--green); }
   .toast.error { border-color: var(--red); color: var(--red); }
 
+  #loginOverlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+  #loginOverlay.hidden { display: none; }
+  .login-box { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px; width: 280px; display: flex; flex-direction: column; gap: 16px; }
+  .login-box h2 { font-size: 18px; font-weight: 600; text-align: center; color: var(--green); }
+  .login-box p { font-size: 13px; color: var(--sub); text-align: center; }
+  .login-box input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 15px; outline: none; }
+  .login-box input:focus { border-color: var(--green); }
+  .login-box button { background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 15px; font-weight: 600; cursor: pointer; }
+
   @media (max-width: 1100px) { .right-panel { display: none; } }
   @media (max-width: 760px) { .contact-list { width: 260px; } }
   @media (max-width: 600px) {
@@ -159,6 +168,16 @@
 </style>
 </head>
 <body>
+
+<!-- Login Overlay -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <h2>Carojo Bot</h2>
+    <p>Panel de administracion</p>
+    <input type="password" id="loginPass" placeholder="Contrasena" autocomplete="current-password">
+    <button onclick="doLogin()">Entrar</button>
+  </div>
+</div>
 
 <!-- Left Nav -->
 <nav class="sidenav">
@@ -290,26 +309,42 @@ const QUICK_REPLIES = {
   pago: `Listo! Tu pago fue confirmado. Necesito tu correo de Gmail para enviarte el acceso.`
 };
 
-// ── Auth header ────────────────────────────────────────────────────────────────
+// ── Auth ───────────────────────────────────────────────────────────────────────
 function getAuth() {
-  const pass = sessionStorage.getItem('adminPass');
-  if (!pass) {
-    const p = prompt('Contrasena del panel:');
-    if (!p) return null;
-    sessionStorage.setItem('adminPass', p);
-    return 'Basic ' + btoa('CarojoAdmin:' + p);
-  }
+  const pass = localStorage.getItem('adminPass');
+  if (!pass) return null;
   return 'Basic ' + btoa('CarojoAdmin:' + pass);
 }
 
+function showLogin() {
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('loginPass').focus(), 50);
+}
+
+function hideLogin() {
+  document.getElementById('loginOverlay').classList.add('hidden');
+}
+
+function doLogin() {
+  const pass = document.getElementById('loginPass').value.trim();
+  if (!pass) return;
+  localStorage.setItem('adminPass', pass);
+  hideLogin();
+  initApp();
+}
+
+document.getElementById('loginPass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
 async function apiFetch(url, opts = {}) {
   const auth = getAuth();
-  if (!auth) return null;
+  if (!auth) { showLogin(); return null; }
   opts.headers = { ...(opts.headers || {}), Authorization: auth };
   const res = await fetch(url, opts);
   if (res.status === 401) {
-    sessionStorage.removeItem('adminPass');
-    showToast('Contrasena incorrecta', 'error');
+    localStorage.removeItem('adminPass');
+    showLogin();
     return null;
   }
   return res;
@@ -317,7 +352,7 @@ async function apiFetch(url, opts = {}) {
 
 // ── SSE ────────────────────────────────────────────────────────────────────────
 function startSSE() {
-  const pass = sessionStorage.getItem('adminPass');
+  const pass = localStorage.getItem('adminPass');
   if (!pass) return;
   const token = encodeURIComponent(btoa('CarojoAdmin:' + pass));
   const evtSource = new EventSource(`/admin/events?token=${token}`);
@@ -608,6 +643,7 @@ function stateLabel(state) {
     'offered_basico':       'Oferta Basico',
     'awaiting_comprobante': 'Esperando pago',
     'awaiting_email':       'Esperando Gmail',
+    'recovering_access':    'Soporte - Sin acceso',
     'delivered':            'Entregado',
     'stopped':              'Pausado'
   };
@@ -675,9 +711,16 @@ async function sendGalleryFromPanel(type) {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
-loadContacts('all');
-startSSE();
-setInterval(() => loadContacts(), 30000);
+function initApp() {
+  loadContacts('all');
+  startSSE();
+  setInterval(() => loadContacts(), 30000);
+}
+
+if (localStorage.getItem('adminPass')) {
+  hideLogin();
+  initApp();
+}
 </script>
 </body>
 </html>
