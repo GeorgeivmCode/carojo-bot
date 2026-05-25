@@ -386,6 +386,10 @@ async function handleEmail(contact, emailText) {
   await sendAndSave(phone, deliveryMessage(pack));
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado' });
 
+  if (pack === 'diamante' && contact.r1_sent && !contact.gift_sent) {
+    await sendAndSave(phone, GIFT_OFFER_MSG);
+  }
+
   await fireCapi(contact, pack);
   await logSaleToSheets(contact, pack, email);
   await notifyJorge(contact,
