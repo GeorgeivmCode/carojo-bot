@@ -116,9 +116,10 @@ async function fireCapi(contact, pack) {
     const event = {
       event_name:    'Purchase',
       event_time:    Math.floor(Date.now() / 1000),
-      action_source: 'business_messaging',
-      event_id:      `purchase_${contact.phone}_${Date.now()}`,
-      user_data:     { ph: [ph] },
+      action_source:     'business_messaging',
+      messaging_channel: 'whatsapp',
+      event_id:          `purchase_${contact.phone}_${Date.now()}`,
+      user_data:         { ph: [ph] },
       custom_data:   {
         currency: 'COP',
         value:    PACK_PRICES[pack] || 0,
