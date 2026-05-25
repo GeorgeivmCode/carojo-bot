@@ -3,13 +3,17 @@ self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data.json(); } catch {}
 
+  const isTest = data.test === true;
   const pack = (data.pack || 'pack');
   const packLabel = pack.charAt(0).toUpperCase() + pack.slice(1);
   const name = data.name || 'Cliente';
 
+  const title = isTest ? 'Prueba de notificacion' : 'Venta confirmada!';
+  const body  = isTest ? 'Las notificaciones funcionan correctamente.' : `${name} compro el pack ${packLabel}`;
+
   event.waitUntil(
-    self.registration.showNotification('Venta confirmada!', {
-      body: `${name} compro el pack ${packLabel}`,
+    self.registration.showNotification(title, {
+      body,
       icon: '/icon.svg',
       badge: '/icon.svg',
       tag: 'carojo-sale',

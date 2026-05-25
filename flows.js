@@ -430,7 +430,7 @@ async function handleEmail(contact, emailText) {
   }
 
   await sendAndSave(phone, deliveryMessage(pack));
-  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now() });
+  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email });
 
   await fireCapi(contact, pack);
   await logSaleToSheets(contact, pack, email);

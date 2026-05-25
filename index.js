@@ -316,7 +316,7 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   if (!email || !pack) return res.status(400).json({ error: 'email y pack requeridos' });
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
-  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now() });
+  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now(), email });
   const updated = db.getContact(phone);
   try { await fireCapi(updated, pack); } catch (e) { console.error('CAPI error:', e.message); }
   try { await logSaleToSheets(updated, pack, email); } catch (e) { console.error('Sheets error:', e.message); }
@@ -334,6 +334,43 @@ app.post('/api/contacts/:phone/approve-payment', adminAuth, async (req, res) => 
   const { PAYMENT_RECEIVED_ASK_EMAIL } = require('./content');
   db.updateContact(phone, { state: 'awaiting_email' });
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true });
+});
+
+app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const { newEmail } = req.body;
+  if (!newEmail) return res.status(400).json({ error: 'newEmail requerido' });
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  if (c.state !== 'delivered') return res.status(400).json({ error: 'El contacto no tiene entrega activa' });
+
+  const pack = c.pack_selected || 'basico';
+  const oldEmail = c.email || '';
+  const { grantDriveAccess, revokeAccess, getFolderUrl } = require('./drive');
+
+  try {
+    await grantDriveAccess(newEmail, pack);
+  } catch (e) {
+    return res.status(500).json({ error: 'Error al dar acceso: ' + e.message });
+  }
+
+  if (oldEmail && oldEmail !== newEmail) {
+    try { await revokeAccess(oldEmail, pack); } catch (e) { console.error('Revoke error:', e.message); }
+  }
+
+  db.updateContact(phone, { email: newEmail });
+  const folderUrl = getFolderUrl(pack);
+  await sendAndSave(phone,
+    `Tu acceso fue actualizado!\n\nEnlace al pack ${pack}:\n${folderUrl}\n\nAbrelo con el correo ${newEmail}. Cualquier problema me avisas!`
+  );
+  await notifyJorge(c,
+    `CAMBIO DE CORREO:\nTel: ${phone}\nNombre: ${c.name || '-'}\nPack: ${pack}\nAnterior: ${oldEmail || 'sin correo'}\nNuevo: ${newEmail}`
+  );
+
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   res.json({ ok: true });
@@ -392,6 +429,14 @@ app.post('/api/push-subscribe', adminAuth, (req, res) => {
   db.setSetting('push_subscriptions', JSON.stringify(pushSubscriptions));
   console.log(`Push suscripcion guardada. Total: ${pushSubscriptions.length}`);
   res.json({ ok: true });
+});
+
+app.post('/api/push-test', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const count = pushSubscriptions.length;
+  if (!count) return res.status(400).json({ error: 'No hay suscripciones activas. Toca la campana en el panel.' });
+  await sendPushToAll({ name: 'Prueba', pack: 'diamante', test: true });
+  res.json({ ok: true, sent_to: count });
 });
 
 // ── Test endpoint (temporal) ───────────────────────────────────────────────────

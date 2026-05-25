@@ -208,7 +208,7 @@
   <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
   <div class="nav-icon" title="Estadisticas" id="nav-stats">&#128200;</div>
   <div class="nav-spacer"></div>
-  <div class="nav-icon" id="nav-push" title="Activar notificaciones push" onclick="enablePushNotifications()">&#128276;</div>
+  <div class="nav-icon" id="nav-push" title="Notificaciones push" onclick="handlePushClick()">&#128276;</div>
   <div class="nav-icon" title="Ajustes">&#9881;&#65039;</div>
 </nav>
 
@@ -264,6 +264,7 @@
         <button class="qr-btn" onclick="insertQR('basico')">Basico</button>
         <button class="qr-btn" onclick="registerSale()" style="color:var(--green);font-weight:700">💾 Registrar venta</button>
         <button class="qr-btn" onclick="approvePayment()" style="color:var(--blue)">✅ Aprobar pago</button>
+        <button class="qr-btn" onclick="changeEmail()" style="color:var(--yellow)">📧 Cambiar Gmail</button>
         <button class="qr-btn" onclick="insertQR('pago')">Confirmar pago</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
@@ -320,6 +321,7 @@
     <div id="infoAdImageWrap" style="display:none; padding:6px 0; text-align:center;">
       <img id="infoAdImage" src="" style="width:100%; border-radius:6px; max-height:80px; object-fit:cover;">
     </div>
+    <div class="info-row"><span>Gmail</span><span class="info-val" id="infoEmail" style="font-size:11px;max-width:140px;text-align:right;word-break:break-all;">-</span></div>
     <div class="info-row"><span>Ingreso</span><span class="info-val" id="infoCreated">-</span></div>
   </div>
 
@@ -535,6 +537,7 @@ function renderRightPanel(c) {
   const adImgWrap = document.getElementById('infoAdImageWrap');
   if (c.ad_image_url) { adImg.src = c.ad_image_url; adImgWrap.style.display = 'block'; }
   else { adImgWrap.style.display = 'none'; }
+  document.getElementById('infoEmail').textContent = c.email || '-';
   document.getElementById('infoCreated').textContent = c.created_at ? c.created_at.substring(0, 10) : '-';
   document.getElementById('infoR1').textContent = c.r1_sent ? (c.r1_sent_at || 'Si') : 'No';
   document.getElementById('infoR2').textContent = c.r2_sent ? (c.r2_sent_at || 'Si') : 'No';
@@ -790,6 +793,31 @@ async function approvePayment() {
   else showToast('Error al aprobar pago', 'error');
 }
 
+async function changeEmail() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  if (!c || c.state !== 'delivered') {
+    showToast('Solo clientes con entrega activa', 'error');
+    return;
+  }
+  const current = c.email ? `\nActual: ${c.email}` : '';
+  const newEmail = prompt(`Nuevo Gmail para ${c.name || c.phone}:${current}`);
+  if (!newEmail) return;
+  if (!newEmail.toLowerCase().includes('@gmail.com')) {
+    showToast('Solo se acepta Gmail (@gmail.com)', 'error');
+    return;
+  }
+  const res = await apiFetch(`/api/contacts/${currentPhone}/change-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newEmail: newEmail.trim().toLowerCase() })
+  });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) showToast('Correo cambiado y acceso actualizado!', 'success');
+  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
 async function sendGalleryFromPanel(type) {
   if (!currentPhone) return;
   const res = await apiFetch(`/api/contacts/${currentPhone}/gallery`, {
@@ -802,9 +830,23 @@ async function sendGalleryFromPanel(type) {
 }
 
 // ── Sonido de caja registradora ────────────────────────────────────────────────
+let _audioCtx = null;
+
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
+// Desbloquear audio en primer gesto del usuario (necesario en iOS/Android)
+document.addEventListener('click', function unlockAudio() {
+  try { getAudioCtx(); } catch {}
+  document.removeEventListener('click', unlockAudio);
+}, { once: true });
+
 function playCashRegister() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudioCtx();
     const notes = [
       { freq: 220, t: 0,    dur: 0.07, gain: 0.6, type: 'square' },
       { freq: 1100, t: 0.05, dur: 0.18, gain: 0.5, type: 'sine'   },
@@ -824,7 +866,6 @@ function playCashRegister() {
       osc.start(ctx.currentTime + t);
       osc.stop(ctx.currentTime + t + dur + 0.02);
     });
-    setTimeout(() => ctx.close(), 1200);
   } catch {}
 }
 
@@ -903,9 +944,28 @@ async function savePushSub(sub) {
   });
 }
 
+let _pushActive = false;
+
 function setPushIcon(active) {
+  _pushActive = active;
   const el = document.getElementById('nav-push');
-  if (el) el.style.color = active ? 'var(--green)' : '';
+  if (el) {
+    el.style.color = active ? 'var(--green)' : '';
+    el.title = active ? 'Notificaciones activas - toca para probar' : 'Activar notificaciones push';
+  }
+}
+
+async function handlePushClick() {
+  if (_pushActive) {
+    // Ya activas: enviar notificacion de prueba
+    const res = await apiFetch('/api/push-test', { method: 'POST' });
+    if (!res) return;
+    const data = await res.json();
+    if (data.ok) showToast(`Prueba enviada a ${data.sent_to} dispositivo(s)`, 'success');
+    else showToast(data.error || 'Error', 'error');
+  } else {
+    await enablePushNotifications();
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
