@@ -44,6 +44,9 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_sent INTEGER DEFAULT 0`); } 
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ad_image_url TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN delivered_at TEXT DEFAULT ''`); } catch (_) {}
 
+// Settings table for VAPID keys and push subscriptions
+db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
+
 // Backfill: usa el timestamp real del mensaje de entrega (contiene "carpeta personal")
 db.exec(`
   UPDATE contacts SET delivered_at = (
@@ -167,10 +170,20 @@ function getStats() {
   };
 }
 
+// Settings
+function getSetting(key) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row ? row.value : null;
+}
+
+function setSetting(key, value) {
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(value));
+}
+
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts,
   saveMessage, getMessages, getRecentMessages,
   getContactsForR1, getContactsForR2,
-  getStats, now
+  getStats, getSetting, setSetting, now
 };

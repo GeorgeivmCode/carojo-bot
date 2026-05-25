@@ -3,9 +3,13 @@ require('dotenv').config();
 process.on('uncaughtException', err => console.error('Uncaught:', err));
 process.on('unhandledRejection', err => console.error('Unhandled:', err));
 
-const express = require('express');
-const crypto  = require('crypto');
-const path    = require('path');
+const express  = require('express');
+const crypto   = require('crypto');
+const path     = require('path');
+const webpush  = require('web-push');
+
+let vapidPublicKey = '';
+let pushSubscriptions = [];
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -68,12 +72,48 @@ async function init() {
     transcribeAudio = require('./transcribe').transcribeAudio;
     console.log('transcribe OK');
 
+    initVapid();
     initialized = true;
     console.log('All modules loaded — bot is ready');
 
     startScheduler();
   } catch (err) {
     console.error('INIT ERROR:', err);
+  }
+}
+
+// ── VAPID / Push ───────────────────────────────────────────────────────────────
+function initVapid() {
+  let pub  = db.getSetting('vapid_public');
+  let priv = db.getSetting('vapid_private');
+  if (!pub || !priv) {
+    const keys = webpush.generateVAPIDKeys();
+    pub  = keys.publicKey;
+    priv = keys.privateKey;
+    db.setSetting('vapid_public', pub);
+    db.setSetting('vapid_private', priv);
+    console.log('VAPID keys generadas y guardadas');
+  }
+  vapidPublicKey = pub;
+  webpush.setVapidDetails('mailto:george.camaras@gmail.com', pub, priv);
+  const stored = db.getSetting('push_subscriptions');
+  if (stored) try { pushSubscriptions = JSON.parse(stored); } catch {}
+  console.log(`Push suscripciones cargadas: ${pushSubscriptions.length}`);
+}
+
+async function sendPushToAll(payload) {
+  const dead = [];
+  for (const sub of pushSubscriptions) {
+    try {
+      await webpush.sendNotification(sub, JSON.stringify(payload));
+    } catch (e) {
+      if (e.statusCode === 410 || e.statusCode === 404) dead.push(sub.endpoint);
+      else console.error('Push error:', e.statusCode, e.body?.substring?.(0, 100));
+    }
+  }
+  if (dead.length) {
+    pushSubscriptions = pushSubscriptions.filter(s => !dead.includes(s.endpoint));
+    db.setSetting('push_subscriptions', JSON.stringify(pushSubscriptions));
   }
 }
 
@@ -153,6 +193,7 @@ app.post('/webhook', verifySignature, async (req, res) => {
 
   markRead(wamid);
 
+  const beforeState = db.getContact(phone)?.state || null;
   let content = '';
   try {
     if (msgType === 'text') {
@@ -212,6 +253,12 @@ app.post('/webhook', verifySignature, async (req, res) => {
   }
 
   const updated = db.getContact(phone);
+  if (updated?.state === 'delivered' && beforeState !== 'delivered') {
+    const saleData = { pack: updated.pack_selected || 'pack', name: updated.name || 'Cliente' };
+    broadcast('sale', saleData);
+    sendPushToAll(saleData).catch(() => {});
+    console.log(`VENTA detectada: ${updated.name} - ${updated.pack_selected}`);
+  }
   broadcast('refresh', { phone, contact: updated });
 });
 
@@ -296,6 +343,21 @@ app.post('/api/contacts/:phone/gallery', adminAuth, async (req, res) => {
 app.get('/api/stats', adminAuth, (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   res.json(db.getStats());
+});
+
+app.get('/api/vapid-key', (_req, res) => {
+  res.json({ key: vapidPublicKey });
+});
+
+app.post('/api/push-subscribe', adminAuth, (req, res) => {
+  const sub = req.body;
+  if (!sub?.endpoint) return res.status(400).json({ error: 'invalid subscription' });
+  const idx = pushSubscriptions.findIndex(s => s.endpoint === sub.endpoint);
+  if (idx >= 0) pushSubscriptions[idx] = sub;
+  else pushSubscriptions.push(sub);
+  db.setSetting('push_subscriptions', JSON.stringify(pushSubscriptions));
+  console.log(`Push suscripcion guardada. Total: ${pushSubscriptions.length}`);
+  res.json({ ok: true });
 });
 
 // ── Test endpoint (temporal) ───────────────────────────────────────────────────

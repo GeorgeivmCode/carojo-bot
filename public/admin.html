@@ -150,6 +150,22 @@
   .toast.success { border-color: var(--green); color: var(--green); }
   .toast.error { border-color: var(--red); color: var(--red); }
 
+  .sale-toast {
+    position: fixed; bottom: 24px; left: 50%; z-index: 9998;
+    transform: translateX(-50%) translateY(140px);
+    background: linear-gradient(135deg, #0d2e1e, #0a2010);
+    border: 1.5px solid var(--green); border-radius: 18px;
+    padding: 16px 24px; display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 8px 40px rgba(0,168,132,.45);
+    transition: transform .55s cubic-bezier(.34,1.56,.64,1);
+    min-width: 260px; max-width: 90vw;
+  }
+  .sale-toast.show { transform: translateX(-50%) translateY(0); }
+  .sale-toast-icon { font-size: 34px; animation: saleIconBounce .6s ease; }
+  .sale-toast-text strong { display: block; color: var(--green); font-size: 15px; font-weight: 700; }
+  .sale-toast-text span { color: var(--text); font-size: 13px; }
+  @keyframes saleIconBounce { 0%,100%{transform:scale(1)} 40%{transform:scale(1.4)} 70%{transform:scale(.9)} }
+
   #loginOverlay { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 10000; }
   #loginOverlay.hidden { display: none; }
   .login-box { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 32px 28px; width: 280px; display: flex; flex-direction: column; gap: 16px; }
@@ -192,6 +208,7 @@
   <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
   <div class="nav-icon" title="Estadisticas" id="nav-stats">&#128200;</div>
   <div class="nav-spacer"></div>
+  <div class="nav-icon" id="nav-push" title="Activar notificaciones push" onclick="enablePushNotifications()">&#128276;</div>
   <div class="nav-icon" title="Ajustes">&#9881;&#65039;</div>
 </nav>
 
@@ -385,6 +402,12 @@ function startSSE() {
   const token = encodeURIComponent(btoa('CarojoAdmin:' + pass));
   const evtSource = new EventSource(`/admin/events?token=${token}`);
 
+  evtSource.addEventListener('sale', e => {
+    const d = JSON.parse(e.data);
+    playCashRegister();
+    showSaleToast(d.name, d.pack);
+    loadStats();
+  });
   evtSource.addEventListener('contact_updated', e => {
     const c = JSON.parse(e.data);
     updateContactInList(c);
@@ -750,11 +773,123 @@ async function sendGalleryFromPanel(type) {
   else showToast('Error al enviar', 'error');
 }
 
+// ── Sonido de caja registradora ────────────────────────────────────────────────
+function playCashRegister() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [
+      { freq: 220, t: 0,    dur: 0.07, gain: 0.6, type: 'square' },
+      { freq: 1100, t: 0.05, dur: 0.18, gain: 0.5, type: 'sine'   },
+      { freq: 1400, t: 0.14, dur: 0.35, gain: 0.4, type: 'sine'   },
+      { freq: 900,  t: 0.12, dur: 0.25, gain: 0.3, type: 'sine'   },
+      { freq: 1800, t: 0.30, dur: 0.20, gain: 0.25, type: 'sine'  },
+    ];
+    notes.forEach(({ freq, t, dur, gain, type }) => {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, ctx.currentTime + t);
+      g.gain.linearRampToValueAtTime(gain, ctx.currentTime + t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + dur + 0.02);
+    });
+    setTimeout(() => ctx.close(), 1200);
+  } catch {}
+}
+
+// ── Toast de venta ─────────────────────────────────────────────────────────────
+function showSaleToast(name, pack) {
+  const packLabel = (pack || 'pack').charAt(0).toUpperCase() + (pack || 'pack').slice(1);
+  document.querySelectorAll('.sale-toast').forEach(el => el.remove());
+  const t = document.createElement('div');
+  t.className = 'sale-toast';
+  t.innerHTML = `<div class="sale-toast-icon">&#128176;</div>
+    <div class="sale-toast-text">
+      <strong>Venta confirmada!</strong>
+      <span>${escHtml(name || 'Cliente')} - Pack ${escHtml(packLabel)}</span>
+    </div>`;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 600);
+  }, 5500);
+}
+
+// ── Push notifications ─────────────────────────────────────────────────────────
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function initPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    const { key } = await fetch('/api/vapid-key').then(r => r.json());
+    if (!key) return;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await savePushSub(sub);
+      setPushIcon(true);
+    }
+  } catch (e) { console.warn('Push init:', e.message); }
+}
+
+async function enablePushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showToast('Este dispositivo no soporta push notifications', 'error');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const { key } = await fetch('/api/vapid-key').then(r => r.json());
+    if (!key) { showToast('Error: servidor sin VAPID key', 'error'); return; }
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { showToast('Permiso denegado', 'error'); return; }
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+    }
+    await savePushSub(sub);
+    setPushIcon(true);
+    showToast('Notificaciones activadas!', 'success');
+  } catch (e) {
+    console.error('Push enable:', e);
+    showToast('Error activando notificaciones', 'error');
+  }
+}
+
+async function savePushSub(sub) {
+  const auth = getAuth();
+  if (!auth) return;
+  await fetch('/api/push-subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    body: JSON.stringify(sub.toJSON())
+  });
+}
+
+function setPushIcon(active) {
+  const el = document.getElementById('nav-push');
+  if (el) el.style.color = active ? 'var(--green)' : '';
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────────
 function initApp() {
   loadContacts('all');
   startSSE();
   setInterval(() => loadContacts(), 30000);
+  initPush();
+  if (new URLSearchParams(location.search).has('sale')) {
+    history.replaceState(null, '', '/admin.html');
+    setTimeout(() => playCashRegister(), 400);
+  }
 }
 
 if (localStorage.getItem('adminPass')) {
