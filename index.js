@@ -319,11 +319,30 @@ function colombiaHour() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' })).getHours();
 }
 
+function colombiaDateStr() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+}
+
+let lastKeepaliveDate = '';
+
 function startScheduler() {
   setInterval(async () => {
     if (!initialized) return;
     const h = colombiaHour();
     if (h >= 23 || h < 7) return;
+
+    // Keepalive diario a Jorge a las 8am para mantener ventana 24h abierta
+    const today = colombiaDateStr();
+    if (h === 8 && lastKeepaliveDate !== today && process.env.JORGE_PHONE) {
+      lastKeepaliveDate = today;
+      try {
+        const stats = db.getStats();
+        await sendText(process.env.JORGE_PHONE,
+          `Resumen ${today}:\nTotal contactos: ${stats.total}\nVentas: ${stats.delivered}\nEsperando pago: ${stats.awaiting}\nNuevos hoy: ${stats.today}`
+        );
+        console.log('Keepalive Jorge enviado');
+      } catch (e) { console.error('Keepalive Jorge error:', e.message); }
+    }
 
     for (const c of db.getContactsForR1()) {
       try {

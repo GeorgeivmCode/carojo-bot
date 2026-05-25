@@ -248,7 +248,11 @@ Escribeme el que mas te guste y te mando el acceso de inmediato. 💌`;
 
 const COMPROBANTE_FALSO_MSG = `Ese comprobante no lo puedo verificar. La app que aparece ahi no es reconocida como metodo de pago valido.
 
-Por favor enviam el comprobante desde tu app real: Nequi, Daviplata, Bancolombia, Davivienda, BBVA u otro banco colombiano. 📸`;
+Por favor enviame el comprobante desde tu app real: Nequi, Daviplata, Bancolombia, Davivienda, BBVA u otro banco colombiano. 📸`;
+
+const PAYMENT_OLD_DATE_MSG = `Ese comprobante parece ser de un dia anterior y no podemos procesarlo.
+
+Para confirmar tu pago necesito el comprobante de hoy. Abre tu app, busca el pago que hiciste hoy y enviame la captura. 📸`;
 
 const PAYMENT_REJECTED_MSG = (razon) =>
   `Hmm, no pude verificar tu pago. ${razon || 'Asegurate de enviar el monto exacto al numero correcto.'}
@@ -309,7 +313,12 @@ const OLD_CLIENT_TRIGGERS = [
   'no tengo acceso', 'no puedo entrar', 'perdi el acceso', 'no me llega',
   'no encuentro el link', 'no encuentro el enlace', 'ya compre', 'ya pague',
   'compre antes', 'pague antes', 'me caduco', 'se me caduco', 'no abre',
-  'no funciona el link', 'no funciona el enlace'
+  'no funciona el link', 'no funciona el enlace',
+  'ya no me sale', 'no me aparecen', 'no puedo acceder', 'no me sale el',
+  'no me deja entrar', 'perdi el link', 'perdi el enlace',
+  'no me carga', 'no carga el', 'soy cliente', 'ya soy alumna',
+  'compre hace', 'ya habia comprado', 'ya habia pagado',
+  'ya pagué', 'ya compré', 'tuve un problema con el acceso', 'perdi acceso'
 ];
 
 function deliveryMessage(pack) {
@@ -327,7 +336,7 @@ module.exports = {
   R1_MESSAGE, R2_MESSAGE,
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
-  SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
+  SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   deliveryMessage

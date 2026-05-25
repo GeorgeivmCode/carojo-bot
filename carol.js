@@ -10,6 +10,11 @@ Tu Misión: No es solo "vender", es ayudar al cliente a iniciar su negocio creat
 
 Tu Tono: Usas emojis con moderación ✨, hablas corto y al grano, pero siempre con esa calidez de quien habla con una amiga. Tuteas siempre. No uses signos de apertura (¿ ¡). NUNCA uses vocativos afectivos como "mi amor", "cariño", "corazón", "linda", "bonita", "querida" ni similares. Puedes decir "amiga" o "hermosa" si el contexto lo pide, pero con moderación.
 
+ESPAÑOL COLOMBIANO — OBLIGATORIO:
+Tu español es colombiano neutral, amable y calido — el mismo estilo que has venido manejando.
+PROHIBIDO: jerga mexicana como "chido", "guey", "orale", "chafa", "mande", "a toda madre", "chavo", "wey", "que padre!" (en sentido coloquial mexicano).
+"ahorita" en Colombia significa "en este momento" (no "luego" ni "despues").
+
 ═══════════════════════════════════════════
 REGLA OBLIGATORIA N°1 — FORMATO WHATSAPP
 ═══════════════════════════════════════════
@@ -318,6 +323,10 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
     ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: imageBuffer.toString('base64') } }
     : { type: 'image',    source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBuffer.toString('base64') } };
 
+  const today = new Date().toLocaleDateString('es-CO', {
+    timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', year: 'numeric'
+  });
+
   const res = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 400,
@@ -327,7 +336,7 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
         mediaBlock,
         {
           type: 'text',
-          text: `Analiza este comprobante de pago colombiano.
+          text: `Analiza este comprobante de pago colombiano. Hoy es ${today} (zona horaria Colombia).
 
 APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
 1. Nequi: app morada/rosada, muestra "Detalle del movimiento", "Envio Realizado", QR code, campo "Para:", "Numero Nequi", "De donde salio la plata?: Disponible".
@@ -362,10 +371,16 @@ Destinatario valido si:
 - En transferencias donde NO aparece nombre/numero del destinatario → asumir valido
 - SOLO rechazar si aparece nombre/numero claramente diferente a los autorizados
 
-valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + app reconocida como real.
+valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + app reconocida como real + fecha de hoy o no legible.
+
+VALIDACION DE FECHA:
+- Si la fecha del comprobante es claramente de un dia anterior a hoy (${today}): valido = false, razon_rechazo = "fecha_incorrecta"
+- Si la fecha no es legible o no aparece: NO rechaces por fecha (asumir valida)
+- Solo rechazar si la fecha ES visible y claramente no es de hoy
 
 razon_rechazo:
 - "comprobante_falso" → app no reconocida (ej. NEKI, marcas inventadas)
+- "fecha_incorrecta" → fecha del comprobante es claramente de un dia anterior
 - "monto_invalido" → monto no es 5000/10000/15000
 - "destinatario_invalido" → nombre/numero claramente no coincide
 - "transaccion_no_exitosa" → estado fallida o pendiente

@@ -42,6 +42,7 @@ db.exec(`
 // Migrations — safe on existing DBs
 try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_sent INTEGER DEFAULT 0`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ad_image_url TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN delivered_at TEXT DEFAULT ''`); } catch (_) {}
 
 function now() {
   return new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -143,12 +144,14 @@ function getContactsForR2() {
 
 // Stats
 function getStats() {
+  // Colombia = UTC-5 (sin horario de verano)
   return {
-    total: db.prepare('SELECT COUNT(*) as n FROM contacts').get().n,
-    delivered: db.prepare("SELECT COUNT(*) as n FROM contacts WHERE state = 'delivered'").get().n,
-    awaiting: db.prepare("SELECT COUNT(*) as n FROM contacts WHERE state = 'awaiting_comprobante'").get().n,
-    active: db.prepare("SELECT COUNT(*) as n FROM contacts WHERE bot_active = 1 AND state NOT IN ('delivered','stopped')").get().n,
-    today: db.prepare("SELECT COUNT(*) as n FROM contacts WHERE date(created_at) = date('now')").get().n
+    total:               db.prepare('SELECT COUNT(*) as n FROM contacts').get().n,
+    delivered:           db.prepare("SELECT COUNT(*) as n FROM contacts WHERE state = 'delivered'").get().n,
+    awaiting:            db.prepare("SELECT COUNT(*) as n FROM contacts WHERE state = 'awaiting_comprobante'").get().n,
+    active:              db.prepare("SELECT COUNT(*) as n FROM contacts WHERE bot_active = 1 AND state NOT IN ('delivered','stopped')").get().n,
+    today_conversations: db.prepare("SELECT COUNT(*) as n FROM contacts WHERE date(created_at, '-5 hours') = date('now', '-5 hours')").get().n,
+    today_sales:         db.prepare("SELECT COUNT(*) as n FROM contacts WHERE delivered_at != '' AND date(delivered_at, '-5 hours') = date('now', '-5 hours')").get().n
   };
 }
 

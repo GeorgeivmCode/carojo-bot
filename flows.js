@@ -17,8 +17,8 @@ const {
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
-  MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
-  deliveryMessage
+  PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
+  MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS, deliveryMessage
 } = require('./content');
 
 // Estados donde el cliente está activamente en flujo de compra
@@ -93,25 +93,39 @@ async function notifyJorge(contact, text) {
 }
 
 async function fireCapi(contact, pack) {
-  if (!META_PIXEL_ID || !META_CAPI_TOKEN) return;
+  if (!META_PIXEL_ID || !META_CAPI_TOKEN) {
+    console.warn('CAPI skip: falta META_PIXEL_ID o META_CAPI_TOKEN');
+    return;
+  }
   try {
-    const ph = crypto.createHash('sha256').update(contact.phone.replace(/\D/g, '')).digest('hex');
+    const rawPhone = contact.phone.replace(/\D/g, '');
+    const ph = crypto.createHash('sha256').update(rawPhone).digest('hex');
     const event = {
       event_name:    'Purchase',
       event_time:    Math.floor(Date.now() / 1000),
-      action_source: 'other',
-      event_id:      `${contact.phone}_${Date.now()}`,
+      action_source: 'business_messaging',
+      event_id:      `purchase_${contact.phone}_${Date.now()}`,
       user_data:     { ph: [ph] },
-      custom_data:   { currency: 'COP', value: PACK_PRICES[pack] || 0, content_name: pack, content_type: 'product' }
+      custom_data:   {
+        currency: 'COP',
+        value:    PACK_PRICES[pack] || 0,
+        content_name: pack,
+        content_type: 'product',
+        contents: [{ id: pack, quantity: 1 }]
+      }
     };
     if (contact.ctwa_clid) event.user_data.ctwa_clid = contact.ctwa_clid;
-    await axios.post(
+    console.log(`CAPI enviando: pack=${pack} phone=${contact.phone} ctwa_clid=${contact.ctwa_clid || 'NINGUNO'} pixel=${META_PIXEL_ID}`);
+    const capiRes = await axios.post(
       `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
       { data: [event] },
       { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
     );
-    console.log('CAPI Purchase fired:', pack, contact.phone);
-  } catch (e) { console.error('CAPI error:', e.message); }
+    console.log('CAPI respuesta:', JSON.stringify(capiRes.data));
+  } catch (e) {
+    const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
+    console.error('CAPI error:', detail);
+  }
 }
 
 async function logSaleToSheets(contact, pack, email) {
@@ -180,6 +194,19 @@ async function processMessage(phone, msgType, content, wamidIn) {
       return;
     }
     if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new') {
+      // Si está en 'new', revisar mensajes recientes por si es cliente antiguo
+      if (contact.state === 'new') {
+        const recentMsgs = db.getRecentMessages(phone, 4);
+        const hadOldTrigger = recentMsgs
+          .filter(m => m.direction === 'in' && m.type === 'text')
+          .some(m => OLD_CLIENT_TRIGGERS.some(t => m.content.toLowerCase().includes(t)));
+        if (hadOldTrigger) {
+          await sendAndSave(phone, PLANTILLA_ACCESO);
+          db.updateContact(phone, { bot_active: 0, state: 'stopped', tag: 'Soporte' });
+          await notifyJorge(contact, `CLIENTE ANTIGUO (envio imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
+          return;
+        }
+      }
       await handleComprobante(contact, content);
       return;
     }
@@ -282,10 +309,11 @@ async function handleOfferedDiamante(contact, text) {
 
 async function handleOfferedOro(contact, text) {
   const phone = contact.phone;
-  if (text === '1' || text.includes('diamante')) {
+  // "si/dale/ok" = acepta el upsell a Diamante que se estaba ofreciendo
+  if (text === '1' || text.includes('diamante') || ['si', 'sí', 'dale', 'listo', 'ok', 'claro'].some(w => text.includes(w))) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro') || ['si', 'sí', 'dale', 'listo', 'ok'].some(w => text.includes(w))) {
+  } else if (text === '2' || text.includes('oro') || ['no'].some(w => text.includes(w))) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else {
@@ -299,10 +327,12 @@ async function handleOfferedBasico(contact, text) {
   if (text === '1' || text.includes('diamante')) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro')) {
+  } else if (text === '2' || text.includes('oro') || ['si', 'sí', 'dale', 'listo', 'ok', 'claro'].some(w => text.includes(w))) {
+    // "si" = acepta el upsell a Oro que se estaba ofreciendo
     db.updateContact(phone, { state: 'offered_oro', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_UPSELL);
-  } else if (text === '3' || text.includes('basico') || text.includes('básico') || ['si', 'sí', 'dale', 'listo', 'ok'].some(w => text.includes(w))) {
+  } else if (text === '3' || text.includes('basico') || text.includes('básico') || text.includes('no')) {
+    // "no" = declina upsell, se queda con Basico
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_DETAILS);
   } else {
@@ -333,6 +363,8 @@ async function handleComprobante(contact, mediaContent) {
     const { razon_rechazo, monto } = result;
     if (razon_rechazo === 'comprobante_falso') {
       await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
+    } else if (razon_rechazo === 'fecha_incorrecta') {
+      await sendAndSave(phone, PAYMENT_OLD_DATE_MSG);
     } else if (razon_rechazo === 'destinatario_invalido') {
       await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
     } else if (razon_rechazo === 'transaccion_no_exitosa') {
@@ -384,7 +416,7 @@ async function handleEmail(contact, emailText) {
   }
 
   await sendAndSave(phone, deliveryMessage(pack));
-  db.updateContact(phone, { state: 'delivered', tag: 'Facturado' });
+  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now() });
 
   if (pack === 'diamante' && contact.r1_sent && !contact.gift_sent) {
     await sendAndSave(phone, GIFT_OFFER_MSG);
