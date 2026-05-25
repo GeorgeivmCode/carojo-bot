@@ -89,12 +89,10 @@ Es muchisimo mas contenido por una diferencia minima.
 Te gustaria aprovechar y subir al MEGA PACK DIAMANTE por $15.000 en total? 💬`
 ];
 
-const ORO_DETAILS = `Genial! Puedes hacer tu pago de $10.000 por la aplicacion que mejor te quede.
-Aqui tienes nuestras cuentas autorizadas:
+const ORO_DETAILS = `¡Perfecto! Has mejorado tu pedido al SUPERPACK ORO completo. El total a pagar es $10.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
-
-Porfa, enviame el comprobante por aqui con el NOMBRE DE LA PERSONA QUE DEPOSITA para poder verificarlo mas ligero. 📲`;
+Quedo atenta a tu comprobante por aqui. 📲`;
 
 const BASICO_UPSELL = [
 `Claro! El PACK BASICO es ideal para empezar solo con Lettering.
@@ -118,12 +116,10 @@ Es el triple de cursos por solo $5.000 mas.
 Te gustaria aprovechar y subir al SUPERPACK ORO? 💬`
 ];
 
-const BASICO_DETAILS = `Genial! Puedes hacer tu pago de $5.000 por la aplicacion que mejor te quede.
-Aqui tienes nuestras cuentas autorizadas:
+const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con el PACK BASICO. El total a pagar es solo $5.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
-
-Porfa, enviame el comprobante por aqui con el NOMBRE DE LA PERSONA QUE DEPOSITA para poder verificarlo mas ligero. 📲`;
+Quedo atenta a tu comprobante por aqui. 📲`;
 
 const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Pago recibido. 🎉
 
