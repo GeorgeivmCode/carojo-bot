@@ -171,18 +171,18 @@ app.post('/webhook', verifySignature, async (req, res) => {
   const msgType = msg.type;
 
   const referral = msg.referral;
-  console.log(`[referral] phone=${phone} referral=${JSON.stringify(referral || null)}`);
-  if (referral?.ctwa_clid) {
+  if (referral?.source_id || referral?.ctwa_clid) {
+    console.log(`[referral] phone=${phone} source_id=${referral.source_id} ctwa_clid=${referral.ctwa_clid || 'none'}`);
     db.createContact(phone);
     const c = db.getContact(phone);
-    if (!c?.ctwa_clid) {
-      db.updateContact(phone, {
-        ctwa_clid:    referral.ctwa_clid,
-        ad_id:        referral.source_id || '',
-        ad_name:      AD_MAP[referral.source_id]?.name || referral.headline || referral.source_id || '',
-        ad_image_url: referral.image_url || ''
-      });
+    const updates = {};
+    if (referral.ctwa_clid && !c?.ctwa_clid) updates.ctwa_clid = referral.ctwa_clid;
+    if (referral.source_id && !c?.ad_id) {
+      updates.ad_id        = referral.source_id;
+      updates.ad_name      = AD_MAP[referral.source_id]?.name || referral.headline || referral.source_id || '';
+      updates.ad_image_url = referral.image_url || '';
     }
+    if (Object.keys(updates).length) db.updateContact(phone, updates);
   }
 
   const profile = value.contacts?.[0]?.profile;
