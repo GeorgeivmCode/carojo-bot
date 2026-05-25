@@ -412,7 +412,8 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
     return res.status(500).json({ error: 'Error al dar acceso Drive: ' + e.message });
   }
   await sendAndSave(phone, deliveryMessage(pack));
-  db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, delivered_at: db.now(), email });
+  // NO se setea delivered_at para que no sume en el contador de ventas de hoy
+  db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, email });
   await notifyJorge(c, `ACCESO RESTAURADO (cliente antiguo)\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${c.name || '-'}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });

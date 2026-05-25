@@ -168,7 +168,7 @@ function getStats() {
     awaiting:            db.prepare("SELECT COUNT(*) as n FROM contacts WHERE state = 'awaiting_comprobante'").get().n,
     active:              db.prepare("SELECT COUNT(*) as n FROM contacts WHERE bot_active = 1 AND state NOT IN ('delivered','stopped')").get().n,
     today_conversations: db.prepare("SELECT COUNT(*) as n FROM contacts WHERE date(created_at, '-5 hours') = date('now', '-5 hours')").get().n,
-    today_sales:         db.prepare("SELECT COUNT(*) as n FROM contacts WHERE delivered_at != '' AND date(delivered_at, '-5 hours') = date('now', '-5 hours')").get().n
+    today_sales:         db.prepare("SELECT COUNT(*) as n FROM contacts WHERE delivered_at != '' AND date(delivered_at, '-5 hours') = date('now', '-5 hours') AND tag != 'Soporte'").get().n
   };
 }
 
