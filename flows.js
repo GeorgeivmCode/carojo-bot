@@ -21,9 +21,10 @@ const {
   MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS, deliveryMessage
 } = require('./content');
 
-// Estados donde el cliente está activamente en flujo de compra
+// Estados donde el cliente ya comprometió un pack o está enviando comprobante
+// NOTA: awaiting_choice NO está aquí — en ese estado aún se debe detectar clientes antiguos
 const ACTIVE_PAYMENT_STATES = new Set([
-  'awaiting_comprobante', 'offered_diamante', 'offered_oro', 'offered_basico', 'awaiting_choice'
+  'awaiting_comprobante', 'offered_diamante', 'offered_oro', 'offered_basico'
 ]);
 
 // Detectar cuando dicen "ya pagué" sin enviar comprobante
@@ -175,13 +176,16 @@ async function processMessage(phone, msgType, content, wamidIn) {
 
   const text = (msgType === 'text' ? content : '').trim().toLowerCase();
 
-  // Cliente antiguo sin acceso — solo si NO está en flujo activo de compra
-  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state)) {
+  // Cliente antiguo sin acceso — en cualquier estado que NO sea compra comprometida
+  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'old_client' && contact.state !== 'delivered') {
     await sendAndSave(phone, PLANTILLA_ACCESO);
-    db.updateContact(phone, { bot_active: 0, state: 'stopped', tag: 'Soporte' });
+    db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
     await notifyJorge(contact, `CLIENTE ANTIGUO sin acceso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nMensaje: "${content.substring(0, 100)}"`);
     return;
   }
+
+  // Cliente en estado old_client que vuelve a escribir — no responder automaticamente
+  if (contact.state === 'old_client') return;
 
   // Salir — detiene remarketing pero deja el bot activo por si vuelve
   if (['salir', 'stop', 'no gracias', 'no me interesa', 'para', 'detener'].includes(text)) {
@@ -216,7 +220,7 @@ async function processMessage(phone, msgType, content, wamidIn) {
           .some(m => OLD_CLIENT_TRIGGERS.some(t => m.content.toLowerCase().includes(t)));
         if (hadOldTrigger) {
           await sendAndSave(phone, PLANTILLA_ACCESO);
-          db.updateContact(phone, { bot_active: 0, state: 'stopped', tag: 'Soporte' });
+          db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
           await notifyJorge(contact, `CLIENTE ANTIGUO (envio imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
           return;
         }
@@ -245,6 +249,9 @@ async function processMessage(phone, msgType, content, wamidIn) {
   }
 
   switch (contact.state) {
+    case 'old_client':
+      // bot_active=0 ya lo bloqueó arriba; esto es fallback por si se reactiva manualmente
+      return;
     case 'new':
       await handleNew(contact, text);
       break;
@@ -377,9 +384,8 @@ async function handleComprobante(contact, mediaContent) {
     const { razon_rechazo, monto } = result;
     if (razon_rechazo === 'no_es_comprobante') {
       if (contact.state === 'new') {
-        // En estado 'new' enviando imagen que no es comprobante = probable cliente antiguo
         await sendAndSave(phone, PLANTILLA_ACCESO);
-        db.updateContact(phone, { bot_active: 0, state: 'stopped', tag: 'Soporte' });
+        db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
         await notifyJorge(contact,
           `POSIBLE CLIENTE ANTIGUO (envio imagen que no es comprobante):\nTel: ${phone}\nNombre: ${contact.name || '-'}`
         );

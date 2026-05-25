@@ -172,17 +172,13 @@ Gracias por confiar en nosotros 💛 Este es solo el comienzo de tu historia con
 
 — Carojo Aprende y Emprende 🌟`;
 
-const PLANTILLA_ACCESO = `Hola! 👋✨ Hemos actualizado nuestra plataforma para brindarte mayor seguridad. 🔐🎉
+const PLANTILLA_ACCESO = `Hola! Ya vimos tu mensaje. 🙏
 
-Ahora el acceso es personal y directo a tu correo *GMAIL* 💌 — sin enlaces publicos. 🙌
+Nuestro equipo esta revisando tu caso para darte acceso de nuevo.
 
-Para activarte solo necesito un dato:
+No tienes que hacer nada mas, nosotras te escribimos muy pronto con la solucion.
 
-📧💛 Cual es tu correo *GMAIL*?
-
-⚠️✅ Solo funciona con *GMAIL* — escribelo exacto con el *@gmail.com* 📩
-
-En cuanto lo reciba, te llega la notificacion de *GMAIL* con tu material listo! 🚀🎨✨`;
+Gracias por tu paciencia! 💛`;
 
 const R1_MESSAGE = `Veo que nuestro chat quedo en pausa y no quiero que pierdas tu cupo ni los descuentos de hoy. 🫣
 
@@ -318,7 +314,18 @@ const OLD_CLIENT_TRIGGERS = [
   'no me deja entrar', 'perdi el link', 'perdi el enlace',
   'no me carga', 'no carga el', 'soy cliente', 'ya soy alumna',
   'compre hace', 'ya habia comprado', 'ya habia pagado',
-  'ya pagué', 'ya compré', 'tuve un problema con el acceso', 'perdi acceso'
+  'ya pagué', 'ya compré', 'tuve un problema con el acceso', 'perdi acceso',
+  'no me deja el link', 'no me deja bajar', 'no me deja descargar',
+  'ya no me deja', 'no puedo descargar', 'no descargue', 'no descargué',
+  'ya era clienta', 'ya era cliente',
+  'tenia acceso', 'tenía acceso', 'link expiró', 'link expiro', 'link vencio', 'link venció',
+  'ya no funciona', 'ya no sirve el link', 'no sirve el link',
+  'compre el diamante', 'compré el diamante', 'compre el oro', 'compré el oro',
+  'compre el basico', 'compré el basico', 'ya compré antes', 'ya compre antes',
+  'habia pagado', 'había pagado', 'ya no tengo acceso', 'perdi mi acceso', 'perdí mi acceso',
+  'no me abre', 'se me vencio', 'se me venció', 'archivos que no',
+  'ya pagué antes', 'ya pague antes', 'ya lo habia comprado', 'ya lo había comprado',
+  'ya habia pagado', 'ya había pagado', 'ya pagué', 'ya compré'
 ];
 
 function deliveryMessage(pack) {

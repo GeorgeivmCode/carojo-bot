@@ -265,6 +265,7 @@
         <button class="qr-btn" onclick="registerSale()" style="color:var(--green);font-weight:700">💾 Registrar venta</button>
         <button class="qr-btn" onclick="approvePayment()" style="color:var(--blue)">✅ Aprobar pago</button>
         <button class="qr-btn" onclick="changeEmail()" style="color:var(--yellow)">📧 Cambiar Gmail</button>
+        <button class="qr-btn" onclick="restoreAccess()" style="color:#a78bfa;font-weight:700">🔑 Restaurar Acceso</button>
         <button class="qr-btn" onclick="insertQR('pago')">Confirmar pago</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
@@ -411,6 +412,11 @@ function startSSE() {
     playCashRegister();
     showSaleToast(d.name, d.pack);
     loadStats();
+  });
+  evtSource.addEventListener('old_client', e => {
+    const d = JSON.parse(e.data);
+    showToast(`CLIENTE ANTIGUO: ${d.name || d.phone} dice que ya habia comprado. Revisar y usar Restaurar Acceso.`, 'error', 8000);
+    loadContacts();
   });
   evtSource.addEventListener('contact_updated', e => {
     const c = JSON.parse(e.data);
@@ -760,11 +766,11 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
 
-function showToast(msg, type = 'success') {
+function showToast(msg, type = 'success', duration = 3000) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 3000);
+  setTimeout(() => t.classList.remove('show'), duration);
 }
 
 async function registerSale() {
@@ -815,6 +821,28 @@ async function changeEmail() {
   if (!res) return;
   const data = await res.json();
   if (data.ok) showToast('Correo cambiado y acceso actualizado!', 'success');
+  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
+async function restoreAccess() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  const packOpts = ['diamante', 'oro', 'basico'];
+  const packDefault = c?.pack_selected || 'diamante';
+  const pack = prompt(`Pack que compro antes (diamante / oro / basico):`, packDefault);
+  if (!pack || !packOpts.includes(pack.toLowerCase().trim())) { showToast('Pack invalido', 'error'); return; }
+  const emailDefault = c?.email || '';
+  const email = prompt(`Gmail del cliente (para dar acceso):`, emailDefault);
+  if (!email || !email.toLowerCase().includes('@gmail.com')) { showToast('Solo Gmail (@gmail.com)', 'error'); return; }
+  if (!confirm(`Restaurar acceso ${pack.toUpperCase()} a ${email}?\n\nESTO NO SE REGISTRA COMO VENTA NUEVA.`)) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/restore-access`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pack: pack.toLowerCase().trim(), email: email.trim().toLowerCase() })
+  });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) showToast('Acceso restaurado! Link enviado al cliente.', 'success');
   else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 

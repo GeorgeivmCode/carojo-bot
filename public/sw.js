@@ -4,22 +4,39 @@ self.addEventListener('push', (event) => {
   try { data = event.data.json(); } catch {}
 
   const isTest = data.test === true;
-  const pack = (data.pack || 'pack');
-  const packLabel = pack.charAt(0).toUpperCase() + pack.slice(1);
+  const isOldClient = data.type === 'old_client';
   const name = data.name || 'Cliente';
 
-  const title = isTest ? 'Prueba de notificacion' : 'Venta confirmada!';
-  const body  = isTest ? 'Las notificaciones funcionan correctamente.' : `${name} compro el pack ${packLabel}`;
+  let title, body, tag, vibrate;
+
+  if (isTest) {
+    title = 'Prueba de notificacion';
+    body  = 'Las notificaciones funcionan correctamente.';
+    tag   = 'carojo-test';
+    vibrate = [200];
+  } else if (isOldClient) {
+    title = 'Cliente antiguo sin acceso';
+    body  = `${name} dice que ya habia comprado. Verificar y usar Restaurar Acceso.`;
+    tag   = 'carojo-old-client';
+    vibrate = [300, 100, 300, 100, 300];
+  } else {
+    const pack = (data.pack || 'pack');
+    const packLabel = pack.charAt(0).toUpperCase() + pack.slice(1);
+    title = 'Venta confirmada!';
+    body  = `${name} compro el pack ${packLabel}`;
+    tag   = 'carojo-sale';
+    vibrate = [100, 50, 200, 50, 400, 50, 200];
+  }
 
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       icon: '/icon.svg',
       badge: '/icon.svg',
-      tag: 'carojo-sale',
+      tag,
       renotify: true,
-      vibrate: [100, 50, 200, 50, 400, 50, 200],
-      data: { url: '/admin.html?sale=1' }
+      vibrate,
+      data: { url: '/admin.html' }
     })
   );
 });

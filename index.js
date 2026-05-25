@@ -275,6 +275,12 @@ app.post('/webhook', verifySignature, async (req, res) => {
       sendPushToAll(saleData).catch(() => {});
       console.log(`VENTA detectada: ${updated.name} - ${updated.pack_selected}`);
     }
+    if (updated?.state === 'old_client' && beforeState !== 'old_client') {
+      const oldClientData = { type: 'old_client', name: updated.name || 'Cliente', phone };
+      broadcast('old_client', oldClientData);
+      sendPushToAll(oldClientData).catch(() => {});
+      console.log(`CLIENTE ANTIGUO detectado: ${updated.name || phone}`);
+    }
     broadcast('refresh', { phone, contact: updated });
   });
 });
@@ -384,6 +390,30 @@ app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
     `CAMBIO DE CORREO:\nTel: ${phone}\nNombre: ${c.name || '-'}\nPack: ${pack}\nAnterior: ${oldEmail || 'sin correo'}\nNuevo: ${newEmail}`
   );
 
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true });
+});
+
+app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const { pack, email } = req.body;
+  const validPacks = ['basico', 'oro', 'diamante'];
+  if (!pack || !validPacks.includes(pack)) return res.status(400).json({ error: 'pack invalido (basico/oro/diamante)' });
+  if (!email || !email.includes('@gmail.com')) return res.status(400).json({ error: 'email debe ser Gmail' });
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  const { grantDriveAccess } = require('./drive');
+  const { deliveryMessage } = require('./content');
+  try {
+    await grantDriveAccess(email, pack);
+  } catch (e) {
+    return res.status(500).json({ error: 'Error al dar acceso Drive: ' + e.message });
+  }
+  await sendAndSave(phone, deliveryMessage(pack));
+  db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, delivered_at: db.now(), email });
+  await notifyJorge(c, `ACCESO RESTAURADO (cliente antiguo)\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${c.name || '-'}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   res.json({ ok: true });
