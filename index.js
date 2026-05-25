@@ -123,13 +123,14 @@ app.post('/webhook', verifySignature, async (req, res) => {
   const msgType = msg.type;
 
   const referral = msg.referral;
+  console.log(`[referral] phone=${phone} referral=${JSON.stringify(referral || null)}`);
   if (referral?.ctwa_clid) {
     const c = db.getContact(phone);
     if (!c?.ctwa_clid) {
       db.updateContact(phone, {
         ctwa_clid: referral.ctwa_clid,
-        ad_id:    referral.source_id  || '',
-        ad_name:  referral.source_url || ''
+        ad_id:     referral.source_id || '',
+        ad_name:   referral.headline || referral.source_id || referral.source_url || ''
       });
     }
   }
