@@ -183,26 +183,24 @@ async function logSaleToSheets(contact, pack, email) {
   } catch (e) { console.error('Sheets error:', e.message); }
 }
 
-async function processMessage(phone, msgType, content, wamidIn) {
+async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
+  const { skipSave = false } = opts;
   let contact = db.getContact(phone);
   if (!contact) { db.createContact(phone); contact = db.getContact(phone); }
 
-  db.saveMessage(phone, 'in', msgType, content, wamidIn);
-  db.updateContact(phone, {
-    last_message:    (msgType === 'text' ? content : `[${msgType}]`).substring(0, 200),
-    last_message_at: db.now(),
-    unread_count:    (contact.unread_count || 0) + 1
-  });
+  if (!skipSave) {
+    db.saveMessage(phone, 'in', msgType, content, wamidIn);
+    db.updateContact(phone, {
+      last_message:    (msgType === 'text' ? content : `[${msgType}]`).substring(0, 200),
+      last_message_at: db.now(),
+      unread_count:    (contact.unread_count || 0) + 1
+    });
+  } else {
+    contact = db.getContact(phone);
+  }
 
   if (!contact.bot_active) return;
   if (contact.state === 'stopped') return;
-
-  // Debounce: esperar 1.5s antes de responder texto — si llegó un mensaje más nuevo, ignorar este
-  if (msgType === 'text') {
-    await new Promise(r => setTimeout(r, 1500));
-    const lastWamid = db.getLastInboundWamid(phone);
-    if (lastWamid && lastWamid !== wamidIn) return;
-  }
 
   const text = (msgType === 'text' ? content : '').trim().toLowerCase();
 
@@ -473,28 +471,33 @@ async function handleComprobante(contact, mediaContent) {
 
 async function handleEmail(contact, emailText) {
   const phone = contact.phone;
-  const email = emailText.trim().toLowerCase();
+  const rawText = emailText.trim().toLowerCase();
 
-  // Detectar cuando dice que no tiene Gmail o que lo tiene lleno/sin espacio
-  const sinGmail = ['no tengo gmail', 'no tengo correo', 'no tengo email', 'no hay espacio',
-    'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
-    'no tengo cuenta', 'no me llega correo'];
-  if (sinGmail.some(p => email.includes(p))) {
-    await sendAndSave(phone,
-      'No te preocupes! El acceso no ocupa espacio en tu Gmail — el material vive en nuestro Google Drive, no en tu bandeja de entrada. Solo necesitamos el correo para registrar tu acceso.\n\nEscribenos tu Gmail completo:\ntunombre@gmail.com 📩'
-    );
-    return;
-  }
+  // Extraer gmail de texto combinado (ej. "mira el pago\njuanita@gmail.com")
+  const gmailMatch = rawText.match(/[\w._%+\-]+@gmail\.com/i);
+  const email = gmailMatch ? gmailMatch[0].toLowerCase() : rawText;
 
-  // Si no tiene @ ni parece un intento de email (nombre, "mira el pago", etc.) — recordar amablemente
-  if (!email.includes('@')) {
-    await sendAndSave(phone, 'Para activar tu acceso solo necesito tu Gmail 📩\n\nEscribelo asi:\ntunombre@gmail.com');
-    return;
-  }
+  if (!gmailMatch) {
+    // Sin gmail detectado — verificar si dice que no tiene o lo tiene lleno
+    const sinGmail = ['no tengo gmail', 'no tengo correo', 'no tengo email', 'no hay espacio',
+      'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
+      'no tengo cuenta', 'no me llega correo'];
+    if (sinGmail.some(p => rawText.includes(p))) {
+      await sendAndSave(phone,
+        'No te preocupes! El acceso no ocupa espacio en tu Gmail — el material vive en nuestro Google Drive, no en tu bandeja de entrada. Solo necesitamos el correo para registrar tu acceso.\n\nEscribenos tu Gmail completo:\ntunombre@gmail.com 📩'
+      );
+      return;
+    }
 
-  if (!isValidGmail(email)) {
-    await sendAndSave(phone, INVALID_EMAIL_MSG);
-    return;
+    if (!email.includes('@')) {
+      await sendAndSave(phone, 'Para activar tu acceso solo necesito tu Gmail 📩\n\nEscribelo asi:\ntunombre@gmail.com');
+      return;
+    }
+
+    if (!isValidGmail(email)) {
+      await sendAndSave(phone, INVALID_EMAIL_MSG);
+      return;
+    }
   }
 
   const pack = contact.pack_selected || 'basico';

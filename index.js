@@ -29,6 +29,9 @@ function enqueueForPhone(phone, fn) {
   next.finally(() => { if (phoneQueues.get(phone) === next) phoneQueues.delete(phone); });
 }
 
+// Buffer para acumular partes de texto enviadas en rafaga
+const textBuffers = new Map();
+
 const AD_MAP = {
   '120224823866840501': { name: 'F1 - Messi',              campaign: 'Messi' },
   '120236759033280501': { name: 'V2 - Messi',              campaign: 'Messi' },
@@ -131,6 +134,23 @@ async function sendPushToAll(payload) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+function afterProcess(phone, beforeState) {
+  const updated = db.getContact(phone);
+  if (updated?.state === 'delivered' && beforeState !== 'delivered') {
+    const saleData = { pack: updated.pack_selected || 'pack', name: updated.name || 'Cliente' };
+    broadcast('sale', saleData);
+    sendPushToAll(saleData).catch(() => {});
+    console.log(`VENTA detectada: ${updated.name} - ${updated.pack_selected}`);
+  }
+  if (updated?.state === 'old_client' && beforeState !== 'old_client') {
+    const oldClientData = { type: 'old_client', name: updated.name || 'Cliente', phone };
+    broadcast('old_client', oldClientData);
+    sendPushToAll(oldClientData).catch(() => {});
+    console.log(`CLIENTE ANTIGUO detectado: ${updated.name || phone}`);
+  }
+  broadcast('refresh', { phone, contact: updated });
+}
+
 function broadcast(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of sseClients) {
@@ -222,82 +242,91 @@ app.post('/webhook', verifySignature, async (req, res) => {
 
   markRead(wamid);
 
-  // Cola por telefono: mensajes del mismo numero se procesan uno a la vez
-  enqueueForPhone(phone, async () => {
-    const beforeState = db.getContact(phone)?.state || null;
-    let content = '';
-    try {
-      if (msgType === 'text') {
-        content = msg.text?.body || '';
-        await processMessage(phone, 'text', content, wamid);
+  if (msgType === 'text') {
+    // Guardar en DB inmediatamente para que el panel admin lo vea al instante
+    if (!db.getContact(phone)) db.createContact(phone);
+    const cNow = db.getContact(phone);
+    const textContent = msg.text?.body || '';
+    db.saveMessage(phone, 'in', 'text', textContent, wamid);
+    db.updateContact(phone, {
+      last_message:    textContent.substring(0, 200),
+      last_message_at: db.now(),
+      unread_count:    (cNow.unread_count || 0) + 1
+    });
+    broadcast('refresh', { phone, contact: db.getContact(phone) });
 
-      } else if (msgType === 'image') {
-        const mediaId = msg.image?.id;
-        if (mediaId) {
-          const mediaUrl = await getMediaUrl(mediaId);
-          const { buffer, mimeType } = await downloadMedia(mediaUrl);
-          const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType });
-          content = payload;
-          await processMessage(phone, 'image', payload, wamid);
+    // Acumular partes del mismo telefono y esperar 1.5s de silencio antes de procesar
+    if (!textBuffers.has(phone)) textBuffers.set(phone, { parts: [], timer: null });
+    const buf = textBuffers.get(phone);
+    buf.parts.push(textContent);
+    if (buf.timer) clearTimeout(buf.timer);
+    buf.timer = setTimeout(() => {
+      const combined = buf.parts.join('\n');
+      textBuffers.delete(phone);
+      enqueueForPhone(phone, async () => {
+        const beforeState = db.getContact(phone)?.state || null;
+        try {
+          await processMessage(phone, 'text', combined, wamid, { skipSave: true });
+        } catch (err) {
+          console.error('Webhook handler error:', err.message);
         }
+        afterProcess(phone, beforeState);
+      });
+    }, 1500);
 
-      } else if (msgType === 'audio') {
-        const mediaId = msg.audio?.id;
-        if (mediaId) {
-          try {
+  } else {
+    // Imagen, audio, video, documento — procesar inmediatamente en cola
+    enqueueForPhone(phone, async () => {
+      const beforeState = db.getContact(phone)?.state || null;
+      try {
+        if (msgType === 'image') {
+          const mediaId = msg.image?.id;
+          if (mediaId) {
             const mediaUrl = await getMediaUrl(mediaId);
             const { buffer, mimeType } = await downloadMedia(mediaUrl);
-            const transcription = await transcribeAudio(buffer, mimeType);
-            content = transcription;
-            console.log(`Audio transcrito [${phone}]: ${transcription.substring(0, 80)}`);
-            await processMessage(phone, 'text', transcription, wamid);
-          } catch (e) {
-            console.error('Transcripcion error:', e.message);
-            await processMessage(phone, 'text', '[audio]', wamid);
-          }
-        }
-      } else if (msgType === 'document') {
-        const doc = msg.document;
-        const mime = doc?.mime_type || '';
-        const mediaId = doc?.id;
-        if (mediaId && (mime === 'application/pdf' || mime.startsWith('image/'))) {
-          try {
-            const mediaUrl = await getMediaUrl(mediaId);
-            const { buffer, mimeType: resolvedMime } = await downloadMedia(mediaUrl);
-            const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: resolvedMime || mime });
-            content = payload;
+            const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType });
             await processMessage(phone, 'image', payload, wamid);
-          } catch (e) {
-            console.error('Document download error:', e.message);
+          }
+        } else if (msgType === 'audio') {
+          const mediaId = msg.audio?.id;
+          if (mediaId) {
+            try {
+              const mediaUrl = await getMediaUrl(mediaId);
+              const { buffer, mimeType } = await downloadMedia(mediaUrl);
+              const transcription = await transcribeAudio(buffer, mimeType);
+              console.log(`Audio transcrito [${phone}]: ${transcription.substring(0, 80)}`);
+              await processMessage(phone, 'text', transcription, wamid);
+            } catch (e) {
+              console.error('Transcripcion error:', e.message);
+              await processMessage(phone, 'text', '[audio]', wamid);
+            }
+          }
+        } else if (msgType === 'document') {
+          const doc = msg.document;
+          const mime = doc?.mime_type || '';
+          const mediaId = doc?.id;
+          if (mediaId && (mime === 'application/pdf' || mime.startsWith('image/'))) {
+            try {
+              const mediaUrl = await getMediaUrl(mediaId);
+              const { buffer, mimeType: resolvedMime } = await downloadMedia(mediaUrl);
+              const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: resolvedMime || mime });
+              await processMessage(phone, 'image', payload, wamid);
+            } catch (e) {
+              console.error('Document download error:', e.message);
+              await processMessage(phone, 'document', '[documento]', wamid);
+            }
+          } else {
             await processMessage(phone, 'document', '[documento]', wamid);
           }
-        } else {
-          content = '[documento]';
-          await processMessage(phone, 'document', '[documento]', wamid);
+        } else if (msgType === 'video') {
+          await processMessage(phone, 'video', '[video]', wamid);
         }
-      } else if (msgType === 'video') {
-        content = '[video]';
-        await processMessage(phone, 'video', '[video]', wamid);
+      } catch (err) {
+        console.error('Webhook handler error:', err.message);
       }
-    } catch (err) {
-      console.error('Webhook handler error:', err.message);
-    }
-
-    const updated = db.getContact(phone);
-    if (updated?.state === 'delivered' && beforeState !== 'delivered') {
-      const saleData = { pack: updated.pack_selected || 'pack', name: updated.name || 'Cliente' };
-      broadcast('sale', saleData);
-      sendPushToAll(saleData).catch(() => {});
-      console.log(`VENTA detectada: ${updated.name} - ${updated.pack_selected}`);
-    }
-    if (updated?.state === 'old_client' && beforeState !== 'old_client') {
-      const oldClientData = { type: 'old_client', name: updated.name || 'Cliente', phone };
-      broadcast('old_client', oldClientData);
-      sendPushToAll(oldClientData).catch(() => {});
-      console.log(`CLIENTE ANTIGUO detectado: ${updated.name || phone}`);
-    }
-    broadcast('refresh', { phone, contact: updated });
-  });
+      afterProcess(phone, beforeState);
+    });
+  }
 });
 
 // ── Admin SSE ──────────────────────────────────────────────────────────────────
