@@ -340,9 +340,10 @@ async function handleChoice(contact, text) {
 
   if (isDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
-    // Skip resending details if already shown recently in this conversation
+    // Skip resending details only if DIAMANTE_DETAILS part 3 ya fue enviada
+    // "Quedo atenta a tu comprobante" solo existe en DIAMANTE_DETAILS, nunca en WELCOME_MESSAGE
     const recent = db.getRecentMessages(phone, 12);
-    const alreadySent = recent.some(m => m.direction === 'out' && m.content.includes('MEGA PACK DIAMANTE') && m.content.includes('15.000'));
+    const alreadySent = recent.some(m => m.direction === 'out' && m.content.includes('Quedo atenta a tu comprobante'));
     if (alreadySent) {
       await sendAndSave(phone, 'Perfecto! Te espero con el comprobante de $15.000 al numero que ya te di. 💎📲');
     } else {
