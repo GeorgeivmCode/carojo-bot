@@ -256,6 +256,9 @@ async function processMessage(phone, msgType, content, wamidIn) {
       await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
       return;
     }
+    // Estado inesperado para imagen — log para diagnostico y guiar al cliente
+    console.log(`[IMG-ESTADO-INESPERADO] phone=${phone} state=${contact.state}`);
+    await sendAndSave(phone, 'Para procesar tu pago primero necesito que elijas tu pack. Escribe 1, 2 o 3 segun tu eleccion. 😊');
     return;
   }
 
