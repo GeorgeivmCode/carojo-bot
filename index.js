@@ -176,6 +176,20 @@ app.post('/webhook', verifySignature, async (req, res) => {
   try { body = JSON.parse(req.body.toString()); } catch { return; }
 
   const value = body?.entry?.[0]?.changes?.[0]?.value;
+
+  // Status updates (enviado/entregado/leido/fallido)
+  if (value?.statuses?.length) {
+    for (const s of value.statuses) {
+      const wamid = s.id;
+      const status = s.status; // sent, delivered, read, failed
+      const phone  = s.recipient_id;
+      if (initialized) {
+        db.updateMessageStatus(wamid, status);
+        broadcast('msg_status', { phone, wamid, status });
+      }
+    }
+  }
+
   if (!value?.messages?.length) return;
 
   const msg     = value.messages[0];
@@ -426,11 +440,23 @@ app.post('/api/contacts/:phone/send', adminAuth, async (req, res) => {
   if (!text) return res.status(400).json({ error: 'text required' });
   try {
     await sendAndSave(req.params.phone, text);
+    db.updateContact(req.params.phone, {
+      last_message: text.substring(0, 200),
+      last_message_at: db.now()
+    });
     const updated = db.getContact(req.params.phone);
-    broadcast('refresh', { phone: req.params.phone, contact: updated });
     res.json({ ok: true });
+    broadcast('refresh', { phone: req.params.phone, contact: updated });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const waErr = err?.response?.data?.error;
+    const code  = waErr?.code;
+    const title = waErr?.error_data?.details || waErr?.message || err.message;
+    const blocked = code === 131026 || (title || '').toLowerCase().includes('undeliverable');
+    res.status(500).json({
+      error: blocked
+        ? 'Esta persona te bloqueó en WhatsApp. No se puede enviar el mensaje.'
+        : err.message
+    });
   }
 });
 

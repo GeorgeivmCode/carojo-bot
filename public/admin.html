@@ -91,7 +91,12 @@
   .bubble { padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; word-break: break-word; position: relative; }
   .bubble-wrap.out .bubble { background: var(--sent); border-top-right-radius: 2px; }
   .bubble-wrap.in .bubble { background: var(--received); border-top-left-radius: 2px; }
-  .bubble-time { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 4px; text-align: right; }
+  .bubble-time { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 4px; text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+  .msg-status { font-size: 13px; line-height: 1; }
+  .msg-status.sent     { color: rgba(255,255,255,.4); }
+  .msg-status.delivered{ color: rgba(255,255,255,.4); }
+  .msg-status.read     { color: #53bdeb; }
+  .msg-status.failed   { color: var(--red); }
   .bubble-img { max-width: 220px; border-radius: 6px; cursor: pointer; }
   .date-divider { text-align: center; color: var(--sub); font-size: 12px; padding: 8px 0; }
 
@@ -418,6 +423,20 @@ function startSSE() {
     showToast(`CLIENTE ANTIGUO: ${d.name || d.phone} dice que ya habia comprado. Revisar y usar Restaurar Acceso.`, 'error', 8000);
     loadContacts();
   });
+  evtSource.addEventListener('msg_status', e => {
+    const d = JSON.parse(e.data);
+    // Actualiza el checkmark del bubble correspondiente si está visible
+    const bubble = document.querySelector(`.bubble-wrap[data-wamid="${d.wamid}"]`);
+    if (bubble) {
+      const timeEl = bubble.querySelector('.bubble-time');
+      if (timeEl) {
+        const existing = timeEl.querySelector('.msg-status');
+        if (existing) existing.remove();
+        const icon = statusIcon(d.status);
+        if (icon) timeEl.insertAdjacentHTML('beforeend', icon);
+      }
+    }
+  });
   evtSource.addEventListener('contact_updated', e => {
     const c = JSON.parse(e.data);
     updateContactInList(c);
@@ -566,12 +585,21 @@ async function loadMessages(phone) {
       el.insertAdjacentHTML('beforeend', `<div class="date-divider">${formatDate(d)}</div>`);
       lastDate = d;
     }
-    appendBubble(m.direction, m.type, m.content, m.created_at, false);
+    appendBubble(m.direction, m.type, m.content, m.created_at, false, m.wamid || '', m.status || '');
   }
   scrollBottom();
 }
 
-function appendBubble(direction, type, content, ts, scroll = true) {
+function statusIcon(status) {
+  if (!status) return '';
+  if (status === 'read')      return '<span class="msg-status read">✓✓</span>';
+  if (status === 'delivered') return '<span class="msg-status delivered">✓✓</span>';
+  if (status === 'sent')      return '<span class="msg-status sent">✓</span>';
+  if (status === 'failed')    return '<span class="msg-status failed">✗</span>';
+  return '';
+}
+
+function appendBubble(direction, type, content, ts, scroll = true, wamid = '', status = '') {
   const el = document.getElementById('chatMessages');
   const dir = direction === 'out' ? 'out' : 'in';
   const time = ts ? new Date(ts.replace(' ','T')+'Z').toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',timeZone:'America/Bogota'}) : '';
@@ -583,7 +611,6 @@ function appendBubble(direction, type, content, ts, scroll = true) {
       const mime = parsed.mimeType || 'image/jpeg';
       body = `<img class="bubble-img" src="data:${mime};base64,${parsed.buffer}" alt="Comprobante">`;
     } catch {
-      // Imagenes del bot (mostrario/testimonios) se guardan como URL directa
       if (content && (content.startsWith('https://') || content.startsWith('http://'))) {
         body = `<img class="bubble-img" src="${escHtml(content)}" alt="Imagen">`;
       } else {
@@ -594,9 +621,12 @@ function appendBubble(direction, type, content, ts, scroll = true) {
     body = escHtml(content).replace(/\n/g, '<br>');
   }
 
+  const statusHtml = dir === 'out' ? statusIcon(status) : '';
+  const wamidAttr  = wamid ? ` data-wamid="${escHtml(wamid)}"` : '';
+
   el.insertAdjacentHTML('beforeend', `
-    <div class="bubble-wrap ${dir}">
-      <div class="bubble">${body}<div class="bubble-time">${time}</div></div>
+    <div class="bubble-wrap ${dir}"${wamidAttr}>
+      <div class="bubble">${body}<div class="bubble-time"><span>${time}</span>${statusHtml}</div></div>
     </div>`);
   if (scroll) scrollBottom();
 }
@@ -625,7 +655,7 @@ async function sendMessage() {
     appendBubble('out', 'text', text, new Date().toISOString());
     scrollBottom();
   } else {
-    showToast('Error al enviar: ' + (data.error || ''), 'error');
+    showToast(data.error || 'Error al enviar', 'error', 6000);
   }
 }
 
@@ -719,7 +749,8 @@ function stateLabel(state) {
     'awaiting_email':       'Esperando Gmail',
     'recovering_access':    'Soporte - Sin acceso',
     'delivered':            'Entregado',
-    'stopped':              'Pausado'
+    'stopped':              'Pausado',
+    'old_client':           'Cliente Antiguo'
   };
   return map[state] || state || 'Nuevo';
 }

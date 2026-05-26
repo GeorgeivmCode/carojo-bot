@@ -46,6 +46,10 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN delivered_at TEXT DEFAULT ''`); }
 
 try { db.exec(`ALTER TABLE contacts ADD COLUMN email TEXT DEFAULT ''`); } catch (_) {}
 
+// Migracion: status de mensaje (sent/delivered/read/failed)
+try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_wamid ON messages(wamid)`); } catch (_) {}
+
 // Settings table for VAPID keys and push subscriptions
 db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
 
@@ -125,6 +129,11 @@ function getMessages(phone, limit = 50) {
   `).all(phone, limit);
 }
 
+function updateMessageStatus(wamid, status) {
+  if (!wamid) return;
+  db.prepare(`UPDATE messages SET status = ? WHERE wamid = ? AND direction = 'out'`).run(status, wamid);
+}
+
 function getRecentMessages(phone, limit = 10) {
   return db.prepare(`
     SELECT * FROM (
@@ -185,7 +194,7 @@ function setSetting(key, value) {
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts,
-  saveMessage, getMessages, getRecentMessages,
+  saveMessage, getMessages, getRecentMessages, updateMessageStatus,
   getContactsForR1, getContactsForR2,
   getStats, getSetting, setSetting, now
 };
