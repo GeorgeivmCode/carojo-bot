@@ -240,7 +240,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       }
       return;
     }
-    if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new') {
+    if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new' || contact.state === 'awaiting_choice') {
       // Si está en 'new', revisar mensajes recientes por si es cliente antiguo
       if (contact.state === 'new') {
         const recentMsgs = db.getRecentMessages(phone, 4);
@@ -333,13 +333,25 @@ async function handleNew(contact, text) {
 
 async function handleChoice(contact, text) {
   const phone = contact.phone;
-  if (text === '1') {
+  // Accept "1"/"1."/"1 algo", "2"/"2 algo", "3"/"3 algo" and pack keywords
+  const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante');
+  const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text === 'oro');
+  const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico');
+
+  if (isDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
-    await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2') {
+    // Skip resending details if already shown recently in this conversation
+    const recent = db.getRecentMessages(phone, 12);
+    const alreadySent = recent.some(m => m.direction === 'out' && m.content.includes('MEGA PACK DIAMANTE') && m.content.includes('15.000'));
+    if (alreadySent) {
+      await sendAndSave(phone, 'Perfecto! Te espero con el comprobante de $15.000 al numero que ya te di. 💎📲');
+    } else {
+      await sendAndSave(phone, DIAMANTE_DETAILS);
+    }
+  } else if (isOro) {
     db.updateContact(phone, { state: 'offered_oro', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_UPSELL);
-  } else if (text === '3') {
+  } else if (isBasico) {
     db.updateContact(phone, { state: 'offered_basico', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_UPSELL);
   } else {
@@ -381,9 +393,9 @@ async function handleOfferedBasico(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else if (text === '2' || text.includes('oro') || ['si', 'sí', 'dale', 'listo', 'ok', 'claro'].some(w => text.includes(w))) {
-    // "si" = acepta el upsell a Oro que se estaba ofreciendo
-    db.updateContact(phone, { state: 'offered_oro', pack_selected: 'oro' });
-    await sendAndSave(phone, ORO_UPSELL);
+    // Cliente acepto subir de Basico a Oro — ir directo al pago, sin upsell a Diamante
+    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
+    await sendAndSave(phone, ORO_DETAILS);
   } else if (text === '3' || text.includes('basico') || text.includes('básico') || text.includes('no')) {
     // "no" = declina upsell, se queda con Basico
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
@@ -452,9 +464,21 @@ async function handleComprobante(contact, mediaContent) {
     return;
   }
 
-  // Detectar pack por monto (Vision puede identificar mejor que lo que el cliente eligio)
-  const packByAmount = AMOUNT_TO_PACK[result.monto];
-  const pack = packByAmount || contact.pack_selected || 'basico';
+  // Normalizar monto — Vision puede retornar "15.000" (string con punto) en vez de 15000
+  const rawMonto = result.monto;
+  const normalizedMonto = rawMonto != null
+    ? parseInt(String(rawMonto).replace(/\./g, '').replace(/,/g, ''), 10) || null
+    : null;
+  const packByAmount = normalizedMonto ? AMOUNT_TO_PACK[normalizedMonto] : undefined;
+  const pack = packByAmount || contact.pack_selected || null;
+
+  // Si no se puede determinar el pack, pedir confirmacion en lugar de entregar basico por defecto
+  if (!pack) {
+    db.updateContact(phone, { state: 'awaiting_choice' });
+    await sendAndSave(phone, 'Pago verificado! Para activarte el acceso confirmame: escribe 1 para Diamante ($15.000), 2 para Oro ($10.000) o 3 para Basico ($5.000). 💎');
+    await notifyJorge(contact, `ATENCION: Pago verificado pero monto no detectado (${result.monto}). Necesita confirmacion de pack.\nTel: ${phone}`);
+    return;
+  }
 
   db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack });
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
