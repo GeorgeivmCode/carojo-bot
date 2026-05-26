@@ -169,8 +169,8 @@ app.get('/webhook', (req, res) => {
 });
 
 app.post('/webhook', verifySignature, async (req, res) => {
+  if (!initialized) return res.sendStatus(503); // Meta reintenta automaticamente
   res.sendStatus(200);
-  if (!initialized) return;
 
   let body;
   try { body = JSON.parse(req.body.toString()); } catch { return; }
