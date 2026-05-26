@@ -402,7 +402,14 @@ async function handleComprobante(contact, mediaContent) {
   await sendAndSave(phone, 'Un momento, verificando tu pago... ⏳');
 
   // Vision detecta el monto y determina el pack
-  const result = await verifyPayment(imageBuffer, mimeType, contact.pack_selected || 'basico');
+  let result;
+  try {
+    result = await verifyPayment(imageBuffer, mimeType, contact.pack_selected || 'basico');
+  } catch (e) {
+    console.error(`verifyPayment error [${phone}]:`, e.message);
+    await sendAndSave(phone, 'Tuve un problema procesando tu imagen. Por favor enviamela de nuevo. 📸');
+    return;
+  }
 
   if (!result.valido) {
     const { razon_rechazo, monto } = result;
