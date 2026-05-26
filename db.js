@@ -134,6 +134,13 @@ function updateMessageStatus(wamid, status) {
   db.prepare(`UPDATE messages SET status = ? WHERE wamid = ? AND direction = 'out'`).run(status, wamid);
 }
 
+function getLastInboundWamid(phone) {
+  const row = db.prepare(
+    `SELECT wamid FROM messages WHERE phone = ? AND direction = 'in' ORDER BY id DESC LIMIT 1`
+  ).get(phone);
+  return row?.wamid || null;
+}
+
 function getRecentMessages(phone, limit = 10) {
   return db.prepare(`
     SELECT * FROM (
@@ -194,7 +201,7 @@ function setSetting(key, value) {
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts,
-  saveMessage, getMessages, getRecentMessages, updateMessageStatus,
+  saveMessage, getMessages, getRecentMessages, getLastInboundWamid, updateMessageStatus,
   getContactsForR1, getContactsForR2,
   getStats, getSetting, setSetting, now
 };

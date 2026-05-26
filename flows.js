@@ -197,6 +197,13 @@ async function processMessage(phone, msgType, content, wamidIn) {
   if (!contact.bot_active) return;
   if (contact.state === 'stopped') return;
 
+  // Debounce: esperar 1.5s antes de responder texto — si llegó un mensaje más nuevo, ignorar este
+  if (msgType === 'text') {
+    await new Promise(r => setTimeout(r, 1500));
+    const lastWamid = db.getLastInboundWamid(phone);
+    if (lastWamid && lastWamid !== wamidIn) return;
+  }
+
   const text = (msgType === 'text' ? content : '').trim().toLowerCase();
 
   // Cliente antiguo sin acceso — en cualquier estado que NO sea compra comprometida
@@ -476,6 +483,12 @@ async function handleEmail(contact, emailText) {
     await sendAndSave(phone,
       'No te preocupes! El acceso no ocupa espacio en tu Gmail — el material vive en nuestro Google Drive, no en tu bandeja de entrada. Solo necesitamos el correo para registrar tu acceso.\n\nEscribenos tu Gmail completo:\ntunombre@gmail.com 📩'
     );
+    return;
+  }
+
+  // Si no tiene @ ni parece un intento de email (nombre, "mira el pago", etc.) — recordar amablemente
+  if (!email.includes('@')) {
+    await sendAndSave(phone, 'Para activar tu acceso solo necesito tu Gmail 📩\n\nEscribelo asi:\ntunombre@gmail.com');
     return;
   }
 
