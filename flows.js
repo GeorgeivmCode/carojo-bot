@@ -112,31 +112,54 @@ async function fireCapi(contact, pack) {
     return;
   }
   try {
+    const sha256 = v => crypto.createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
+
     const rawPhone = contact.phone.replace(/\D/g, '');
-    const ph = crypto.createHash('sha256').update(rawPhone).digest('hex');
+    const ud = { ph: [sha256(rawPhone)] };
+
+    // Email mejora EMQ de ~4 a 8+ — es la señal mas fuerte despues de ctwa_clid
+    if (contact.email) ud.em = [sha256(contact.email)];
+
+    // Nombre (primer token) si existe
+    if (contact.name) {
+      const fn = contact.name.split(' ')[0];
+      if (fn) ud.fn = [sha256(fn)];
+    }
+
+    // ctwa_clid: señal de atribucion directa a campañas CTWA — sin esto no aparece en Ads Manager
+    if (contact.ctwa_clid) ud.ctwa_clid = contact.ctwa_clid;
+
     const event = {
-      event_name:    'Purchase',
-      event_time:    Math.floor(Date.now() / 1000),
+      event_name:        'Purchase',
+      event_time:        Math.floor(Date.now() / 1000),
       action_source:     'business_messaging',
       messaging_channel: 'whatsapp',
       event_id:          `purchase_${contact.phone}_${Date.now()}`,
-      user_data:         { ph: [ph] },
-      custom_data:   {
-        currency: 'COP',
-        value:    PACK_PRICES[pack] || 0,
+      user_data:         ud,
+      custom_data: {
+        currency:     'COP',
+        value:        PACK_PRICES[pack] || 0,
         content_name: pack,
         content_type: 'product',
-        contents: [{ id: pack, quantity: 1 }]
+        content_ids:  [pack],
+        contents:     [{ id: pack, quantity: 1 }]
       }
     };
-    if (contact.ctwa_clid) event.user_data.ctwa_clid = contact.ctwa_clid;
-    console.log(`CAPI enviando: pack=${pack} phone=${contact.phone} ctwa_clid=${contact.ctwa_clid || 'NINGUNO'} pixel=${META_PIXEL_ID}`);
+
+    const signals = [
+      'ph=si',
+      contact.email     ? 'em=si' : 'em=NO',
+      contact.name      ? 'fn=si' : 'fn=NO',
+      contact.ctwa_clid ? 'ctwa_clid=si' : 'ctwa_clid=NO'
+    ].join(' | ');
+    console.log(`CAPI enviando: pack=${pack} phone=${contact.phone} pixel=${META_PIXEL_ID} | ${signals}`);
+
     const capiRes = await axios.post(
       `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
       { data: [event] },
       { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
     );
-    console.log('CAPI respuesta:', JSON.stringify(capiRes.data));
+    console.log('CAPI ok:', JSON.stringify(capiRes.data));
   } catch (e) {
     const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
     console.error('CAPI error:', detail);

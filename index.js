@@ -183,6 +183,7 @@ app.post('/webhook', verifySignature, async (req, res) => {
       const wamid = s.id;
       const status = s.status; // sent, delivered, read, failed
       const phone  = s.recipient_id;
+      console.log(`[STATUS] ${status} | phone=${phone} | wamid=${wamid}`);
       if (initialized) {
         db.updateMessageStatus(wamid, status);
         broadcast('msg_status', { phone, wamid, status });
