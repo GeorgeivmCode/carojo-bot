@@ -818,7 +818,7 @@ async function registerSale() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pack: pack.toLowerCase().trim(), email: email.trim().toLowerCase() })
   });
-  if (res?.ok) showToast('Venta registrada en Sheet y CAPI!', 'success');
+  if (res?.ok) showToast('Venta registrada — acceso Drive enviado, Sheet y CAPI!', 'success');
   else showToast('Error al registrar venta', 'error');
 }
 

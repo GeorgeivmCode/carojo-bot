@@ -200,7 +200,8 @@ async function processMessage(phone, msgType, content, wamidIn) {
   const text = (msgType === 'text' ? content : '').trim().toLowerCase();
 
   // Cliente antiguo sin acceso — en cualquier estado que NO sea compra comprometida
-  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'old_client' && contact.state !== 'delivered') {
+  // awaiting_email se excluye: ya pagó, solo está dando su correo; "no me llega" aquí es por Gmail lleno
+  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'old_client' && contact.state !== 'delivered' && contact.state !== 'awaiting_email') {
     await sendAndSave(phone, PLANTILLA_ACCESO);
     db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
     await notifyJorge(contact, `CLIENTE ANTIGUO sin acceso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nMensaje: "${content.substring(0, 100)}"`);
@@ -456,6 +457,17 @@ async function handleComprobante(contact, mediaContent) {
 async function handleEmail(contact, emailText) {
   const phone = contact.phone;
   const email = emailText.trim().toLowerCase();
+
+  // Detectar cuando dice que no tiene Gmail o que lo tiene lleno/sin espacio
+  const sinGmail = ['no tengo gmail', 'no tengo correo', 'no tengo email', 'no hay espacio',
+    'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
+    'no tengo cuenta', 'no me llega correo'];
+  if (sinGmail.some(p => email.includes(p))) {
+    await sendAndSave(phone,
+      'No te preocupes! El acceso no ocupa espacio en tu Gmail — el material vive en nuestro Google Drive, no en tu bandeja de entrada. Solo necesitamos el correo para registrar tu acceso.\n\nEscribenos tu Gmail completo:\ntunombre@gmail.com 📩'
+    );
+    return;
+  }
 
   if (!isValidGmail(email)) {
     await sendAndSave(phone, INVALID_EMAIL_MSG);

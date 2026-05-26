@@ -350,6 +350,15 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   if (!email || !pack) return res.status(400).json({ error: 'email y pack requeridos' });
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
+
+  const { grantDriveAccess } = require('./drive');
+  const { deliveryMessage } = require('./content');
+
+  // 1. Dar acceso Drive
+  try { await grantDriveAccess(email, pack); } catch (e) { console.error('Drive error register-sale:', e.message); }
+  // 2. Enviar mensaje de entrega con el link al cliente
+  try { await sendAndSave(phone, deliveryMessage(pack)); } catch (e) { console.error('Delivery msg error:', e.message); }
+  // 3. Actualizar DB
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now(), email });
   const updated = db.getContact(phone);
   try { await fireCapi(updated, pack); } catch (e) { console.error('CAPI error:', e.message); }
