@@ -473,6 +473,30 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/contacts/:phone/mark-fraud', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  const { revokeAccess } = require('./drive');
+  const { sendText } = require('./whatsapp');
+  // Revocar Drive si tiene email y pack
+  if (c.email && c.pack_selected) {
+    try { await revokeAccess(c.email, c.pack_selected); } catch (e) { console.error('Revoke Drive fraud:', e.message); }
+  }
+  // Bloquear contacto
+  db.updateContact(phone, { bot_active: 0, state: 'fraud', tag: 'Fraude' });
+  // Notificar a Jorge
+  try {
+    await sendText(process.env.JORGE_PHONE,
+      `FRAUDE DETECTADO:\nTel: ${phone}\nNombre: ${c.name || '-'}\nEmail: ${c.email || '-'}\nPack: ${c.pack_selected || '-'}\nAcceso Drive revocado.`
+    );
+  } catch (e) { console.error('Notify fraud:', e.message); }
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true });
+});
+
 app.post('/api/contacts/:phone/send', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const { text } = req.body;

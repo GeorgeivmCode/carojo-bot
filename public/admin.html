@@ -268,6 +268,7 @@
         <button class="qr-btn" onclick="approvePayment()" style="color:var(--blue)">✅ Aprobar pago</button>
         <button class="qr-btn" onclick="changeEmail()" style="color:var(--yellow)">📧 Cambiar Gmail</button>
         <button class="qr-btn" onclick="restoreAccess()" style="color:#a78bfa;font-weight:700">🔑 Restaurar Acceso</button>
+        <button class="qr-btn" onclick="markFraud()" style="color:var(--red);font-weight:700">🚫 Fraude</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
       </div>
@@ -866,6 +867,17 @@ async function restoreAccess() {
   if (!res) return;
   const data = await res.json();
   if (data.ok) showToast('Acceso restaurado! Link enviado al cliente.', 'success');
+  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
+async function markFraud() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  if (!confirm(`Marcar como FRAUDE a ${c?.name || currentPhone}?\n\nEsto revoca el acceso a Drive, bloquea el bot y te notifica por WhatsApp.`)) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/mark-fraud`, { method: 'POST' });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) showToast('Marcado como fraude. Drive revocado y bot bloqueado.', 'error', 5000);
   else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 
