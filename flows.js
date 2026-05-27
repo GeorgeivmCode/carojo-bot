@@ -470,7 +470,11 @@ async function handleComprobante(contact, mediaContent) {
     } else if (razon_rechazo === 'comprobante_falso') {
       await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
     } else if (razon_rechazo === 'fecha_incorrecta') {
-      await sendAndSave(phone, PAYMENT_OLD_DATE_MSG);
+      await sendAndSave(phone, PLANTILLA_ACCESO);
+      db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
+      await notifyJorge(contact,
+        `CLIENTE ANTIGUO (comprobante con fecha pasada):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha || 'no detectada'}`
+      );
     } else if (razon_rechazo === 'destinatario_invalido') {
       await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
     } else if (razon_rechazo === 'transaccion_no_exitosa') {
