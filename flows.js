@@ -308,19 +308,31 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       const wantsDiamante = text.includes('diamante') || text.includes('mega');
       const wantsOro = !wantsDiamante && (text.includes('oro') || text.includes('super') || text.includes('superpack'));
       const wantsBasico = !wantsDiamante && !wantsOro && (text.includes('basico') || text.includes('básico'));
-      if (wantsDiamante && contact.pack_selected !== 'diamante') {
-        db.updateContact(phone, { pack_selected: 'diamante' });
-        await sendAndSave(phone, DIAMANTE_DETAILS);
+      if (wantsDiamante) {
+        if (contact.pack_selected !== 'diamante') {
+          db.updateContact(phone, { pack_selected: 'diamante' });
+          await sendAndSave(phone, DIAMANTE_DETAILS);
+        } else {
+          await sendAndSave(phone, 'Perfecto! Ya tienes seleccionado el MEGA PACK DIAMANTE 💎 Solo me falta tu comprobante de $15.000 para activarte el acceso. 📲');
+        }
         break;
       }
-      if (wantsOro && contact.pack_selected !== 'oro') {
-        db.updateContact(phone, { pack_selected: 'oro' });
-        await sendAndSave(phone, ORO_DETAILS);
+      if (wantsOro) {
+        if (contact.pack_selected !== 'oro') {
+          db.updateContact(phone, { pack_selected: 'oro' });
+          await sendAndSave(phone, ORO_DETAILS);
+        } else {
+          await sendAndSave(phone, 'Perfecto! Ya tienes seleccionado el SUPERPACK ORO ✨ Solo me falta tu comprobante de $10.000 para activarte el acceso. 📲');
+        }
         break;
       }
-      if (wantsBasico && contact.pack_selected !== 'basico') {
-        db.updateContact(phone, { pack_selected: 'basico' });
-        await sendAndSave(phone, BASICO_DETAILS);
+      if (wantsBasico) {
+        if (contact.pack_selected !== 'basico') {
+          db.updateContact(phone, { pack_selected: 'basico' });
+          await sendAndSave(phone, BASICO_DETAILS);
+        } else {
+          await sendAndSave(phone, 'Perfecto! Ya tienes seleccionado el PACK BASICO 📖 Solo me falta tu comprobante de $5.000 para activarte el acceso. 📲');
+        }
         break;
       }
       const history = db.getRecentMessages(phone, 8);
