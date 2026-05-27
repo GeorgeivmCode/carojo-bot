@@ -304,6 +304,25 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         await sendAndSave(phone, SEND_COMPROBANTE_MSG);
         break;
       }
+      // Cambio de pack en medio del flujo — directo al pago, sin upsell
+      const wantsDiamante = text.includes('diamante') || text.includes('mega');
+      const wantsOro = !wantsDiamante && (text.includes('oro') || text.includes('super') || text.includes('superpack'));
+      const wantsBasico = !wantsDiamante && !wantsOro && (text.includes('basico') || text.includes('básico'));
+      if (wantsDiamante && contact.pack_selected !== 'diamante') {
+        db.updateContact(phone, { pack_selected: 'diamante' });
+        await sendAndSave(phone, DIAMANTE_DETAILS);
+        break;
+      }
+      if (wantsOro && contact.pack_selected !== 'oro') {
+        db.updateContact(phone, { pack_selected: 'oro' });
+        await sendAndSave(phone, ORO_DETAILS);
+        break;
+      }
+      if (wantsBasico && contact.pack_selected !== 'basico') {
+        db.updateContact(phone, { pack_selected: 'basico' });
+        await sendAndSave(phone, BASICO_DETAILS);
+        break;
+      }
       const history = db.getRecentMessages(phone, 8);
       await sendAndSave(phone, await carol(history, text));
       break;

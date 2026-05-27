@@ -384,6 +384,8 @@ COMPROBANTES FALSOS — rechazar con "comprobante_falso":
 - Marca "NEKI" (color turquesa/azul cielo, NO es Nequi que es morado) → FALSO
 - Cualquier marca de app/banco que NO este en la lista de 10 apps reales de arriba → FALSO
 - Layouts genericos con colores inconsistentes con las apps reales
+- Para Nequi especificamente: el titulo correcto es "Envio Realizado" o "Detalle del movimiento". Si dice "Pago exitoso", "¡Pago exitoso!", "Transferencia exitosa" u otro titulo diferente → FALSO
+- Nombre del destinatario con corchetes tipo [Jorge Vanegas] o [Nombre] → señal de template editado → FALSO
 
 Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
 
@@ -396,19 +398,21 @@ Extrae:
 6. Nombre exacto de la app/banco usada para pagar (ej: "Nequi", "Daviplata", "Bancolombia Bre-B", "BBVA", "NuBank", "Lulo Bank", "Davivienda", "Banco de Bogota", "Corresponsal Wompi", "Corresponsal Redeban")
 
 Destinatario valido — CUALQUIERA de estas condiciones es suficiente:
-- El NUMERO visible es 3058989359 o 3217239198 (el nombre no importa, el numero solo ya es suficiente)
+- El NUMERO visible es EXACTAMENTE 3058989359 o EXACTAMENTE 3217239198, comparado digito por digito. Lee cada digito individualmente: 3-0-5-8-9-8-9-3-5-9. Un solo digito diferente = destinatario_invalido.
 - El NOMBRE visible es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches" (aunque no aparezca el numero)
 - No aparece ni nombre ni numero del destinatario → asumir valido
 
-RECHAZAR destinatario SOLO si aparece un numero claramente DIFERENTE a 3058989359 y 3217239198, o un nombre claramente diferente a los autorizados.
+RECHAZAR destinatario si el numero visible tiene CUALQUIER digito diferente a 3058989359 o 3217239198, o si el nombre no coincide con los autorizados.
 Numero correcto sin nombre = VALIDO. Nombre correcto sin numero = VALIDO. Ninguno de los dos = VALIDO.
 
 valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + app reconocida como real + fecha de hoy o no legible.
 
 VALIDACION DE FECHA:
-- Si la fecha del comprobante es claramente de un dia anterior a hoy (${today}): valido = false, razon_rechazo = "fecha_incorrecta"
-- Si la fecha no es legible o no aparece: NO rechaces por fecha (asumir valida)
-- Solo rechazar si la fecha ES visible y claramente no es de hoy
+- La fecha de hoy es ${today} (formato DD/MM/AAAA, hora Colombia).
+- Si la fecha del comprobante ES visible y legible: compara dia, mes Y año con la fecha de hoy.
+- Si el DIA, MES o AÑO del comprobante es diferente a hoy → valido = false, razon_rechazo = "fecha_incorrecta"
+- Ejemplos: hoy es ${today}. "23 de abril de 2026" → RECHAZAR (mes diferente). "25 de mayo de 2026" → RECHAZAR (dia diferente). Mismo dia/mes/año → ACEPTAR.
+- Si la fecha NO es legible o no aparece: NO rechaces por fecha (asumir valida)
 
 razon_rechazo:
 - "no_es_comprobante" → la imagen claramente NO es un comprobante de pago bancario: foto personal, selfie, captura de cursos o Drive, foto de productos, meme, imagen decorativa, conversacion de WhatsApp, cualquier cosa que no sea una transaccion bancaria colombiana
