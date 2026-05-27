@@ -127,7 +127,14 @@ async function fireCapi(contact, pack) {
     }
 
     // ctwa_clid: señal de atribucion directa a campañas CTWA — sin esto no aparece en Ads Manager
-    if (contact.ctwa_clid) ud.ctwa_clid = contact.ctwa_clid;
+    if (contact.ctwa_clid) {
+      ud.ctwa_clid = contact.ctwa_clid;
+      // fbc derivado del ctwa_clid — mejora atribucion en Ads Manager (mismo mecanismo que pixel browser)
+      const clickTs = contact.created_at
+        ? Math.floor(new Date(contact.created_at).getTime() / 1000)
+        : Math.floor(Date.now() / 1000);
+      ud.fbc = `fb.1.${clickTs}.${contact.ctwa_clid}`;
+    }
 
     const event = {
       event_name:        'Purchase',
