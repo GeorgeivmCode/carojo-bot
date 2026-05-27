@@ -263,10 +263,7 @@
 
     <div class="chat-footer">
       <div class="quick-replies" id="quickReplies">
-        <button class="qr-btn" onclick="insertQR('bienvenida')">Bienvenida</button>
-        <button class="qr-btn" onclick="insertQR('diamante')">Diamante</button>
-        <button class="qr-btn" onclick="insertQR('oro')">Oro</button>
-        <button class="qr-btn" onclick="insertQR('basico')">Basico</button>
+        <button class="qr-btn" onclick="insertQR('pedir_gmail')" style="color:var(--yellow)">📧 Pedir Gmail</button>
         <button class="qr-btn" onclick="registerSale()" style="color:var(--green);font-weight:700">💾 Registrar venta</button>
         <button class="qr-btn" onclick="approvePayment()" style="color:var(--blue)">✅ Aprobar pago</button>
         <button class="qr-btn" onclick="changeEmail()" style="color:var(--yellow)">📧 Cambiar Gmail</button>
@@ -356,11 +353,7 @@ let allContacts = [];
 let currentFilter = 'all';
 
 const QUICK_REPLIES = {
-  bienvenida: `Hola! Soy Carol de Carojo Aprende y Emprende.\n\nTenemos 3 packs de lettering y caligrafia para ti:\n\n1. Pack Diamante - $15.000 COP\n2. Pack Oro - $10.000 COP\n3. Pack Basico - $5.000 COP\n\nEscribe el numero del pack que te interesa!`,
-  diamante: `Pack Diamante - $15.000 COP\n\nIncluye:\n- Lettering desde cero\n- Caligrafia avanzada\n- Plantillas\n- Diseno comercial\n- Soporte 30 dias\n\nPaga a Nequi 3058989359 o Daviplata 3217239198 y enviame el comprobante.`,
-  oro: `Pack Oro - $10.000 COP\n\nIncluye:\n- Lettering desde cero\n- Caligrafia avanzada\n- Plantillas\n\nPaga a Nequi 3058989359 o Daviplata 3217239198.`,
-  basico: `Pack Basico - $5.000 COP\n\nIncluye el curso completo de lettering desde cero.\n\nPaga a Nequi 3058989359 o Daviplata 3217239198.`,
-  pago: `Listo! Tu pago fue confirmado. Necesito tu correo de Gmail para enviarte el acceso.`
+  pedir_gmail: `¡Hola! 👋✨ Hemos actualizado nuestra plataforma para brindarte mayor seguridad. 🔐🎉\n\nAhora el acceso es personal y directo a tu correo *GMAIL* 💌 — sin enlaces públicos. 🙌\n\nPara activarte solo necesito un dato:\n\n📧💛 ¿Cuál es tu correo *GMAIL*?\n\n⚠️✅ Solo funciona con *GMAIL* — escríbelo exacto con el *@gmail.com* 📩\n\nEn cuanto lo reciba, ¡te llega la notificación de *GMAIL* con tu material listo! 🚀🎨✨`
 };
 
 // ── Auth ───────────────────────────────────────────────────────────────────────
