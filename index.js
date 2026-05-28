@@ -493,7 +493,9 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: 'Error al dar acceso Drive: ' + e.message });
   }
-  await sendAndSave(phone, deliveryMessage(pack));
+  const restoreToken = generateAccessToken(phone, pack);
+  const restoreUrl = `https://carojo-bot.onrender.com/acceso/${restoreToken}`;
+  await sendAndSave(phone, deliveryMessage(pack, restoreUrl));
   // NO se setea delivered_at para que no sume en el contador de ventas de hoy
   db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, email });
   await notifyJorge(c, `ACCESO RESTAURADO (cliente antiguo)\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${c.name || '-'}`);
