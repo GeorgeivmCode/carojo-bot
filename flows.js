@@ -412,9 +412,13 @@ async function handleChoice(contact, text) {
   }
 }
 
+function hasWord(text, words) {
+  return words.some(w => new RegExp(`(?:^|\\s)${w}(?:\\s|$)`).test(text));
+}
+
 async function handleOfferedDiamante(contact, text) {
   const phone = contact.phone;
-  if (text === '1' || text.includes('diamante') || ['si', 'sí', 'dale', 'listo', 'ok'].some(w => text.includes(w))) {
+  if (text === '1' || text.includes('diamante') || hasWord(text, ['si', 'sí', 'dale', 'listo', 'ok'])) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else {
@@ -425,11 +429,10 @@ async function handleOfferedDiamante(contact, text) {
 
 async function handleOfferedOro(contact, text) {
   const phone = contact.phone;
-  // "si/dale/ok" = acepta el upsell a Diamante que se estaba ofreciendo
-  if (text === '1' || text.includes('diamante') || ['si', 'sí', 'dale', 'listo', 'ok', 'claro'].some(w => text.includes(w))) {
+  if (text === '1' || text.includes('diamante') || hasWord(text, ['si', 'sí', 'dale', 'listo', 'ok', 'claro'])) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro') || ['no'].some(w => text.includes(w))) {
+  } else if (text === '2' || text.includes('oro') || hasWord(text, ['no'])) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else {
@@ -443,12 +446,10 @@ async function handleOfferedBasico(contact, text) {
   if (text === '1' || text.includes('diamante')) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro') || ['si', 'sí', 'dale', 'listo', 'ok', 'claro'].some(w => text.includes(w))) {
-    // Cliente acepto subir de Basico a Oro — ir directo al pago, sin upsell a Diamante
+  } else if (text === '2' || text.includes('oro') || hasWord(text, ['si', 'sí', 'dale', 'listo', 'ok', 'claro'])) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
-  } else if (text === '3' || text.includes('basico') || text.includes('básico') || text.includes('no')) {
-    // "no" = declina upsell, se queda con Basico
+  } else if (text === '3' || text.includes('basico') || text.includes('básico') || hasWord(text, ['no'])) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_DETAILS);
   } else {
