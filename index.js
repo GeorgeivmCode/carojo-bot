@@ -627,6 +627,43 @@ const DRIVE_URLS_PIXEL = {
 const PACK_NAMES_PIXEL = { basico: 'Pack Basico', oro: 'Pack Oro', diamante: 'Pack Diamante' };
 const PIXEL_ID = process.env.META_PIXEL_ID || '1045311689986665';
 
+// Evita disparar CAPI website mas de una vez por cliente (se resetea con restart del server)
+const capiPageFired = new Set();
+
+async function fireCapiWebsitePurchase({ phone, pack, amount, ip, ua, eventId, fbc, ctwaClid, email }) {
+  const CAPI_TOKEN = process.env.META_CAPI_TOKEN;
+  if (!PIXEL_ID || !CAPI_TOKEN) return;
+  const sha256 = v => crypto.createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
+  const ud = {};
+  if (ip) ud.client_ip_address = ip;
+  if (ua) ud.client_user_agent = ua;
+  ud.ph = [sha256(phone.replace(/\D/g, ''))];
+  if (email) ud.em = [sha256(email)];
+  if (fbc) ud.fbc = fbc;
+  if (ctwaClid) ud.ctwa_clid = ctwaClid;
+  const event = {
+    event_name:       'Purchase',
+    event_time:       Math.floor(Date.now() / 1000),
+    action_source:    'website',
+    event_source_url: 'https://carojo-bot.onrender.com/acceso/',
+    event_id:         eventId,
+    user_data:        ud,
+    custom_data: {
+      currency: 'COP', value: amount,
+      content_name: PACK_NAMES_PIXEL[pack] || pack,
+      content_type: 'product', content_ids: [pack],
+      contents: [{ id: pack, quantity: 1 }]
+    }
+  };
+  const axiosLib = require('axios');
+  const r = await axiosLib.post(
+    `https://graph.facebook.com/v21.0/${PIXEL_ID}/events`,
+    { data: [event] },
+    { params: { access_token: CAPI_TOKEN }, timeout: 8000 }
+  );
+  console.log(`CAPI website ok [${phone}] ip=${ip ? 'si' : 'no'} ua=${ua ? 'si' : 'no'}:`, JSON.stringify(r.data));
+}
+
 function verifyAccessToken(token) {
   try {
     const decoded = Buffer.from(token, 'base64url').toString();
@@ -645,23 +682,40 @@ function verifyAccessToken(token) {
   } catch { return null; }
 }
 
-app.get('/acceso/:token', (req, res) => {
+app.get('/acceso/:token', async (req, res) => {
   const info = verifyAccessToken(req.params.token);
   if (!info) return res.redirect(DRIVE_URLS_PIXEL.basico);
   const { phone, pack, amount } = info;
   const driveUrl = DRIVE_URLS_PIXEL[pack] || DRIVE_URLS_PIXEL.basico;
   const packName = PACK_NAMES_PIXEL[pack] || 'Pack';
 
-  // Set _fbc cookie with ctwa_clid so pixel attributes the purchase to the ad
+  // IP y User Agent del cliente (Render usa proxy, x-forwarded-for tiene la IP real)
+  const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
+  const clientUa = req.headers['user-agent'] || '';
+
+  // event_id compartido entre pixel browser y CAPI server → Meta deduplica en 1 evento con todas las señales
+  const eventId = `wpx_${phone}_${Date.now()}`;
+
+  let fbc = null; let ctwaClid = null; let email = null;
   if (db) {
     try {
       const contact = db.getContact(phone);
       if (contact?.ctwa_clid) {
-        const fbc = `fb.1.${Date.now()}.${contact.ctwa_clid}`;
+        ctwaClid = contact.ctwa_clid;
+        fbc = `fb.1.${Date.now()}.${contact.ctwa_clid}`;
         res.cookie('_fbc', fbc, { maxAge: 90 * 24 * 60 * 60 * 1000, sameSite: 'None', secure: true });
       }
+      if (contact?.email) email = contact.email;
     } catch {}
   }
+
+  // CAPI website con IP + UA — solo una vez por cliente para evitar duplicados
+  if (!capiPageFired.has(phone)) {
+    capiPageFired.add(phone);
+    fireCapiWebsitePurchase({ phone, pack, amount, ip: clientIp, ua: clientUa, eventId, fbc, ctwaClid, email })
+      .catch(e => console.error('CAPI website error:', e.message));
+  }
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -672,7 +726,7 @@ app.get('/acceso/:token', (req, res) => {
 !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
 fbq('init','${PIXEL_ID}');
 fbq('track','PageView');
-fbq('track','Purchase',{value:${amount},currency:'COP',content_name:'${packName}',content_type:'product',content_ids:['${pack}']});
+fbq('track','Purchase',{value:${amount},currency:'COP',content_name:'${packName}',content_type:'product',content_ids:['${pack}']},{eventID:'${eventId}'});
 </script>
 <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${PIXEL_ID}&ev=Purchase&noscript=1"/></noscript>
 <style>
