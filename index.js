@@ -168,12 +168,36 @@ function verifySignature(req, res, next) {
   next();
 }
 
+// Brute-force protection: max 10 failed attempts per IP per 15 min
+const failedAttempts = new Map();
+function checkBruteForce(ip) {
+  const now = Date.now();
+  const entry = failedAttempts.get(ip) || { count: 0, first: now };
+  if (now - entry.first > 15 * 60 * 1000) { failedAttempts.delete(ip); return false; }
+  return entry.count >= 10;
+}
+function recordFailure(ip) {
+  const now = Date.now();
+  const entry = failedAttempts.get(ip) || { count: 0, first: now };
+  if (now - entry.first > 15 * 60 * 1000) { failedAttempts.set(ip, { count: 1, first: now }); return; }
+  entry.count++;
+  failedAttempts.set(ip, entry);
+}
+
 function adminAuth(req, res, next) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
+  if (checkBruteForce(ip)) return res.status(429).send('Too many attempts. Try again in 15 minutes.');
   const auth = req.headers['authorization'] || '';
   const [type, encoded] = auth.split(' ');
-  if (type !== 'Basic' || !encoded) return res.set('WWW-Authenticate', 'Basic realm="Admin"').sendStatus(401);
+  if (type !== 'Basic' || !encoded) {
+    recordFailure(ip);
+    return res.set('WWW-Authenticate', 'Basic realm="Admin"').sendStatus(401);
+  }
   const [user, pass] = Buffer.from(encoded, 'base64').toString().split(':');
-  if (user !== ADMIN_USER || pass !== ADMIN_PASSWORD) return res.set('WWW-Authenticate', 'Basic realm="Admin"').sendStatus(401);
+  if (user !== ADMIN_USER || pass !== ADMIN_PASSWORD) {
+    recordFailure(ip);
+    return res.set('WWW-Authenticate', 'Basic realm="Admin"').sendStatus(401);
+  }
   next();
 }
 
@@ -664,20 +688,6 @@ p{color:#666;font-size:15px;line-height:1.5;margin-bottom:24px}
 </html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
-});
-
-app.post('/api/test-delivery/:phone/:pack', adminAuth, async (req, res) => {
-  if (!initialized) return res.status(503).json({ error: 'starting' });
-  const { phone, pack } = req.params;
-  const { deliveryMessage } = require('./content');
-  try {
-    const token = generateAccessToken(phone, pack);
-    const accessUrl = `https://carojo-bot.onrender.com/acceso/${token}`;
-    await sendAndSave(phone, deliveryMessage(pack, accessUrl));
-    res.json({ ok: true, accessUrl });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
 });
 
 // ── Remarketing Scheduler ──────────────────────────────────────────────────────
