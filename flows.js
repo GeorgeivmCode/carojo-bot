@@ -566,6 +566,23 @@ async function handleEmail(contact, emailText) {
   const phone = contact.phone;
   const rawText = emailText.trim().toLowerCase();
 
+  // Aplazamiento o confusión — no repetir el mismo mensaje rígido
+  const deferralPhrases = [
+    'mañana', 'manana', 'después', 'despues', 'luego', 'ahorita',
+    'no recuerdo', 'no lo recuerdo', 'no me acuerdo', 'no me lo recuerdo',
+    'no lo sé', 'no lo se', 'no sé', 'no se', 'no la tengo', 'no lo tengo',
+    'no me lo sé', 'no me lo se', 'casi no lo uso', 'casi no uso',
+    'lo busco', 'lo busco y', 'lo miro', 'espera', 'dame un momento',
+    'dame tiempo', 'un momento', 'un segundito', 'ahorita lo busco',
+    'no me acuerdo cual', 'no recuerdo cual', 'olvide', 'olvidé'
+  ];
+  if (deferralPhrases.some(p => rawText.includes(p)) && !rawText.includes('@')) {
+    const history = db.getRecentMessages(phone, 6);
+    const reply = await carol(history, emailText);
+    await sendAndSave(phone, reply);
+    return;
+  }
+
   // Extraer gmail de texto combinado (ej. "mira el pago\njuanita@gmail.com")
   const gmailMatch = rawText.match(/[\w._%+\-]+@gmail\.com/i);
   const email = gmailMatch ? gmailMatch[0].toLowerCase() : rawText;
