@@ -383,10 +383,16 @@ async function handleNew(contact, text) {
 
 async function handleChoice(contact, text) {
   const phone = contact.phone;
-  // Accept "1"/"1."/"1 algo", "2"/"2 algo", "3"/"3 algo" and pack keywords
-  const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante');
-  const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text === 'oro');
-  const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico');
+  // Preguntas van siempre a Carol — no interpretar mencion de pack como seleccion
+  if (text.includes('?') || text.includes('¿')) {
+    const history = db.getRecentMessages(phone, 8);
+    await sendAndSave(phone, await carol(history, text));
+    return;
+  }
+  // Seleccion por numero o por nombre exacto del pack (sin contexto de pregunta)
+  const isDiamante = text === '1' || /^1\b/.test(text) || text === 'diamante' || text.startsWith('diamante') || /\bquiero\b.*diamante|diamante.*\bquiero\b/.test(text);
+  const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text === 'oro' || text.startsWith('oro') || /\bquiero\b.*\bor[oa]\b|\bor[oa]\b.*\bquiero\b/.test(text));
+  const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico' || text.startsWith('basico') || /\bquiero\b.*b[aá]sico|b[aá]sico.*\bquiero\b/.test(text));
 
   if (isDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
