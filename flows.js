@@ -375,15 +375,8 @@ async function handleNew(contact, text) {
     db.updateContact(phone, { state: 'awaiting_choice' });
     contact = db.getContact(phone);
     await handleChoice(contact, text);
-  } else if (!text || text.length < 3) {
-    // Texto muy corto o vacío — bienvenida normal
-    await sendAndSave(phone, WELCOME_MESSAGE);
-    db.updateContact(phone, { state: 'awaiting_choice' });
   } else {
-    // El cliente llega escribiendo algo (pregunta, saludo, contexto) — Carol responde con historial
-    const history = db.getRecentMessages(phone, 8);
-    const reply = await carol(history, text);
-    await sendAndSave(phone, reply);
+    await sendAndSave(phone, WELCOME_MESSAGE);
     db.updateContact(phone, { state: 'awaiting_choice' });
   }
 }
