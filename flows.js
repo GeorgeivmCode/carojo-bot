@@ -417,9 +417,12 @@ function hasWord(text, words) {
   return words.some(w => tokens.includes(w));
 }
 
+const YES_WORDS = ['si', 'sí', 'dale', 'listo', 'ok', 'claro', 'confirmo', 'confirmado', 'voy', 'perfecto', 'hagalo', 'hagámoslo', 'quiero', 'de una'];
+const NO_WORDS  = ['no', 'nop', 'nope', 'negativo', 'paso'];
+
 async function handleOfferedDiamante(contact, text) {
   const phone = contact.phone;
-  if (text === '1' || text.includes('diamante') || hasWord(text, ['si', 'sí', 'dale', 'listo', 'ok'])) {
+  if (text === '1' || text.includes('diamante') || hasWord(text, YES_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else {
@@ -430,10 +433,10 @@ async function handleOfferedDiamante(contact, text) {
 
 async function handleOfferedOro(contact, text) {
   const phone = contact.phone;
-  if (text === '1' || text.includes('diamante') || hasWord(text, ['si', 'sí', 'dale', 'listo', 'ok', 'claro'])) {
+  if (text === '1' || text.includes('diamante') || hasWord(text, YES_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro') || hasWord(text, ['no'])) {
+  } else if (text === '2' || text.includes('oro') || hasWord(text, NO_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else {
@@ -447,10 +450,10 @@ async function handleOfferedBasico(contact, text) {
   if (text === '1' || text.includes('diamante')) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro') || hasWord(text, ['si', 'sí', 'dale', 'listo', 'ok', 'claro'])) {
+  } else if (text === '2' || text.includes('oro') || hasWord(text, YES_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
-  } else if (text === '3' || text.includes('basico') || text.includes('básico') || hasWord(text, ['no'])) {
+  } else if (text === '3' || text.includes('basico') || text.includes('básico') || hasWord(text, NO_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_DETAILS);
   } else {
