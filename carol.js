@@ -372,9 +372,9 @@ APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
 1. Nequi: app morada/rosada, muestra "Detalle del movimiento", "Envio Realizado", QR code, campo "Para:", "Numero Nequi", "De donde salio la plata?: Disponible".
 2. Bancolombia Bre-B (tema claro o negro): swirls de colores azul/amarillo/naranja/rojo, "Transferencia exitosa!", "Comprobante No.", "Producto destino: Nequi [numero]".
 3. BBVA: logo "BBVA" azul. Puede tener fondo blanco o fondo oscuro. Encabezado "TRANSFERIR" o "Transferencia con llave". Estado: "OPERACIÓN EXITOSA". Tipo de operacion: "Envío por Bre-B". Destino: "Tipo de llave: Número de celular" + "Llave que recibe: [numero]". El numero destinatario esta en el campo "Llave que recibe". Puede o no mostrar "Entidad que recibe: Nequi".
-4. NuBank/Nu: fondo blanco, logo "nu", "Comprobante de transferencia", "Via: Bre-B", "Estado: Completada".
-5. Lulo Bank: fondo blanco/gris, logo "lulo bank", "Plata enviada $X", iconos de emisor y receptor con nombres.
-6. DaviPlata: colores rojo/blanco, logo "DaviPlata" o "Davi plata", "Transaccion exitosa", "Pasaste Plata a otro DaviPlata", QR code.
+4. NuBank/Nu: fondo blanco, logo "nu" minuscula morado. "Comprobante de transferencia", "Via: Bre-B", "Estado: Completada". El numero destinatario aparece en campo "Para:" o "Numero de celular" o junto al nombre del receptor.
+5. Lulo Bank: fondo blanco/gris, logo "lulo bank". "Plata enviada $X". Muestra iconos de emisor y receptor. El numero o nombre del destinatario aparece bajo el icono del receptor o en campo "Para:".
+6. DaviPlata: colores rojo/blanco, logo "DaviPlata". Casos validos: (a) "Pasaste Plata a otro DaviPlata" con QR code cuando el destino es otra DaviPlata. (b) "Transaccion exitosa" o "Transferencia exitosa" cuando envia a Nequi/Bre-B — en ese caso el numero aparece en campo "Numero Nequi:", "Numero celular:", "Llave:" o similar.
 7. Davivienda: colores rojo/blanco, logo Davivienda (casita), "Transferencia exitosa", "Usted envio $X", "a la llave Nequi [numero] de [Nombre]".
 8. Banco de Bogota: fondo blanco, logo "Banco de Bogota", "Valor de la transferencia" en caja verde, "Enviaste a:", "Entidad: NEQUI".
 9. Corresponsal Wompi/Bancolombia (tirilla papel): logo "W Wompi / Corresponsal Bancolombia", "TRANSACCION EXITOSA", "Monto:", "Numero Nequi:", "Titular:".
@@ -390,7 +390,7 @@ COMPROBANTES FALSOS — rechazar con "comprobante_falso":
 Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
 
 Extrae:
-1. Monto pagado (numero sin puntos ni $: debe ser 5000, 10000 o 15000)
+1. Monto pagado. Formato colombiano: $5.000 o $5.000,00 = 5000. $10.000 = 10000. $15.000 = 15000. Ignora puntos de miles y comas decimales. El valor debe ser 5000, 10000 o 15000.
 2. Numero destinatario (debe ser 3058989359 o 3217239198)
 3. Nombre destinatario
 4. Estado de la transaccion
