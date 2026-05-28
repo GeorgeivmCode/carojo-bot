@@ -127,7 +127,7 @@ async function fireCapi(contact, pack) {
     const sha256 = v => crypto.createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
 
     const rawPhone = contact.phone.replace(/\D/g, '');
-    const ud = { ph: [sha256(rawPhone)] };
+    const ud = { ph: [sha256(rawPhone)], external_id: [sha256(rawPhone)] };
 
     // Email mejora EMQ de ~4 a 8+ — es la señal mas fuerte despues de ctwa_clid
     if (contact.email) ud.em = [sha256(contact.email)];
@@ -611,8 +611,9 @@ async function handleEmail(contact, emailText) {
   const accessUrl = `${BOT_URL}/acceso/${accessToken}`;
   await sendAndSave(phone, deliveryMessage(pack, accessUrl));
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email });
+  const updatedContact = db.getContact(phone);
 
-  await fireCapi(contact, pack);
+  await fireCapi(updatedContact, pack);
   await logSaleToSheets(contact, pack, email);
   await notifyJorge(contact,
     `ENTREGA completada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
