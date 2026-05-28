@@ -375,8 +375,15 @@ async function handleNew(contact, text) {
     db.updateContact(phone, { state: 'awaiting_choice' });
     contact = db.getContact(phone);
     await handleChoice(contact, text);
-  } else {
+  } else if (!text || text.length < 3) {
+    // Texto muy corto o vacío — bienvenida normal
     await sendAndSave(phone, WELCOME_MESSAGE);
+    db.updateContact(phone, { state: 'awaiting_choice' });
+  } else {
+    // El cliente llega escribiendo algo (pregunta, saludo, contexto) — Carol responde con historial
+    const history = db.getRecentMessages(phone, 8);
+    const reply = await carol(history, text);
+    await sendAndSave(phone, reply);
     db.updateContact(phone, { state: 'awaiting_choice' });
   }
 }
@@ -566,29 +573,12 @@ async function handleEmail(contact, emailText) {
   const phone = contact.phone;
   const rawText = emailText.trim().toLowerCase();
 
-  // Aplazamiento o confusión — no repetir el mismo mensaje rígido
-  const deferralPhrases = [
-    'mañana', 'manana', 'después', 'despues', 'luego', 'ahorita',
-    'no recuerdo', 'no lo recuerdo', 'no me acuerdo', 'no me lo recuerdo',
-    'no lo sé', 'no lo se', 'no sé', 'no se', 'no la tengo', 'no lo tengo',
-    'no me lo sé', 'no me lo se', 'casi no lo uso', 'casi no uso',
-    'lo busco', 'lo busco y', 'lo miro', 'espera', 'dame un momento',
-    'dame tiempo', 'un momento', 'un segundito', 'ahorita lo busco',
-    'no me acuerdo cual', 'no recuerdo cual', 'olvide', 'olvidé'
-  ];
-  if (deferralPhrases.some(p => rawText.includes(p)) && !rawText.includes('@')) {
-    const history = db.getRecentMessages(phone, 6);
-    const reply = await carol(history, emailText);
-    await sendAndSave(phone, reply);
-    return;
-  }
-
   // Extraer gmail de texto combinado (ej. "mira el pago\njuanita@gmail.com")
   const gmailMatch = rawText.match(/[\w._%+\-]+@gmail\.com/i);
   const email = gmailMatch ? gmailMatch[0].toLowerCase() : rawText;
 
   if (!gmailMatch) {
-    // Sin gmail detectado — verificar si dice que no tiene o lo tiene lleno
+    // Dice explícitamente que no tiene Gmail o que está lleno
     const sinGmail = ['no tengo gmail', 'no tengo correo', 'no tengo email', 'no hay espacio',
       'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
       'no tengo cuenta', 'no me llega correo'];
@@ -599,15 +589,17 @@ async function handleEmail(contact, emailText) {
       return;
     }
 
-    if (!email.includes('@')) {
-      await sendAndSave(phone, 'Para activar tu acceso solo necesito tu Gmail 📩\n\nEscribelo asi:\ntunombre@gmail.com');
-      return;
-    }
-
-    if (!isValidGmail(email)) {
+    // Tiene @ pero no es Gmail válido
+    if (email.includes('@') && !isValidGmail(email)) {
       await sendAndSave(phone, INVALID_EMAIL_MSG);
       return;
     }
+
+    // Todo lo demás (deferral, confusión, preguntas, etc.) → Carol con historial completo
+    const history = db.getRecentMessages(phone, 10);
+    const reply = await carol(history, emailText);
+    await sendAndSave(phone, reply);
+    return;
   }
 
   const pack = contact.pack_selected || 'basico';
