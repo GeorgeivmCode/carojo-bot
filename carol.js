@@ -371,7 +371,7 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
 APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
 1. Nequi: app morada/rosada, muestra "Detalle del movimiento", "Envio Realizado", QR code, campo "Para:", "Numero Nequi", "De donde salio la plata?: Disponible".
 2. Bancolombia Bre-B (tema claro o negro): swirls de colores azul/amarillo/naranja/rojo, "Transferencia exitosa!", "Comprobante No.", "Producto destino: Nequi [numero]".
-3. BBVA: fondo oscuro, "Transferencia con llave", "Envio por Bre-B", "Llave que recibe:", "Entidad que recibe: Nequi".
+3. BBVA: logo "BBVA" azul. Puede tener fondo blanco o fondo oscuro. Encabezado "TRANSFERIR" o "Transferencia con llave". Estado: "OPERACIÓN EXITOSA". Tipo de operacion: "Envío por Bre-B". Destino: "Tipo de llave: Número de celular" + "Llave que recibe: [numero]". El numero destinatario esta en el campo "Llave que recibe". Puede o no mostrar "Entidad que recibe: Nequi".
 4. NuBank/Nu: fondo blanco, logo "nu", "Comprobante de transferencia", "Via: Bre-B", "Estado: Completada".
 5. Lulo Bank: fondo blanco/gris, logo "lulo bank", "Plata enviada $X", iconos de emisor y receptor con nombres.
 6. DaviPlata: colores rojo/blanco, logo "DaviPlata" o "Davi plata", "Transaccion exitosa", "Pasaste Plata a otro DaviPlata", QR code.
