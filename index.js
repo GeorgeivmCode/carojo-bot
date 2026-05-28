@@ -641,24 +641,24 @@ fbq('track','Purchase',{value:${amount},currency:'COP',content_name:'${packName}
 <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${PIXEL_ID}&ev=Purchase&noscript=1"/></noscript>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{background:#fff;border-radius:20px;padding:40px 32px;text-align:center;max-width:420px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08)}
-.icon{font-size:56px;margin-bottom:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff0f6;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border-radius:20px;padding:36px 32px;text-align:center;max-width:420px;width:100%;box-shadow:0 4px 24px rgba(233,100,168,.15)}
+.logo{width:110px;height:110px;object-fit:contain;margin-bottom:8px}
 h1{color:#1a1a1a;font-size:22px;font-weight:700;margin-bottom:8px}
 p{color:#666;font-size:15px;line-height:1.5;margin-bottom:24px}
 .btn{display:block;background:#e84c0e;color:#fff;text-decoration:none;padding:16px 24px;border-radius:12px;font-size:17px;font-weight:600;letter-spacing:.3px;transition:opacity .2s}
 .btn:active{opacity:.85}
 .note{color:#999;font-size:13px;margin-top:16px}
 </style>
-<script>setTimeout(function(){ window.location.href='${driveUrl}'; },3000);</script>
+<script>setTimeout(function(){ window.location.href='${driveUrl}'; },6000);</script>
 </head>
 <body>
 <div class="card">
-  <div class="icon">🎉</div>
+  <img class="logo" src="/logo.png" alt="Carojo Aprende y Emprende">
   <h1>Tu ${packName} esta listo!</h1>
   <p>Tu pago fue confirmado y el acceso ya esta activo en tu Gmail.</p>
   <a class="btn" href="${driveUrl}">Abrir mi material ahora</a>
-  <p class="note">Abrelo con el correo que nos diste. En 3 segundos te llevamos automaticamente.</p>
+  <p class="note">Abrelo con el correo que nos diste. En 6 segundos te llevamos automaticamente.</p>
 </div>
 </body>
 </html>`;
