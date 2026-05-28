@@ -413,7 +413,8 @@ async function handleChoice(contact, text) {
 }
 
 function hasWord(text, words) {
-  return words.some(w => new RegExp(`(?:^|\\s)${w}(?:\\s|$)`).test(text));
+  const tokens = text.split(/[\s,!?¡¿.;:]+/).filter(Boolean);
+  return words.some(w => tokens.includes(w));
 }
 
 async function handleOfferedDiamante(contact, text) {
