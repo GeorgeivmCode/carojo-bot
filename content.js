@@ -328,9 +328,20 @@ const OLD_CLIENT_TRIGGERS = [
   'ya habia pagado', 'ya había pagado', 'ya pagué', 'ya compré'
 ];
 
-function deliveryMessage(pack) {
+const DRIVE_URLS_FOR_DELIVERY = {
+  basico:   'https://drive.google.com/drive/folders/11REC3PBrfb35NaGpShELpo5X0mekJLuw',
+  oro:      'https://drive.google.com/drive/folders/1c41mpvOdASqG3am1uZ5eSQbZuc4gS2LX',
+  diamante: 'https://drive.google.com/drive/folders/1t3qNyssHh2UqQ9dIIH4dJl1TlkDDatT4'
+};
+
+function deliveryMessage(pack, accessUrl) {
   const msgs = { basico: DELIVERY_BASICO, oro: DELIVERY_ORO, diamante: DELIVERY_DIAMANTE };
-  return msgs[pack] || DELIVERY_BASICO;
+  let msg = msgs[pack] || DELIVERY_BASICO;
+  if (accessUrl) {
+    const driveUrl = DRIVE_URLS_FOR_DELIVERY[pack] || DRIVE_URLS_FOR_DELIVERY.basico;
+    msg = msg.replace(driveUrl, accessUrl);
+  }
+  return msg;
 }
 
 module.exports = {

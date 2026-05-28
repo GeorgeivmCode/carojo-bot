@@ -588,6 +588,79 @@ app.post('/test/comprobante', adminAuth, async (req, res) => {
   }
 });
 
+// ── Pixel Purchase Page ────────────────────────────────────────────────────────
+const DRIVE_URLS_PIXEL = {
+  basico:   'https://drive.google.com/drive/folders/11REC3PBrfb35NaGpShELpo5X0mekJLuw',
+  oro:      'https://drive.google.com/drive/folders/1c41mpvOdASqG3am1uZ5eSQbZuc4gS2LX',
+  diamante: 'https://drive.google.com/drive/folders/1t3qNyssHh2UqQ9dIIH4dJl1TlkDDatT4'
+};
+const PACK_NAMES_PIXEL = { basico: 'Pack Basico', oro: 'Pack Oro', diamante: 'Pack Diamante' };
+const PIXEL_ID = process.env.META_PIXEL_ID || '1045311689986665';
+
+function verifyAccessToken(token) {
+  try {
+    const decoded = Buffer.from(token, 'base64url').toString();
+    const lastPipe = decoded.lastIndexOf('|');
+    const sig = decoded.substring(lastPipe + 1);
+    const data = decoded.substring(0, lastPipe);
+    const parts = data.split('|');
+    if (parts.length !== 4) return null;
+    const [phone, pack, amount, tsStr] = parts;
+    const ts = parseInt(tsStr);
+    if (isNaN(ts) || Date.now() / 1000 - ts > 90 * 24 * 3600) return null;
+    const secret = VERIFY_TOKEN || 'carojo_verify_2026';
+    const expectedSig = crypto.createHmac('sha256', secret).update(data).digest('hex').substring(0, 16);
+    if (sig !== expectedSig) return null;
+    return { phone, pack, amount: parseInt(amount) };
+  } catch { return null; }
+}
+
+app.get('/acceso/:token', (req, res) => {
+  const info = verifyAccessToken(req.params.token);
+  if (!info) return res.redirect(DRIVE_URLS_PIXEL.basico);
+  const { pack, amount } = info;
+  const driveUrl = DRIVE_URLS_PIXEL[pack] || DRIVE_URLS_PIXEL.basico;
+  const packName = PACK_NAMES_PIXEL[pack] || 'Pack';
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carojo Aprende y Emprende - Tu material esta listo</title>
+<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init','${PIXEL_ID}');
+fbq('track','PageView');
+fbq('track','Purchase',{value:${amount},currency:'COP',content_name:'${packName}',content_type:'product',content_ids:['${pack}']});
+</script>
+<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${PIXEL_ID}&ev=Purchase&noscript=1"/></noscript>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#fff;border-radius:20px;padding:40px 32px;text-align:center;max-width:420px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.icon{font-size:56px;margin-bottom:16px}
+h1{color:#1a1a1a;font-size:22px;font-weight:700;margin-bottom:8px}
+p{color:#666;font-size:15px;line-height:1.5;margin-bottom:24px}
+.btn{display:block;background:#e84c0e;color:#fff;text-decoration:none;padding:16px 24px;border-radius:12px;font-size:17px;font-weight:600;letter-spacing:.3px;transition:opacity .2s}
+.btn:active{opacity:.85}
+.note{color:#999;font-size:13px;margin-top:16px}
+</style>
+<script>setTimeout(function(){ window.location.href='${driveUrl}'; },3000);</script>
+</head>
+<body>
+<div class="card">
+  <div class="icon">🎉</div>
+  <h1>Tu ${packName} esta listo!</h1>
+  <p>Tu pago fue confirmado y el acceso ya esta activo en tu Gmail.</p>
+  <a class="btn" href="${driveUrl}">Abrir mi material ahora</a>
+  <p class="note">Abrelo con el correo que nos diste. En 3 segundos te llevamos automaticamente.</p>
+</div>
+</body>
+</html>`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 // ── Remarketing Scheduler ──────────────────────────────────────────────────────
 function colombiaHour() {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' })).getHours();

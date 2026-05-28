@@ -3,6 +3,18 @@ const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
 const { carolRespond, verifyPayment } = require('./carol');
 
+const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
+const BOT_URL = 'https://carojo-bot.onrender.com';
+
+function generateAccessToken(phone, pack) {
+  const ts = Math.floor(Date.now() / 1000);
+  const amount = PACK_AMOUNTS[pack] || 5000;
+  const data = `${phone}|${pack}|${amount}|${ts}`;
+  const secret = process.env.VERIFY_TOKEN || 'carojo_verify_2026';
+  const sig = crypto.createHmac('sha256', secret).update(data).digest('hex').substring(0, 16);
+  return Buffer.from(`${data}|${sig}`).toString('base64url');
+}
+
 async function carol(history, text) {
   const raw = await carolRespond(history, text);
   const parts = raw.split('---SPLIT---').map(p => p.trim()).filter(Boolean);
@@ -578,7 +590,9 @@ async function handleEmail(contact, emailText) {
     return;
   }
 
-  await sendAndSave(phone, deliveryMessage(pack));
+  const accessToken = generateAccessToken(phone, pack);
+  const accessUrl = `${BOT_URL}/acceso/${accessToken}`;
+  await sendAndSave(phone, deliveryMessage(pack, accessUrl));
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email });
 
   await fireCapi(contact, pack);
