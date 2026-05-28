@@ -56,7 +56,7 @@ app.listen(PORT, () => {
 
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
 let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave, transcribeAudio;
-let fireCapi, logSaleToSheets, notifyJorge;
+let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken;
 let R1_MESSAGE, R2_MESSAGE;
 let initialized = false;
 
@@ -78,6 +78,7 @@ async function init() {
     fireCapi       = flows.fireCapi;
     logSaleToSheets = flows.logSaleToSheets;
     notifyJorge    = flows.notifyJorge;
+    generateAccessToken = flows.generateAccessToken;
     console.log('flows OK');
 
     const content = require('./content');
@@ -385,8 +386,12 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
 
   // 1. Dar acceso Drive
   try { await grantDriveAccess(email, pack); } catch (e) { console.error('Drive error register-sale:', e.message); }
-  // 2. Enviar mensaje de entrega con el link al cliente
-  try { await sendAndSave(phone, deliveryMessage(pack)); } catch (e) { console.error('Delivery msg error:', e.message); }
+  // 2. Enviar mensaje de entrega con pixel URL
+  try {
+    const token = generateAccessToken(phone, pack);
+    const accessUrl = `https://carojo-bot.onrender.com/acceso/${token}`;
+    await sendAndSave(phone, deliveryMessage(pack, accessUrl));
+  } catch (e) { console.error('Delivery msg error:', e.message); }
   // 3. Actualizar DB
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now(), email });
   const updated = db.getContact(phone);
@@ -659,6 +664,20 @@ p{color:#666;font-size:15px;line-height:1.5;margin-bottom:24px}
 </html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
+});
+
+app.post('/api/test-delivery/:phone/:pack', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const { phone, pack } = req.params;
+  const { deliveryMessage } = require('./content');
+  try {
+    const token = generateAccessToken(phone, pack);
+    const accessUrl = `https://carojo-bot.onrender.com/acceso/${token}`;
+    await sendAndSave(phone, deliveryMessage(pack, accessUrl));
+    res.json({ ok: true, accessUrl });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ── Remarketing Scheduler ──────────────────────────────────────────────────────
