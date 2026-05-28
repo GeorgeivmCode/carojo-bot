@@ -138,10 +138,11 @@ async function fireCapi(contact, pack) {
       if (fn) ud.fn = [sha256(fn)];
     }
 
-    // ctwa_clid: señal de atribucion directa a campañas CTWA — sin esto no aparece en Ads Manager
+    // page_id vincula el evento a la campaña CTWA de Messi — sin esto Meta no lo atribuye a la campaña
+    ud.page_id = '152908757899058';
+
     if (contact.ctwa_clid) {
       ud.ctwa_clid = contact.ctwa_clid;
-      // fbc derivado del ctwa_clid — mejora atribucion en Ads Manager (mismo mecanismo que pixel browser)
       const clickTs = contact.created_at
         ? Math.floor(new Date(contact.created_at).getTime() / 1000)
         : Math.floor(Date.now() / 1000);

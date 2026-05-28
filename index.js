@@ -689,46 +689,12 @@ app.get('/acceso/:token', async (req, res) => {
   const driveUrl = DRIVE_URLS_PIXEL[pack] || DRIVE_URLS_PIXEL.basico;
   const packName = PACK_NAMES_PIXEL[pack] || 'Pack';
 
-  // IP y User Agent del cliente (Render usa proxy, x-forwarded-for tiene la IP real)
-  const clientIp = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '';
-  const clientUa = req.headers['user-agent'] || '';
-
-  // event_id compartido entre pixel browser y CAPI server → Meta deduplica en 1 evento con todas las señales
-  const eventId = `wpx_${phone}_${Date.now()}`;
-
-  let fbc = null; let ctwaClid = null; let email = null;
-  if (db) {
-    try {
-      const contact = db.getContact(phone);
-      if (contact?.ctwa_clid) {
-        ctwaClid = contact.ctwa_clid;
-        fbc = `fb.1.${Date.now()}.${contact.ctwa_clid}`;
-        res.cookie('_fbc', fbc, { maxAge: 90 * 24 * 60 * 60 * 1000, sameSite: 'None', secure: true });
-      }
-      if (contact?.email) email = contact.email;
-    } catch {}
-  }
-
-  // CAPI website con IP + UA — solo una vez por cliente para evitar duplicados
-  if (!capiPageFired.has(phone)) {
-    capiPageFired.add(phone);
-    fireCapiWebsitePurchase({ phone, pack, amount, ip: clientIp, ua: clientUa, eventId, fbc, ctwaClid, email })
-      .catch(e => console.error('CAPI website error:', e.message));
-  }
-
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Carojo Aprende y Emprende - Tu material esta listo</title>
-<script>
-!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
-fbq('init','${PIXEL_ID}');
-fbq('track','PageView');
-fbq('track','Purchase',{value:${amount},currency:'COP',content_name:'${packName}',content_type:'product',content_ids:['${pack}']},{eventID:'${eventId}'});
-</script>
-<noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${PIXEL_ID}&ev=Purchase&noscript=1"/></noscript>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff0f6;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
