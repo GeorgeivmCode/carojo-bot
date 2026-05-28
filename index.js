@@ -647,9 +647,20 @@ function verifyAccessToken(token) {
 app.get('/acceso/:token', (req, res) => {
   const info = verifyAccessToken(req.params.token);
   if (!info) return res.redirect(DRIVE_URLS_PIXEL.basico);
-  const { pack, amount } = info;
+  const { phone, pack, amount } = info;
   const driveUrl = DRIVE_URLS_PIXEL[pack] || DRIVE_URLS_PIXEL.basico;
   const packName = PACK_NAMES_PIXEL[pack] || 'Pack';
+
+  // Set _fbc cookie with ctwa_clid so pixel attributes the purchase to the ad
+  if (db) {
+    try {
+      const contact = db.getContact(phone);
+      if (contact?.ctwa_clid) {
+        const fbc = `fb.1.${Date.now()}.${contact.ctwa_clid}`;
+        res.cookie('_fbc', fbc, { maxAge: 90 * 24 * 60 * 60 * 1000, sameSite: 'None', secure: true });
+      }
+    } catch {}
+  }
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
