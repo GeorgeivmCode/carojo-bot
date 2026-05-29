@@ -46,7 +46,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (_req, res) => res.json({ ok: true, initialized }));
-app.get('/', (_req, res) => res.redirect('/admin.html'));
+app.get('/', (_req, res) => res.send('<!DOCTYPE html><html><head><meta name="facebook-domain-verification" content="clgru5a4p4a25bab2t5ose7aecavdz" /></head><body></body></html>'));
 
 // Start listening immediately so Render health check passes
 app.listen(PORT, () => {
