@@ -352,32 +352,40 @@ async function carolRespond(history, userMessage) {
 
 const VERIFY_SYSTEM = `Eres un verificador de comprobantes de pago colombianos. Analiza la imagen y responde SOLO en JSON.
 
-APPS REALES (10):
-1. Nequi: morada/rosada, "Detalle del movimiento" o "Envio Realizado", QR code, campo "Para:", "Numero Nequi".
-2. Bancolombia Bre-B: swirls azul/amarillo/naranja/rojo, "Transferencia exitosa!", "Comprobante No.", "Producto destino: Nequi [numero]".
-3. BBVA: logo azul, "OPERACIÓN EXITOSA", "Envío por Bre-B", campo "Llave que recibe: [numero]".
-4. NuBank/Nu: fondo blanco, logo "nu" morado, "Via: Bre-B", "Estado: Completada", numero en "Para:" o junto al receptor.
-5. Lulo Bank: logo "lulo bank", "Plata enviada $X", numero/nombre del receptor bajo icono receptor o en "Para:".
-6. DaviPlata: rojo/blanco, "Pasaste Plata a otro DaviPlata" (QR) o "Transaccion exitosa" a Nequi/Bre-B (numero en "Numero Nequi:", "Llave:" o similar).
-7. Davivienda: rojo/blanco, casita, "Transferencia exitosa", "Usted envio $X a la llave Nequi [numero] de [Nombre]".
-8. Banco de Bogota: fondo blanco, caja verde "Valor de la transferencia", "Enviaste a:", "Entidad: NEQUI".
-9. Corresponsal Wompi/Bancolombia (tirilla): "TRANSACCION EXITOSA", "Monto:", "Numero Nequi:", "Titular:".
-10. Corresponsal Redeban (tirilla): "RECARGA NEQU", "VALOR $X", "Producto: [numero]", "TITULAR: [nombre]".
+APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
+1. Nequi: app morada/rosada, muestra "Detalle del movimiento" o "Envio Realizado", QR code, campo "Para:", "Numero Nequi", "De donde salio la plata?: Disponible".
+2. Bancolombia Bre-B (tema claro o negro): swirls de colores azul/amarillo/naranja/rojo, "Transferencia exitosa!", "Comprobante No.", "Producto destino: Nequi [numero]".
+3. BBVA: logo "BBVA" azul. Encabezado "TRANSFERIR" o "Transferencia con llave". Estado: "OPERACIÓN EXITOSA". Tipo: "Envío por Bre-B". Campo "Llave que recibe: [numero]". Puede o no mostrar "Entidad que recibe: Nequi".
+4. NuBank/Nu: fondo blanco, logo "nu" minuscula morado. "Comprobante de transferencia", "Via: Bre-B", "Estado: Completada". Numero en campo "Para:" o "Numero de celular" o junto al nombre del receptor.
+5. Lulo Bank: logo "lulo bank". "Plata enviada $X". Numero o nombre del destinatario bajo el icono receptor o en campo "Para:".
+6. DaviPlata: colores rojo/blanco, logo "DaviPlata". (a) "Pasaste Plata a otro DaviPlata" con QR. (b) "Transaccion exitosa" o "Transferencia exitosa" a Nequi/Bre-B — numero en campo "Numero Nequi:", "Numero celular:", "Llave:" o similar.
+7. Davivienda: rojo/blanco, logo casita, "Transferencia exitosa", "Usted envio $X", "a la llave Nequi [numero] de [Nombre]".
+8. Banco de Bogota: fondo blanco, "Valor de la transferencia" en caja verde, "Enviaste a:", "Entidad: NEQUI".
+9. Corresponsal Wompi/Bancolombia (tirilla papel): logo "W Wompi / Corresponsal Bancolombia", "TRANSACCION EXITOSA", "Monto:", "Numero Nequi:", "Titular:".
+10. Corresponsal Redeban (tirilla papel): logo "Redeban", "CORRESPONSAL BANCOLOMBIA", "RECARGA NEQU", "VALOR $X", "Producto: [numero]", "TITULAR: [nombre]".
 
-FALSOS — rechazar "comprobante_falso":
-- "NEKI" (turquesa/azul, NO es Nequi morado)
-- App/banco fuera de la lista de 10
-- Nequi con titulo "Pago exitoso" o "¡Pago exitoso!" (falso — el real dice "Envio Realizado" o "Detalle del movimiento")
-- Nombre destinatario con corchetes tipo [Jorge Vanegas]
+COMPROBANTES FALSOS — rechazar con "comprobante_falso":
+- Marca "NEKI" (color turquesa/azul cielo, NO es Nequi que es morado)
+- Cualquier app/banco fuera de la lista de 10
+- Para Nequi: el titulo correcto es "Envio Realizado" o "Detalle del movimiento". Si dice "Pago exitoso", "¡Pago exitoso!", "Transferencia exitosa" u otro titulo → FALSO
+- Nombre del destinatario con corchetes tipo [Jorge Vanegas] → FALSO
 
-Destinatario valido si CUALQUIERA: numero exacto 3058989359 o 3217239198 (elimina espacios antes de comparar — "305 898 9359" = 3058989359 VALIDO, "321 723 9198" = 3217239198 VALIDO) O nombre "Jorge Vanegas"/"Jorge Ivan Vanegas Martinez"/"Carol Apolinar"/"Carol Lizeth Apolinar Wilches" O no aparece ninguno (asumir valido).
+NUMERO DESTINATARIO — comparar eliminando espacios y guiones:
+El numero puede aparecer con espacios (ej: "305 898 9359") o guiones. Elimina espacios y guiones antes de comparar.
+- 3058989359 (Jorge Vanegas) — formatos validos: "305 898 9359", "305-898-9359", "3058989359"
+- 3217239198 (Carol Apolinar) — formatos validos: "321 723 9198", "321-723-9198", "3217239198"
 
-Montos validos: 5000, 10000 o 15000 COP (ignorar puntos de miles y comas decimales).
+Destinatario valido si CUALQUIERA de estas condiciones:
+- El numero visible (sin espacios ni guiones) es exactamente 3058989359 o 3217239198
+- El nombre visible es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches"
+- No aparece ni nombre ni numero → asumir valido
 
-Formato JSON respuesta:
-{"valido":bool,"monto":num_o_null,"app":"str_o_null","destino":"str_o_null","nombre_destinatario":"str_o_null","fecha":"str_o_null","estado":"exitosa/fallida/pendiente/desconocido","razon_rechazo":"codigo_o_null"}
+Montos validos: 5000, 10000 o 15000 COP. Formato colombiano: $5.000 o $5.000,00 = 5000. Ignorar puntos de miles y comas decimales.
 
-razon_rechazo: no_es_comprobante | comprobante_falso | fecha_incorrecta | monto_invalido | destinatario_invalido | transaccion_no_exitosa | imagen_no_legible`;
+razon_rechazo: no_es_comprobante | comprobante_falso | fecha_incorrecta | monto_invalido | destinatario_invalido | transaccion_no_exitosa | imagen_no_legible
+
+Responde SOLO en JSON:
+{"valido":bool,"monto":num_o_null,"app":"str_o_null","destino":"str_o_null","nombre_destinatario":"str_o_null","fecha":"str_o_null","estado":"exitosa/fallida/pendiente/desconocido","razon_rechazo":"codigo_o_null"}`;
 
 async function verifyPayment(imageBuffer, mimeType, packSelected) {
   const isPDF = mimeType === 'application/pdf';
@@ -391,7 +399,7 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
 
   const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 250,
+    max_tokens: 400,
     system: [{ type: 'text', text: VERIFY_SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages: [{
       role: 'user',
