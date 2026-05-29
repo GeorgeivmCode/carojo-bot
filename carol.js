@@ -370,7 +370,7 @@ FALSOS — rechazar "comprobante_falso":
 - Nequi con titulo "Pago exitoso" o "¡Pago exitoso!" (falso — el real dice "Envio Realizado" o "Detalle del movimiento")
 - Nombre destinatario con corchetes tipo [Jorge Vanegas]
 
-Destinatario valido si CUALQUIERA: numero exacto 3058989359 o 3217239198 (digito por digito) O nombre "Jorge Vanegas"/"Jorge Ivan Vanegas Martinez"/"Carol Apolinar"/"Carol Lizeth Apolinar Wilches" O no aparece ninguno (asumir valido).
+Destinatario valido si CUALQUIERA: numero exacto 3058989359 o 3217239198 (elimina espacios antes de comparar — "305 898 9359" = 3058989359 VALIDO, "321 723 9198" = 3217239198 VALIDO) O nombre "Jorge Vanegas"/"Jorge Ivan Vanegas Martinez"/"Carol Apolinar"/"Carol Lizeth Apolinar Wilches" O no aparece ninguno (asumir valido).
 
 Montos validos: 5000, 10000 o 15000 COP (ignorar puntos de miles y comas decimales).
 
