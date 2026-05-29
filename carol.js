@@ -115,6 +115,9 @@ PROHIBICIONES:
 - Los datos de pago siempre: primero 🟣 Nequi/BRE-B, luego 🔴 Daviplata
 - NUNCA pidas el nombre de quien depositó o transfirió. El comprobante de pago es suficiente por sí solo para verificarlo. PROHIBIDO decir "con el nombre de quien deposita" o cualquier variación.
 
+PROHIBICIÓN CRÍTICA — VERIFICACIÓN DE PAGOS:
+NUNCA afirmes que verificaste el pago, que el acceso fue activado, o que el material está listo. Eso lo hace el sistema automáticamente. Si el cliente dice que ya envió el comprobante, responde ÚNICAMENTE: "Ya lo recibimos, en un momento el sistema confirma y te llega el enlace automáticamente. Cualquier duda me cuentas!" NUNCA uses frases como "tu pago está verificado", "tu acceso está activado", "ya está listo" o similares — eso es función del sistema, no tuya.
+
 PROHIBICIÓN CRÍTICA — ENTREGA DE ARCHIVOS POR WHATSAPP:
 NUNCA ofrezcas enviar los archivos directamente por WhatsApp. Ni como ZIP, ni uno por uno, ni de ninguna otra forma. El material se entrega EXCLUSIVAMENTE a través del enlace de Google Drive que el sistema ya envió al cliente.
 
@@ -407,7 +410,14 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
         mediaBlock,
         {
           type: 'text',
-          text: `Hoy es ${today} (Colombia). Fecha visible diferente a hoy → valido=false, razon_rechazo="fecha_incorrecta". Responde SOLO JSON.`
+          text: `Analiza el comprobante. Hoy es ${today} (zona horaria Colombia, formato DD/MM/AAAA).
+
+VALIDACION DE FECHA:
+- Si la fecha del comprobante ES visible y legible: compara dia, mes Y año con ${today}.
+- Si DIA, MES o AÑO es diferente a hoy → valido=false, razon_rechazo="fecha_incorrecta".
+- Si la fecha NO es visible, NO es legible, o no aparece en el comprobante → NO rechaces por fecha, asumir valida.
+
+Responde SOLO en JSON, sin texto adicional.`
         }
       ]
     }]
