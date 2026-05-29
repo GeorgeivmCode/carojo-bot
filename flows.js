@@ -355,7 +355,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         }
         break;
       }
-      const history = db.getRecentMessages(phone, 8);
+      const history = db.getRecentMessages(phone, 6);
       await sendAndSave(phone, await carol(history, text));
       break;
     }
@@ -389,7 +389,7 @@ async function handleChoice(contact, text) {
   // NO aplica a selecciones cortas como "diamante?" o "el 1?"
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   if ((text.includes('?') || text.includes('¿')) && wordCount > 5) {
-    const history = db.getRecentMessages(phone, 8);
+    const history = db.getRecentMessages(phone, 6);
     await sendAndSave(phone, await carol(history, text));
     return;
   }
@@ -416,7 +416,7 @@ async function handleChoice(contact, text) {
     db.updateContact(phone, { state: 'offered_basico', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_UPSELL);
   } else {
-    const history = db.getRecentMessages(phone, 8);
+    const history = db.getRecentMessages(phone, 6);
     const reply = await carol(history, text);
     await sendAndSave(phone, reply);
   }
@@ -436,7 +436,7 @@ async function handleOfferedDiamante(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else {
-    const history = db.getRecentMessages(phone, 8);
+    const history = db.getRecentMessages(phone, 6);
     await sendAndSave(phone, await carol(history, text));
   }
 }
@@ -450,7 +450,7 @@ async function handleOfferedOro(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else {
-    const history = db.getRecentMessages(phone, 8);
+    const history = db.getRecentMessages(phone, 6);
     await sendAndSave(phone, await carol(history, text));
   }
 }
@@ -467,7 +467,7 @@ async function handleOfferedBasico(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_DETAILS);
   } else {
-    const history = db.getRecentMessages(phone, 8);
+    const history = db.getRecentMessages(phone, 6);
     await sendAndSave(phone, await carol(history, text));
   }
 }
@@ -590,7 +590,7 @@ async function handleEmail(contact, emailText) {
     }
 
     // Todo lo demás (deferral, confusión, preguntas, etc.) → Carol con historial completo
-    const history = db.getRecentMessages(phone, 10);
+    const history = db.getRecentMessages(phone, 6);
     const reply = await carol(history, emailText);
     await sendAndSave(phone, reply);
     return;
