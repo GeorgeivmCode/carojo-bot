@@ -387,15 +387,13 @@ APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
 10. Corresponsal Redeban (tirilla papel): logo "Redeban", "CORRESPONSAL BANCOLOMBIA", "RECARGA NEQU", "VALOR $X", "Producto: [numero]", "TITULAR: [nombre]".
 
 COMPROBANTES FALSOS — rechazar con "comprobante_falso":
-- Marca "NEKI" (color turquesa/azul cielo, NO es Nequi que es morado) → FALSO
-- Cualquier marca de app/banco que NO este en la lista de 10 apps reales de arriba → FALSO
-- Layouts genericos con colores inconsistentes con las apps reales
-- CRITICO — distingue Bancolombia Bre-B de Nequi falso (son completamente diferentes):
-  * Bancolombia Bre-B SIEMPRE dice "Transferencia exitosa!" o "¡Transferencia exitosa!" — ESTO ES VALIDO Y CORRECTO para esa app. Si ademas muestra "Comprobante No." y "Producto destino: Nequi [numero]" es Bancolombia Bre-B legitimo. NO lo rechaces.
-  * Nequi REAL tiene fondo morado/rosado y dice "Envio Realizado" o "Detalle del movimiento".
-  * Nequi FALSO: fondo morado/rosado (como Nequi) pero el titulo dice "Transferencia exitosa", "Pago exitoso" u otro titulo no nequi → FALSO.
-  * La regla del titulo aplica SOLO cuando el diseno visual es de Nequi (morado/rosado). NUNCA la apliques a Bancolombia Bre-B.
-- Nombre del destinatario con corchetes tipo [Jorge Vanegas] o [Nombre] → señal de template editado → FALSO
+- Marca "NEKI" (logo NEKI visible, color turquesa/azul cielo) → app falsa conocida, siempre FALSO
+- Nombre del destinatario con corchetes tipo [Jorge Vanegas] o [Nombre] → template editado → FALSO
+
+NO rechaces por:
+- El nombre, titulo o texto del comprobante: cada banco tiene su propio texto ("Transferencia exitosa!", "Envio Realizado", "Operacion exitosa", "Transaccion exitosa", etc.), todos son validos.
+- No reconocer la app: Colombia tiene decenas de bancos y fintechs (Falabella, AV Villas, Bancoomeva, Pibank, RappiPay y muchos mas). Cualquier app bancaria colombiana es valida. Si parece un comprobante de pago real, tratalo como valido.
+- El estilo visual o tema de color: las apps tienen temas claros, oscuros y distintos segun la version.
 
 Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
 
@@ -415,7 +413,7 @@ Destinatario valido — CUALQUIERA de estas condiciones es suficiente:
 RECHAZAR destinatario si el numero visible (sin espacios ni guiones) tiene CUALQUIER digito diferente a 3058989359 o 3217239198, o si el nombre no coincide con los autorizados.
 Numero correcto sin nombre = VALIDO. Nombre correcto sin numero = VALIDO. Ninguno de los dos = VALIDO.
 
-valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + app reconocida como real + fecha de hoy o no legible.
+valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + fecha de hoy o no legible.
 
 VALIDACION DE FECHA:
 - La fecha de hoy es ${today} (formato DD/MM/AAAA, hora Colombia).
