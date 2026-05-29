@@ -181,19 +181,19 @@ async function fireCapi(contact, pack) {
       );
       console.log('CAPI WABA ok:', JSON.stringify(r.data));
     } else {
-      // Sin ctwa_clid — igual al WABA dataset con phone hash para que Messi vea la compra
+      // Sin ctwa_clid — action_source other al WABA dataset (business_messaging requiere ctwa_clid)
       const event = {
         event_name: 'Purchase', event_time: Math.floor(Date.now() / 1000),
-        action_source: 'business_messaging', messaging_channel: 'whatsapp',
+        action_source: 'other',
         event_id: eventId, user_data: ud, custom_data: customData
       };
-      console.log(`CAPI WABA (sin ctwa_clid): pack=${pack} phone=${contact.phone} | ${signals}`);
+      console.log(`CAPI WABA other (sin ctwa_clid): pack=${pack} phone=${contact.phone} | ${signals}`);
       const r = await axios.post(
         `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
         { data: [event] },
         { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
       );
-      console.log('CAPI WABA sin ctwa ok:', JSON.stringify(r.data));
+      console.log('CAPI WABA other ok:', JSON.stringify(r.data));
     }
   } catch (e) {
     const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
