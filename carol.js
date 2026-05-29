@@ -390,7 +390,11 @@ COMPROBANTES FALSOS — rechazar con "comprobante_falso":
 - Marca "NEKI" (color turquesa/azul cielo, NO es Nequi que es morado) → FALSO
 - Cualquier marca de app/banco que NO este en la lista de 10 apps reales de arriba → FALSO
 - Layouts genericos con colores inconsistentes con las apps reales
-- Para Nequi especificamente: el titulo correcto es "Envio Realizado" o "Detalle del movimiento". Si dice "Pago exitoso", "¡Pago exitoso!", "Transferencia exitosa" u otro titulo diferente → FALSO
+- CRITICO — distingue Bancolombia Bre-B de Nequi falso (son completamente diferentes):
+  * Bancolombia Bre-B SIEMPRE dice "Transferencia exitosa!" o "¡Transferencia exitosa!" — ESTO ES VALIDO Y CORRECTO para esa app. Si ademas muestra "Comprobante No." y "Producto destino: Nequi [numero]" es Bancolombia Bre-B legitimo. NO lo rechaces.
+  * Nequi REAL tiene fondo morado/rosado y dice "Envio Realizado" o "Detalle del movimiento".
+  * Nequi FALSO: fondo morado/rosado (como Nequi) pero el titulo dice "Transferencia exitosa", "Pago exitoso" u otro titulo no nequi → FALSO.
+  * La regla del titulo aplica SOLO cuando el diseno visual es de Nequi (morado/rosado). NUNCA la apliques a Bancolombia Bre-B.
 - Nombre del destinatario con corchetes tipo [Jorge Vanegas] o [Nombre] → señal de template editado → FALSO
 
 Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
