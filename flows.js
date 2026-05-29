@@ -181,23 +181,19 @@ async function fireCapi(contact, pack) {
       );
       console.log('CAPI WABA ok:', JSON.stringify(r.data));
     } else {
-      // Pixel sitio web — sin ctwa_clid, señal de compra general para Meta
-      const udWeb = { ph: ud.ph, external_id: ud.external_id };
-      if (ud.em) udWeb.em = ud.em;
-      if (ud.fn) udWeb.fn = ud.fn;
+      // Sin ctwa_clid — igual al WABA dataset con phone hash para que Messi vea la compra
       const event = {
         event_name: 'Purchase', event_time: Math.floor(Date.now() / 1000),
-        action_source: 'website',
-        event_source_url: 'https://carojo-bot.onrender.com/',
-        event_id: eventId, user_data: udWeb, custom_data: customData
+        action_source: 'business_messaging', messaging_channel: 'whatsapp',
+        event_id: eventId, user_data: ud, custom_data: customData
       };
-      console.log(`CAPI website (sin ctwa_clid): pack=${pack} phone=${contact.phone} | ${signals}`);
+      console.log(`CAPI WABA (sin ctwa_clid): pack=${pack} phone=${contact.phone} | ${signals}`);
       const r = await axios.post(
-        `https://graph.facebook.com/v21.0/${META_WEBSITE_PIXEL}/events`,
+        `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
         { data: [event] },
         { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
       );
-      console.log('CAPI website ok:', JSON.stringify(r.data));
+      console.log('CAPI WABA sin ctwa ok:', JSON.stringify(r.data));
     }
   } catch (e) {
     const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
