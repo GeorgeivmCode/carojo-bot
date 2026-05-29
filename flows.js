@@ -86,8 +86,9 @@ function detectGiftChoice(text) {
 }
 
 const JORGE_PHONE     = process.env.JORGE_PHONE;
-const META_PIXEL_ID   = process.env.META_PIXEL_ID;
-const META_CAPI_TOKEN = process.env.META_CAPI_TOKEN;
+const META_PIXEL_ID      = process.env.META_PIXEL_ID;       // WABA dataset 891673903214904
+const META_WEBSITE_PIXEL = '1045311689986665';              // pixel sitio web (fallback sin ctwa_clid)
+const META_CAPI_TOKEN    = process.env.META_CAPI_TOKEN;
 const GAS_SHEETS_URL  = process.env.GAS_SHEETS_URL;
 
 // Monto → pack
@@ -138,35 +139,25 @@ async function fireCapi(contact, pack) {
       if (fn) ud.fn = [sha256(fn)];
     }
 
-    // WABA dataset requiere ctwa_clid obligatorio — sin el Meta rechaza el evento
-    if (!contact.ctwa_clid) {
-      console.log(`CAPI skip: sin ctwa_clid (cliente organico) phone=${contact.phone}`);
-      return;
+    ud.page_id = '152908757899058';
+
+    if (contact.ctwa_clid) {
+      ud.ctwa_clid = contact.ctwa_clid;
+      const clickTs = contact.created_at
+        ? Math.floor(new Date(contact.created_at).getTime() / 1000)
+        : Math.floor(Date.now() / 1000);
+      ud.fbc = `fb.1.${clickTs}.${contact.ctwa_clid}`;
     }
 
-    ud.page_id = '152908757899058';
-    ud.ctwa_clid = contact.ctwa_clid;
-    const clickTs = contact.created_at
-      ? Math.floor(new Date(contact.created_at).getTime() / 1000)
-      : Math.floor(Date.now() / 1000);
-    ud.fbc = `fb.1.${clickTs}.${contact.ctwa_clid}`;
-
-    const event = {
-      event_name:        'Purchase',
-      event_time:        Math.floor(Date.now() / 1000),
-      action_source:     'business_messaging',
-      messaging_channel: 'whatsapp',
-      event_id:          `purchase_${contact.phone}_${Date.now()}`,
-      user_data:         ud,
-      custom_data: {
-        currency:     'COP',
-        value:        PACK_PRICES[pack] || 0,
-        content_name: pack,
-        content_type: 'product',
-        content_ids:  [pack],
-        contents:     [{ id: pack, quantity: 1 }]
-      }
+    const customData = {
+      currency:     'COP',
+      value:        PACK_PRICES[pack] || 0,
+      content_name: pack,
+      content_type: 'product',
+      content_ids:  [pack],
+      contents:     [{ id: pack, quantity: 1 }]
     };
+    const eventId = `purchase_${contact.phone}_${Date.now()}`;
 
     const signals = [
       'ph=si',
@@ -174,14 +165,40 @@ async function fireCapi(contact, pack) {
       contact.name      ? 'fn=si' : 'fn=NO',
       contact.ctwa_clid ? 'ctwa_clid=si' : 'ctwa_clid=NO'
     ].join(' | ');
-    console.log(`CAPI enviando: pack=${pack} phone=${contact.phone} pixel=${META_PIXEL_ID} | ${signals}`);
 
-    const capiRes = await axios.post(
-      `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
-      { data: [event] },
-      { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
-    );
-    console.log('CAPI ok:', JSON.stringify(capiRes.data));
+    if (contact.ctwa_clid) {
+      // WABA dataset — aparece en columna compras de Messi
+      const event = {
+        event_name: 'Purchase', event_time: Math.floor(Date.now() / 1000),
+        action_source: 'business_messaging', messaging_channel: 'whatsapp',
+        event_id: eventId, user_data: ud, custom_data: customData
+      };
+      console.log(`CAPI WABA: pack=${pack} phone=${contact.phone} | ${signals}`);
+      const r = await axios.post(
+        `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
+        { data: [event] },
+        { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
+      );
+      console.log('CAPI WABA ok:', JSON.stringify(r.data));
+    } else {
+      // Pixel sitio web — sin ctwa_clid, señal de compra general para Meta
+      const udWeb = { ph: ud.ph, external_id: ud.external_id };
+      if (ud.em) udWeb.em = ud.em;
+      if (ud.fn) udWeb.fn = ud.fn;
+      const event = {
+        event_name: 'Purchase', event_time: Math.floor(Date.now() / 1000),
+        action_source: 'website',
+        event_source_url: 'https://carojo-bot.onrender.com/',
+        event_id: eventId, user_data: udWeb, custom_data: customData
+      };
+      console.log(`CAPI website (sin ctwa_clid): pack=${pack} phone=${contact.phone} | ${signals}`);
+      const r = await axios.post(
+        `https://graph.facebook.com/v21.0/${META_WEBSITE_PIXEL}/events`,
+        { data: [event] },
+        { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
+      );
+      console.log('CAPI website ok:', JSON.stringify(r.data));
+    }
   } catch (e) {
     const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
     console.error('CAPI error:', detail);
