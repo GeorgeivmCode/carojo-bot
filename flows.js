@@ -138,16 +138,18 @@ async function fireCapi(contact, pack) {
       if (fn) ud.fn = [sha256(fn)];
     }
 
-    // page_id vincula el evento a la campaña CTWA de Messi — sin esto Meta no lo atribuye a la campaña
-    ud.page_id = '152908757899058';
-
-    if (contact.ctwa_clid) {
-      ud.ctwa_clid = contact.ctwa_clid;
-      const clickTs = contact.created_at
-        ? Math.floor(new Date(contact.created_at).getTime() / 1000)
-        : Math.floor(Date.now() / 1000);
-      ud.fbc = `fb.1.${clickTs}.${contact.ctwa_clid}`;
+    // WABA dataset requiere ctwa_clid obligatorio — sin el Meta rechaza el evento
+    if (!contact.ctwa_clid) {
+      console.log(`CAPI skip: sin ctwa_clid (cliente organico) phone=${contact.phone}`);
+      return;
     }
+
+    ud.page_id = '152908757899058';
+    ud.ctwa_clid = contact.ctwa_clid;
+    const clickTs = contact.created_at
+      ? Math.floor(new Date(contact.created_at).getTime() / 1000)
+      : Math.floor(Date.now() / 1000);
+    ud.fbc = `fb.1.${clickTs}.${contact.ctwa_clid}`;
 
     const event = {
       event_name:        'Purchase',
