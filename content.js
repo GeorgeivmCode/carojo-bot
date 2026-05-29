@@ -325,7 +325,19 @@ const OLD_CLIENT_TRIGGERS = [
   'habia pagado', 'había pagado', 'ya no tengo acceso', 'perdi mi acceso', 'perdí mi acceso',
   'no me abre', 'se me vencio', 'se me venció', 'archivos que no',
   'ya pagué antes', 'ya pague antes', 'ya lo habia comprado', 'ya lo había comprado',
-  'ya habia pagado', 'ya había pagado', 'ya pagué', 'ya compré'
+  'ya habia pagado', 'ya había pagado', 'ya pagué', 'ya compré',
+  // variaciones "yo compre/pague" — el cliente dice "yo" en vez de "ya"
+  'yo compre', 'yo pagué', 'yo pague', 'yo compré',
+  'yo ya compre', 'yo ya pague', 'yo ya compré', 'yo ya pagué',
+  // variaciones "no sirven" con links
+  'link no sirven', 'links no sirven', 'no sirven los link', 'no sirven los links',
+  'el link no sirve', 'los links no sirven', 'no sirve el material',
+  // variaciones adicionales frecuentes
+  'no puedo abrir', 'no se abre', 'no abre el link', 'no abre el material',
+  'compre el mega', 'compré el mega', 'ya soy cliente', 'soy alumna',
+  'no me llega nada', 'no me llego', 'no me llegó', 'nunca me llego', 'nunca me llegó',
+  'no recibí', 'no recibi', 'no recibi nada', 'no recibí nada',
+  'no puedo ver', 'no veo el', 'no aparece el link', 'no aparece nada'
 ];
 
 const DRIVE_URLS_FOR_DELIVERY = {
