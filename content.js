@@ -337,7 +337,15 @@ const OLD_CLIENT_TRIGGERS = [
   'compre el mega', 'compré el mega', 'ya soy cliente', 'soy alumna',
   'no me llega nada', 'no me llego', 'no me llegó', 'nunca me llego', 'nunca me llegó',
   'no recibí', 'no recibi', 'no recibi nada', 'no recibí nada',
-  'no puedo ver', 'no veo el', 'no aparece el link', 'no aparece nada'
+  'no puedo ver', 'no veo el', 'no aparece el link', 'no aparece nada',
+  // orden invertido "hace X compré" — el trigger "compre hace" no hace match
+  'hace unos dias compre', 'hace unos días compré', 'hace unos dias compré', 'hace unos días compre',
+  'hace tiempo compre', 'hace tiempo compré', 'hace dias compre', 'hace días compré',
+  'hace semanas compre', 'hace semanas compré', 'hace meses compre', 'hace meses compré',
+  'hace poco compre', 'hace poco compré', 'hace unos meses compre', 'hace unos meses compré',
+  // "no me deja acceder" — variante de "no me deja entrar" no cubierta
+  'no me deja acceder', 'no me deja ver', 'no me deja abrir',
+  'no puedo acceder al', 'ya no puedo acceder'
 ];
 
 const DRIVE_URLS_FOR_DELIVERY = {
