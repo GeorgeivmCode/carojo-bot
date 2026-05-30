@@ -53,6 +53,42 @@ function isPagoSinComprobante(text) {
   return PAGO_SIN_COMPROBANTE.some(p => t.includes(p));
 }
 
+// Retorna true si la fecha del comprobante NO es hoy (Colombia)
+// Solo actua cuando puede parsear con certeza — si no, retorna false para no rechazar pagos validos
+function isFechaAnterior(fechaText) {
+  if (!fechaText) return false;
+  const text = fechaText.toLowerCase().replace(/,/g, '');
+
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }); // YYYY-MM-DD
+  const [hoyAnio, hoyMes, hoyDia] = hoy.split('-').map(Number);
+
+  const meses = {
+    enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+    julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12
+  };
+
+  // Formato: "04 de mayo de 2026" o "4 de mayo de 2026 a las 07:07 p.m."
+  const m1 = text.match(/(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})/i);
+  if (m1) {
+    const dia  = parseInt(m1[1]);
+    const mes  = meses[m1[2].toLowerCase()];
+    const anio = parseInt(m1[3]);
+    return dia !== hoyDia || mes !== hoyMes || anio !== hoyAnio;
+  }
+
+  // Formato: "29/05/2026" o "29-05-2026"
+  const m2 = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m2) {
+    const dia  = parseInt(m2[1]);
+    const mes  = parseInt(m2[2]);
+    const anio = parseInt(m2[3]);
+    return dia !== hoyDia || mes !== hoyMes || anio !== hoyAnio;
+  }
+
+  // No se pudo parsear — no rechazar para evitar falsos rechazos
+  return false;
+}
+
 function isAskingForGift(text) {
   const t = text.toLowerCase();
   return ['regalo', 'regalito', 'curso gratis', 'gratis', 'resina', 'globo', 'globoflexia', 'bordado', 'epoxi'].some(k => t.includes(k));
@@ -546,6 +582,17 @@ async function handleComprobante(contact, mediaContent) {
     } else {
       await sendAndSave(phone, PAYMENT_REJECTED_MSG(null));
     }
+    return;
+  }
+
+  // Capa de seguridad: verificar fecha en codigo independientemente del modelo
+  // El modelo Haiku puede fallar en rechazar comprobantes de dias anteriores
+  if (result.fecha && isFechaAnterior(result.fecha)) {
+    await sendAndSave(phone, PLANTILLA_ACCESO);
+    db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
+    await notifyJorge(contact,
+      `CLIENTE ANTIGUO (comprobante con fecha pasada — detectado por codigo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha}`
+    );
     return;
   }
 
