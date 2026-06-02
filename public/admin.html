@@ -180,6 +180,23 @@
   .login-box input:focus { border-color: var(--green); }
   .login-box button { background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 11px; font-size: 15px; font-weight: 600; cursor: pointer; }
 
+  /* ── Sidenav stats (solo mobile) ── */
+  .sidenav-stats { display: none; }
+  @media (max-width: 600px) {
+    .sidenav-stats {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px; width: 100%; padding: 6px 4px;
+      border-top: 1px solid var(--border); margin-top: 4px;
+    }
+    .sidenav-stat { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 5px 2px; border-radius: 8px; background: var(--bg); margin-bottom: 2px; }
+    .sidenav-stat-num { font-size: 16px; font-weight: 700; color: var(--green); line-height: 1; }
+    .sidenav-stat-num.blue { color: var(--blue); }
+    .sidenav-stat-num.yellow { color: var(--yellow); }
+    .sidenav-stat-icon { font-size: 12px; margin-bottom: 1px; }
+    .sidenav-stat-label { font-size: 7px; color: var(--sub); text-transform: uppercase; letter-spacing: .02em; text-align: center; line-height: 1.2; margin-top: 1px; }
+    .sidenav-stat.today { border: 1px solid rgba(83,189,235,.2); }
+  }
+
   @media (max-width: 1100px) { .right-panel { display: none; } }
   @media (max-width: 760px) { .contact-list { width: 260px; } }
   @media (max-width: 600px) {
@@ -213,6 +230,31 @@
   <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
   <div class="nav-icon" title="Estadisticas" id="nav-stats">&#128200;</div>
   <div class="nav-spacer"></div>
+
+  <!-- Stats mini — solo visible en mobile -->
+  <div class="sidenav-stats">
+    <div class="sidenav-stat today">
+      <div class="sidenav-stat-icon">⭐</div>
+      <div class="sidenav-stat-num yellow" id="msTodaySales">-</div>
+      <div class="sidenav-stat-label">Ventas hoy</div>
+    </div>
+    <div class="sidenav-stat today">
+      <div class="sidenav-stat-icon">📲</div>
+      <div class="sidenav-stat-num blue" id="msTodayConvs">-</div>
+      <div class="sidenav-stat-label">Convs hoy</div>
+    </div>
+    <div class="sidenav-stat">
+      <div class="sidenav-stat-icon">💰</div>
+      <div class="sidenav-stat-num" id="msDelivered">-</div>
+      <div class="sidenav-stat-label">Ventas total</div>
+    </div>
+    <div class="sidenav-stat">
+      <div class="sidenav-stat-icon">💬</div>
+      <div class="sidenav-stat-num" id="msTotal">-</div>
+      <div class="sidenav-stat-label">Convs total</div>
+    </div>
+  </div>
+
   <div class="nav-icon" id="nav-push" title="Notificaciones push" onclick="handlePushClick()">&#128276;</div>
   <div class="nav-icon" title="Ajustes">&#9881;&#65039;</div>
 </nav>
@@ -709,10 +751,20 @@ async function loadStats() {
   const res = await apiFetch('/api/stats');
   if (!res) return;
   const s = await res.json();
-  document.getElementById('sTotal').textContent = s.total;
-  document.getElementById('sDelivered').textContent = s.delivered;
-  document.getElementById('sTodayConvs').textContent = s.today_conversations ?? 0;
-  document.getElementById('sTodaySales').textContent = s.today_sales ?? 0;
+  const total = s.total ?? 0;
+  const delivered = s.delivered ?? 0;
+  const todayConvs = s.today_conversations ?? 0;
+  const todaySales = s.today_sales ?? 0;
+  // Right panel (desktop)
+  document.getElementById('sTotal').textContent = total;
+  document.getElementById('sDelivered').textContent = delivered;
+  document.getElementById('sTodayConvs').textContent = todayConvs;
+  document.getElementById('sTodaySales').textContent = todaySales;
+  // Sidenav mini stats (mobile)
+  document.getElementById('msTotal').textContent = total;
+  document.getElementById('msDelivered').textContent = delivered;
+  document.getElementById('msTodayConvs').textContent = todayConvs;
+  document.getElementById('msTodaySales').textContent = todaySales;
 }
 
 // ── Filters ────────────────────────────────────────────────────────────────────
