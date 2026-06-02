@@ -48,6 +48,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/health', (_req, res) => res.json({ ok: true, initialized }));
 app.get('/', (_req, res) => res.send('<!DOCTYPE html><html><head><meta name="facebook-domain-verification" content="clgru5a4p4a25bab2t5ose7aecavdz" /></head><body></body></html>'));
 
+// Endpoint requerido por Meta para eliminacion de datos de usuario
+app.get('/data-deletion', (_req, res) => {
+  res.send(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Eliminación de datos - Carojo Aprende y Emprende</title></head><body style="font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px">
+<h2>Solicitud de eliminación de datos</h2>
+<p>Si deseas que eliminemos tus datos de nuestra plataforma, envíanos un mensaje de WhatsApp al número <strong>+57 324 4971371</strong> indicando "Eliminar mis datos".</p>
+<p>Procesaremos tu solicitud en un plazo máximo de 30 días y eliminaremos tu nombre, número de teléfono, correo electrónico e historial de conversación de nuestros sistemas.</p>
+<p>Para más información escríbenos a <a href="mailto:george.camaras@gmail.com">george.camaras@gmail.com</a></p>
+</body></html>`);
+});
+
+// Callback POST de Meta para eliminacion de datos (signed_request)
+app.post('/data-deletion', express.urlencoded({ extended: true }), (req, res) => {
+  const { signed_request } = req.body || {};
+  if (signed_request) {
+    const [, payload] = signed_request.split('.');
+    try {
+      const data = JSON.parse(Buffer.from(payload, 'base64').toString());
+      const uid = data.user_id || 'unknown';
+      console.log(`Data deletion request for user: ${uid}`);
+    } catch (_) {}
+  }
+  res.json({ url: 'https://carojo-bot.onrender.com/data-deletion', confirmation_code: `DEL-${Date.now()}` });
+});
+
 // Start listening immediately so Render health check passes
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
