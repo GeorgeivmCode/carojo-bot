@@ -97,17 +97,25 @@ const ventas = [
 
 async function sendRetro(venta, index) {
   const ph  = sha256(venta.phone.replace(/\D/g, ''));
-  const ud  = { ph: [ph], external_id: [ph], page_id: '152908757899058' };
+  // business_messaging requiere whatsapp_business_account_id
+  // action_source other no acepta whatsapp_business_account_id — solo ph/em
+  const ud = venta.ctwa_clid
+    ? { ph: [ph], external_id: [ph], whatsapp_business_account_id: '575088162209889', ctwa_clid: venta.ctwa_clid }
+    : { ph: [ph], external_id: [ph] };
   if (venta.email) ud.em = [sha256(venta.email)];
-  if (venta.ctwa_clid) ud.ctwa_clid = venta.ctwa_clid;
 
   const eventTime = Math.floor(new Date(venta.ts).getTime() / 1000);
-  const eventId   = `retro4d_${venta.phone}_${eventTime}`;
+  // event_id unico con sufijo _v2 para que Meta no desduplique contra los "other" enviados antes
+  const eventId   = `retro4d_v2_${venta.phone}_${eventTime}`;
 
+  // Con ctwa_clid → business_messaging + whatsapp_business_account_id (columna compras de Messi)
+  // Sin ctwa_clid → other solo con ph/em (whatsapp_business_account_id no compatible con other)
+  const action_source = venta.ctwa_clid ? 'business_messaging' : 'other';
   const event = {
     event_name:    'Purchase',
     event_time:    eventTime,
-    action_source: 'other',
+    action_source,
+    ...(venta.ctwa_clid ? { messaging_channel: 'whatsapp' } : {}),
     event_id:      eventId,
     user_data:     ud,
     custom_data:   { currency: 'COP', value: venta.monto, content_name: venta.pack, content_type: 'product', content_ids: [venta.pack] }
@@ -131,8 +139,8 @@ async function sendRetro(venta, index) {
 }
 
 async function main() {
-  console.log(`CAPI retroactivo 4 dias — ${ventas.length} ventas al WABA dataset ${META_PIXEL_ID}`);
-  console.log('action_source: other (business_messaging falla hasta que Jorge asocie la página en Events Manager)\n');
+  console.log(`CAPI retroactivo 4 dias v2 — ${ventas.length} ventas al WABA dataset ${META_PIXEL_ID}`);
+  console.log('Con ctwa_clid → business_messaging | Sin ctwa_clid → other. Usando whatsapp_business_account_id correcto.\n');
 
   let conCtwa = 0, sinCtwa = 0;
   ventas.forEach(v => v.ctwa_clid ? conCtwa++ : sinCtwa++);

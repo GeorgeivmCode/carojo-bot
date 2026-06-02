@@ -175,7 +175,8 @@ async function fireCapi(contact, pack) {
       if (fn) ud.fn = [sha256(fn)];
     }
 
-    ud.page_id = '152908757899058';
+    // business_messaging requiere whatsapp_business_account_id (NO page_id — el dataset WABA no tiene pagina vinculada)
+    ud.whatsapp_business_account_id = '575088162209889';
 
     if (contact.ctwa_clid) {
       ud.ctwa_clid = contact.ctwa_clid;
