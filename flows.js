@@ -202,34 +202,50 @@ async function fireCapi(contact, pack) {
       contact.ctwa_clid ? 'ctwa_clid=si' : 'ctwa_clid=NO'
     ].join(' | ');
 
+    const postEvent = async (eventObj, label) => {
+      const r = await axios.post(
+        `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
+        { data: [eventObj] },
+        { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
+      );
+      console.log(`CAPI ${label} ok:`, JSON.stringify(r.data));
+    };
+
     if (contact.ctwa_clid) {
-      // WABA dataset — aparece en columna compras de Messi
-      const event = {
+      // Intenta business_messaging (aparece en columna compras de Messi en Ads Manager)
+      // Si el dataset WABA no tiene página asociada (error 2804131), cae a "other" con ctwa_clid
+      const bmEvent = {
         event_name: 'Purchase', event_time: Math.floor(Date.now() / 1000),
         action_source: 'business_messaging', messaging_channel: 'whatsapp',
         event_id: eventId, user_data: ud, custom_data: customData
       };
-      console.log(`CAPI WABA: pack=${pack} phone=${contact.phone} | ${signals}`);
-      const r = await axios.post(
-        `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
-        { data: [event] },
-        { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
-      );
-      console.log('CAPI WABA ok:', JSON.stringify(r.data));
+      try {
+        console.log(`CAPI WABA business_messaging: pack=${pack} phone=${contact.phone} | ${signals}`);
+        await postEvent(bmEvent, 'WABA bm');
+      } catch (bmErr) {
+        const sub = bmErr.response?.data?.error?.error_subcode;
+        if (sub === 2804131) {
+          // Dataset WABA no tiene página asociada — fallback a "other" con ctwa_clid para matching
+          const otherEvent = {
+            event_name: 'Purchase', event_time: Math.floor(Date.now() / 1000),
+            action_source: 'other',
+            event_id: eventId + '_fb', user_data: ud, custom_data: customData
+          };
+          console.log(`CAPI fallback other (2804131 - sin página en dataset): pack=${pack} phone=${contact.phone}`);
+          await postEvent(otherEvent, 'WABA other-fallback');
+        } else {
+          throw bmErr;
+        }
+      }
     } else {
-      // Sin ctwa_clid — action_source other al WABA dataset (business_messaging requiere ctwa_clid)
+      // Sin ctwa_clid — action_source other al WABA dataset
       const event = {
         event_name: 'Purchase', event_time: Math.floor(Date.now() / 1000),
         action_source: 'other',
         event_id: eventId, user_data: ud, custom_data: customData
       };
       console.log(`CAPI WABA other (sin ctwa_clid): pack=${pack} phone=${contact.phone} | ${signals}`);
-      const r = await axios.post(
-        `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
-        { data: [event] },
-        { params: { access_token: META_CAPI_TOKEN }, timeout: 10000 }
-      );
-      console.log('CAPI WABA other ok:', JSON.stringify(r.data));
+      await postEvent(event, 'WABA other');
     }
   } catch (e) {
     const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
