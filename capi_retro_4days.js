@@ -8,7 +8,6 @@
  */
 
 const crypto = require('crypto');
-const axios  = require('axios');
 
 const META_PIXEL_ID  = '891673903214904';
 const META_CAPI_TOKEN = process.env.META_CAPI_TOKEN;
@@ -115,15 +114,19 @@ async function sendRetro(venta, index) {
   };
 
   try {
-    const r = await axios.post(
-      `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events`,
-      { data: [event] },
-      { params: { access_token: META_CAPI_TOKEN }, timeout: 12000 }
-    );
+    const url = `https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events?access_token=${META_CAPI_TOKEN}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: [event] }),
+      signal: AbortSignal.timeout(12000)
+    });
+    const data = await res.json();
     const ctwa_tag = venta.ctwa_clid ? 'ctwa_si' : 'ctwa_no';
-    console.log(`[${index+1}/${ventas.length}] OK ${venta.pack} $${venta.monto} ${venta.phone} | ${ctwa_tag} | ${r.data.events_received} recibidos`);
+    if (data.error) throw new Error(JSON.stringify(data.error));
+    console.log(`[${index+1}/${ventas.length}] OK ${venta.pack} $${venta.monto} ${venta.phone} | ${ctwa_tag} | ${data.events_received} recibidos`);
   } catch (e) {
-    console.error(`[${index+1}/${ventas.length}] ERROR ${venta.phone}:`, e.response?.data || e.message);
+    console.error(`[${index+1}/${ventas.length}] ERROR ${venta.phone}:`, e.message);
   }
 }
 
