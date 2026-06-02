@@ -180,10 +180,7 @@ async function fireCapi(contact, pack) {
 
     if (contact.ctwa_clid) {
       ud.ctwa_clid = contact.ctwa_clid;
-      const clickTs = contact.created_at
-        ? Math.floor(new Date(contact.created_at).getTime() / 1000)
-        : Math.floor(Date.now() / 1000);
-      ud.fbc = `fb.1.${clickTs}.${contact.ctwa_clid}`;
+      // fbc no es valido en business_messaging (error 2804064) — solo va en eventos de website
     }
 
     const customData = {
