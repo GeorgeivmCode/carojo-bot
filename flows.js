@@ -684,7 +684,7 @@ async function handleEmail(contact, emailText) {
     await grantDriveAccess(email, pack);
   } catch (e) {
     console.error('Drive access error:', e.message);
-    await sendAndSave(phone, 'Hubo un problema al darte acceso. Ya le avise a Jorge y lo resuelve en minutos!');
+    await sendAndSave(phone, 'Hubo un problema al darte acceso. Ya le avise a nuestro equipo y lo resuelven en minutos!');
     await notifyJorge(contact, `ERROR acceso Drive:\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nError: ${e.message}`);
     return;
   }
