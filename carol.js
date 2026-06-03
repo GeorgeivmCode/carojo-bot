@@ -354,10 +354,14 @@ async function withRetry(fn, label = 'API') {
 }
 
 async function carolRespond(history, userMessage) {
-  const messages = history.map(m => ({
-    role: m.direction === 'in' ? 'user' : 'assistant',
-    content: m.content
-  }));
+  const messages = history
+    .filter(m => m.type === 'text' || !m.type)
+    .map(m => ({
+      role: m.direction === 'in' ? 'user' : 'assistant',
+      content: typeof m.content === 'string' && m.content.startsWith('{') && m.content.includes('buffer')
+        ? '[imagen enviada por el cliente]'
+        : m.content
+    }));
   messages.push({ role: 'user', content: userMessage });
 
   const res = await withRetry(() => client.messages.create({
