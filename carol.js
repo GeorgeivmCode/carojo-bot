@@ -428,7 +428,7 @@ razon_rechazo:
 - "fecha_incorrecta" → fecha del comprobante es claramente de un dia anterior
 - "monto_invalido" → monto no es 5000/10000/15000
 - "destinatario_invalido" → nombre/numero claramente no coincide
-- "transaccion_no_exitosa" → estado fallida o pendiente
+- "transaccion_no_exitosa" → estado fallida, pendiente, o imagen que muestra una pantalla de CONFIRMACION PREVIA al pago (con botones como "Pasar Plata", "Confirmar", "Aceptar", "Modificar") — estas pantallas muestran que el pago AUN NO se ha ejecutado
 - "imagen_no_legible" → es un comprobante bancario real pero no se puede leer bien
 
 Responde SOLO en JSON (sin texto adicional):
