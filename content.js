@@ -113,7 +113,10 @@ Ademas del curso de Lettering que ya elegiste, sumarias:
 ✔ El Curso de Moldes de Cajas, Flores y Letras 3D
 
 Es el triple de cursos por solo $5.000 mas.
-Te gustaria aprovechar y subir al SUPERPACK ORO? 💬`
+
+O si prefieres el pack completo desde el principio, el 💎 MEGA PACK DIAMANTE te da 5 cursos + 11 bonos por $15.000 en total.
+
+Que prefieres: ORO ($10.000), DIAMANTE ($15.000) o te quedas con el BASICO? 💬`
 ];
 
 const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con el PACK BASICO. El total a pagar es solo $5.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
