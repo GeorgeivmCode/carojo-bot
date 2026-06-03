@@ -348,7 +348,10 @@ const OLD_CLIENT_TRIGGERS = [
   'hace poco compre', 'hace poco compré', 'hace unos meses compre', 'hace unos meses compré',
   // "no me deja acceder" — variante de "no me deja entrar" no cubierta
   'no me deja acceder', 'no me deja ver', 'no me deja abrir',
-  'no puedo acceder al', 'ya no puedo acceder'
+  'no puedo acceder al', 'ya no puedo acceder',
+  // frases de cliente que viene mostrando compra previa
+  'esta es la evidencia', 'me lo pasaron', 'me lo enviaron',
+  'lo compre el', 'lo compré el'
 ];
 
 const DRIVE_URLS_FOR_DELIVERY = {
