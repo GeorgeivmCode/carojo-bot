@@ -396,9 +396,9 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         break;
       }
       // Cambio de pack en medio del flujo — directo al pago, sin upsell
-      const wantsDiamante = text.includes('diamante') || text.includes('mega');
-      const wantsOro = !wantsDiamante && (text.includes('oro') || text.includes('super') || text.includes('superpack'));
-      const wantsBasico = !wantsDiamante && !wantsOro && (text.includes('basico') || text.includes('básico'));
+      const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega');
+      const wantsOro = !wantsDiamante && (text === '2' || text.includes('oro') || text.includes('super') || text.includes('superpack'));
+      const wantsBasico = !wantsDiamante && !wantsOro && (text === '3' || text.includes('basico') || text.includes('básico'));
       if (wantsDiamante) {
         if (contact.pack_selected !== 'diamante') {
           db.updateContact(phone, { pack_selected: 'diamante' });
