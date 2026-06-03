@@ -298,7 +298,8 @@ const MOSTRARIO_TRIGGERS = [
 const TESTIMONIOS_TRIGGERS = [
   'es confiable', 'es serio', 'es estafa', 'estafa', 'no confio', 'no confío',
   'desconfio', 'desconfío', 'prueba', 'pruebas', 'testimonio', 'testimonios',
-  'resultado', 'resultados', 'funciona', 'de verdad', 'en serio'
+  'resultado', 'resultados', 'funciona', 'de verdad', 'en serio',
+  'es seguro', 'seguro', 'confianza', 'me da miedo', 'me da desconfianza'
 ];
 
 const STOPPED_MSG = `Entendido! 🌸 Acabo de pausar los mensajes para no interrumpirte mas.
