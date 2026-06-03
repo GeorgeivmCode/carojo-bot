@@ -325,6 +325,12 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       }
       return;
     }
+    if (contact.state === 'delivered') {
+      await sendAndSave(phone, 'Ya recibí tu mensaje. Un momento que te ayudo con eso. 🙏');
+      db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
+      await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
+      return;
+    }
     if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new' || contact.state === 'awaiting_choice') {
       // Si está en 'new', revisar mensajes recientes por si es cliente antiguo
       if (contact.state === 'new') {
