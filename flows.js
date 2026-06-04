@@ -528,6 +528,13 @@ async function handleOfferedOro(contact, text) {
 
 async function handleOfferedBasico(contact, text) {
   const phone = contact.phone;
+  // "no alcanzo/puedo/tengo" = no puede pagar hoy, no es seleccion de pack — va a Carol
+  const cantAfford = ['alcanzo', 'no puedo', 'no tengo', 'no me alcanza', 'no hay', 'no me llega'].some(w => text.includes(w));
+  if (cantAfford) {
+    const history = db.getRecentMessages(phone, 8);
+    await sendAndSave(phone, await carol(history, text));
+    return;
+  }
   if (text === '1' || text.includes('diamante')) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
