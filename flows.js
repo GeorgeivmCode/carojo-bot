@@ -625,8 +625,11 @@ async function handleComprobante(contact, mediaContent) {
 
   // Normalizar monto — Vision puede retornar "15.000" (string con punto) en vez de 15000
   const rawMonto = result.monto;
+  // Normalizar monto colombiano: "15.000,00" (BBVA) o "15.000" o 15000 → 15000
+  // Paso 1: quitar parte decimal (,XX al final) — evita que "15.000,00" → 1500000
+  // Paso 2: quitar puntos separadores de miles
   const normalizedMonto = rawMonto != null
-    ? parseInt(String(rawMonto).replace(/\./g, '').replace(/,/g, ''), 10) || null
+    ? parseInt(String(rawMonto).replace(/,\d*$/, '').replace(/\./g, ''), 10) || null
     : null;
   const packByAmount = normalizedMonto ? AMOUNT_TO_PACK[normalizedMonto] : undefined;
   const pack = packByAmount || contact.pack_selected || null;
