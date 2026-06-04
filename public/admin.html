@@ -11,19 +11,27 @@
 <title>Carojo Bot - Panel</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
   :root {
-    --bg:       #111b21;
-    --panel:    #222e35;
-    --hover:    #2a3942;
-    --border:   #313d45;
-    --sent:     #005c4b;
-    --received: #202c33;
-    --text:     #e9edef;
-    --sub:      #8696a0;
-    --green:    #00a884;
-    --red:      #f15c6d;
-    --yellow:   #f0b429;
-    --blue:     #53bdeb;
+    --bg:       #090e13;
+    --panel:    #0d1821;
+    --hover:    #152233;
+    --border:   #1e3048;
+    --sent:     #003d2e;
+    --received: #111e2a;
+    --text:     #cdd9e5;
+    --sub:      #5a7a99;
+    --green:    #00e5a0;
+    --red:      #ff4d6a;
+    --yellow:   #f5c518;
+    --blue:     #38bdf8;
+    --purple:   #a78bfa;
+    --orange:   #f97316;
+    --glow-g:   0 0 8px rgba(0,229,160,.4);
+    --glow-b:   0 0 8px rgba(56,189,248,.4);
+    --glow-r:   0 0 8px rgba(255,77,106,.4);
+    --glow-p:   0 0 8px rgba(167,139,250,.4);
+    --glow-o:   0 0 8px rgba(249,115,22,.4);
   }
   body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; }
 
@@ -100,22 +108,46 @@
   .bubble-img { max-width: 220px; border-radius: 6px; cursor: pointer; }
   .date-divider { text-align: center; color: var(--sub); font-size: 12px; padding: 8px 0; }
 
-  .chat-footer { background: var(--panel); border-top: 1px solid var(--border); padding: 10px 16px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+  .chat-footer { background: var(--panel); border-top: 1px solid var(--border); padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; box-shadow: 0 -1px 0 rgba(56,189,248,.08); }
+  /* ── Command Panel ── */
+  .cmd-panel { display: flex; flex-direction: column; gap: 6px; }
+  .cmd-group { display: flex; flex-direction: column; gap: 4px; }
+  .cmd-group-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: .15em; color: var(--sub); text-transform: uppercase; padding: 0 2px; opacity: .7; }
+  .cmd-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .qr-btn {
+    font-family: 'Share Tech Mono', monospace;
+    padding: 5px 11px; border-radius: 4px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.03);
+    color: var(--blue); font-size: 11px;
+    cursor: pointer; transition: all .2s;
+    letter-spacing: .03em;
+  }
+  .qr-btn:hover { background: rgba(56,189,248,.12); border-color: var(--blue); box-shadow: var(--glow-b); }
+  .qr-btn.green  { color: var(--green); }
+  .qr-btn.green:hover  { background: rgba(0,229,160,.12); border-color: var(--green); box-shadow: var(--glow-g); }
+  .qr-btn.yellow { color: var(--yellow); }
+  .qr-btn.yellow:hover { background: rgba(245,197,24,.12); border-color: var(--yellow); }
+  .qr-btn.purple { color: var(--purple); }
+  .qr-btn.purple:hover { background: rgba(167,139,250,.12); border-color: var(--purple); box-shadow: var(--glow-p); }
+  .qr-btn.orange { color: var(--orange); }
+  .qr-btn.orange:hover { background: rgba(249,115,22,.12); border-color: var(--orange); box-shadow: var(--glow-o); }
+  .qr-btn.red    { color: var(--red); }
+  .qr-btn.red:hover    { background: rgba(255,77,106,.12); border-color: var(--red); box-shadow: var(--glow-r); }
+  /* old flex fallback */
   .quick-replies { display: flex; gap: 6px; flex-wrap: wrap; }
-  .qr-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--blue); font-size: 12px; cursor: pointer; transition: all .15s; }
-  .qr-btn:hover { background: var(--blue); color: var(--bg); }
   .input-row { display: flex; gap: 10px; align-items: flex-end; }
   .msg-input { flex: 1; background: var(--bg); border: none; border-radius: 20px; padding: 10px 16px; color: var(--text); font-size: 14px; outline: none; resize: none; max-height: 120px; font-family: inherit; }
   .msg-input::placeholder { color: var(--sub); }
-  .send-btn { background: var(--green); border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; flex-shrink: 0; font-size: 18px; transition: background .15s; }
-  .send-btn:hover { background: #00c99c; }
+  .send-btn { background: var(--green); border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #000; flex-shrink: 0; font-size: 18px; transition: all .15s; box-shadow: var(--glow-g); }
+  .send-btn:hover { background: #00f5b0; box-shadow: 0 0 16px rgba(0,229,160,.6); }
 
   /* ── Right sidebar ── */
   .right-panel { width: 300px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
   .right-panel::-webkit-scrollbar { width: 4px; }
   .right-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .info-section { padding: 16px; border-bottom: 1px solid var(--border); }
-  .info-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--sub); margin-bottom: 10px; }
+  .info-section h4 { font-family: 'Share Tech Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--blue); margin-bottom: 10px; opacity: .8; }
   .info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
   .info-row span:first-child { color: var(--sub); }
   .info-val { font-weight: 500; }
@@ -141,8 +173,8 @@
   .state-stopped { background: #222; color: var(--sub); }
 
   .stats-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-  .stat-box { background: var(--bg); border-radius: 10px; padding: 12px 10px; text-align: center; position: relative; overflow: hidden; }
-  .stat-box.stat-today { border: 1px solid rgba(83,189,235,.2); }
+  .stat-box { background: var(--bg); border-radius: 6px; padding: 12px 10px; text-align: center; position: relative; overflow: hidden; border: 1px solid var(--border); }
+  .stat-box.stat-today { border: 1px solid rgba(56,189,248,.3); box-shadow: 0 0 12px rgba(56,189,248,.08); }
   .stat-num { font-size: 24px; font-weight: 700; color: var(--green); line-height: 1; }
   .stat-num.blue { color: var(--blue); }
   .stat-num.yellow { color: var(--yellow); }
@@ -228,7 +260,6 @@
   <div class="sidenav-logo"><img src="/logo.png" alt="Carojo"></div>
   <div class="nav-icon active" id="nav-chats" title="Chats" onclick="showTab('chats')">&#128172;</div>
   <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
-  <div class="nav-icon" title="Estadisticas" id="nav-stats">&#128200;</div>
   <div class="nav-spacer"></div>
 
   <!-- Stats mini — solo visible en mobile -->
@@ -256,7 +287,6 @@
   </div>
 
   <div class="nav-icon" id="nav-push" title="Notificaciones push" onclick="handlePushClick()">&#128276;</div>
-  <div class="nav-icon" title="Ajustes">&#9881;&#65039;</div>
 </nav>
 
 <!-- Contact List -->
@@ -304,16 +334,31 @@
     <div class="chat-messages" id="chatMessages"></div>
 
     <div class="chat-footer">
-      <div class="quick-replies" id="quickReplies">
-        <button class="qr-btn" onclick="insertQR('pedir_gmail')" style="color:var(--yellow)">📧 Pedir Gmail</button>
-        <button class="qr-btn" onclick="registerSale()" style="color:var(--green);font-weight:700">💾 Registrar venta</button>
-        <button class="qr-btn" onclick="approvePayment()" style="color:var(--blue)">✅ Aprobar pago</button>
-        <button class="qr-btn" onclick="changeEmail()" style="color:var(--yellow)">📧 Cambiar Gmail</button>
-        <button class="qr-btn" onclick="restoreAccess()" style="color:#a78bfa;font-weight:700">🔑 Restaurar Acceso</button>
-        <button class="qr-btn" onclick="resetToNew()" style="color:#f97316;font-weight:700">🔄 Nueva compra</button>
-        <button class="qr-btn" onclick="markFraud()" style="color:var(--red);font-weight:700">🚫 Fraude</button>
-        <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
-        <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
+      <div class="cmd-panel" id="quickReplies">
+        <div class="cmd-group">
+          <div class="cmd-group-label">// ventas</div>
+          <div class="cmd-row">
+            <button class="qr-btn green" onclick="registerSale()">💾 Registrar</button>
+            <button class="qr-btn" onclick="approvePayment()">✅ Aprobar pago</button>
+            <button class="qr-btn yellow" onclick="insertQR('pedir_gmail')">📧 Pedir Gmail</button>
+            <button class="qr-btn yellow" onclick="changeEmail()">✏️ Cambiar Gmail</button>
+          </div>
+        </div>
+        <div class="cmd-group">
+          <div class="cmd-group-label">// cliente</div>
+          <div class="cmd-row">
+            <button class="qr-btn purple" onclick="restoreAccess()">🔑 Restaurar acceso</button>
+            <button class="qr-btn orange" onclick="resetToNew()">🔄 Nueva compra</button>
+            <button class="qr-btn red" onclick="markFraud()">🚫 Fraude</button>
+          </div>
+        </div>
+        <div class="cmd-group">
+          <div class="cmd-group-label">// contenido</div>
+          <div class="cmd-row">
+            <button class="qr-btn green" onclick="sendGalleryFromPanel('mostrario')">📸 Mostrario</button>
+            <button class="qr-btn yellow" onclick="sendGalleryFromPanel('testimonios')">💬 Testimonios</button>
+          </div>
+        </div>
       </div>
       <div class="input-row">
         <textarea class="msg-input" id="msgInput" placeholder="Escribe un mensaje..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
