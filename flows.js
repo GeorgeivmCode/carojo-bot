@@ -715,6 +715,14 @@ async function handleEmail(contact, emailText) {
 async function handlePostDelivery(contact, text) {
   const phone = contact.phone;
 
+  // Cliente entregado que vuelve desde un anuncio — reiniciar flujo como nuevo
+  if (text === 'quiero el curso de timoteo') {
+    db.updateContact(phone, { state: 'new', bot_active: 1, r1_sent: 0, r2_sent: 0 });
+    contact = db.getContact(phone);
+    await handleNew(contact, text);
+    return;
+  }
+
   if (contact.pack_selected === 'diamante' && contact.r1_sent && !contact.gift_sent) {
     // Si ya sabe cual curso quiere → entregar link directo
     const giftLink = detectGiftChoice(text);

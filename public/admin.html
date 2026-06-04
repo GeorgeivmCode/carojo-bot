@@ -310,6 +310,7 @@
         <button class="qr-btn" onclick="approvePayment()" style="color:var(--blue)">✅ Aprobar pago</button>
         <button class="qr-btn" onclick="changeEmail()" style="color:var(--yellow)">📧 Cambiar Gmail</button>
         <button class="qr-btn" onclick="restoreAccess()" style="color:#a78bfa;font-weight:700">🔑 Restaurar Acceso</button>
+        <button class="qr-btn" onclick="resetToNew()" style="color:#f97316;font-weight:700">🔄 Nueva compra</button>
         <button class="qr-btn" onclick="markFraud()" style="color:var(--red);font-weight:700">🚫 Fraude</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('mostrario')" style="color:var(--green)">📸 Mostrario</button>
         <button class="qr-btn" onclick="sendGalleryFromPanel('testimonios')" style="color:var(--yellow)">💬 Testimonios</button>
@@ -898,6 +899,18 @@ async function changeEmail() {
   const data = await res.json();
   if (data.ok) showToast('Correo cambiado y acceso actualizado!', 'success');
   else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
+async function resetToNew() {
+  if (!currentPhone) return;
+  if (!confirm('Reiniciar este chat como cliente nuevo?\n\nEl bot le mostrará el menú desde cero y podrá comprar de nuevo.')) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ state: 'new', bot_active: 1 })
+  });
+  if (!res) return;
+  showToast('Chat reiniciado. El bot atenderá al cliente como nuevo.', 'success');
 }
 
 async function restoreAccess() {
