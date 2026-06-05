@@ -820,7 +820,10 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
     }
   }
 
-  if (type === 'image') {
+  if (type === 'audio') {
+    const txt = content && content !== '[audio no transcrito]' ? escHtml(content) : '<i style="color:var(--sub)">[audio no transcrito]</i>';
+    body = `<div style="display:flex;align-items:flex-start;gap:6px"><span style="font-size:16px;flex-shrink:0">🎤</span><span style="font-size:13px;line-height:1.5">${txt}</span></div>`;
+  } else if (type === 'image') {
     try {
       const parsed = JSON.parse(content);
       const mime = parsed.mimeType || 'image/jpeg';

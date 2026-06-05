@@ -376,10 +376,15 @@ app.post('/webhook', verifySignature, async (req, res) => {
               const { buffer, mimeType } = await downloadMedia(mediaUrl);
               const transcription = await transcribeAudio(buffer, mimeType);
               console.log(`Audio transcrito [${phone}]: ${transcription.substring(0, 80)}`);
-              await processMessage(phone, 'text', transcription, wamid);
+              // Guardar como tipo 'audio' con la transcripcion — panel lo muestra con icono 🎤
+              db.saveMessage(phone, 'in', 'audio', transcription, wamid);
+              db.updateContact(phone, { last_message: `🎤 ${transcription.substring(0, 100)}`, last_message_at: db.now(), unread_count: (db.getContact(phone)?.unread_count || 0) + 1 });
+              broadcast('refresh', { phone, contact: db.getContact(phone) });
+              await processMessage(phone, 'text', transcription, wamid, { skipSave: true });
             } catch (e) {
               console.error('Transcripcion error:', e.message);
-              await processMessage(phone, 'text', '[audio]', wamid);
+              db.saveMessage(phone, 'in', 'audio', '[audio no transcrito]', wamid);
+              await processMessage(phone, 'text', '[audio]', wamid, { skipSave: true });
             }
           }
         } else if (msgType === 'document') {
