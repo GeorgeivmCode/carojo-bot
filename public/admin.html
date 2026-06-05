@@ -434,51 +434,92 @@
   }
   .stats-bar::before { left: 8px; }
   .stats-bar::after  { right: 8px; }
-  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+  /* Instrumento de cabina — marco metálico con pantalla encajada */
   .stat-box {
-    border-radius: 5px; padding: 14px 8px;
-    text-align: center; position: relative; overflow: hidden;
-    /* Relieve 3D — borde superior claro, inferior oscuro */
-    border-top: 1px solid rgba(255,255,255,.12);
-    border-left: 1px solid rgba(255,255,255,.08);
-    border-right: 1px solid rgba(0,0,0,.5);
-    border-bottom: 2px solid rgba(0,0,0,.6);
+    border-radius: 8px;
+    padding: 0;
+    position: relative;
+    /* Marco metálico grueso tipo cabina */
     background:
-      linear-gradient(160deg, rgba(255,255,255,.06) 0%, transparent 40%, rgba(0,0,0,.1) 100%),
-      linear-gradient(180deg, #222840 0%, #161c2e 50%, #1a2035 100%);
+      radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.12) 0%, transparent 50%),
+      linear-gradient(145deg, #3a4255 0%, #252a38 30%, #1a1e28 60%, #2a2f3e 100%);
+    border-top: 2px solid rgba(255,255,255,.18);
+    border-left: 2px solid rgba(255,255,255,.12);
+    border-right: 2px solid rgba(0,0,0,.7);
+    border-bottom: 3px solid rgba(0,0,0,.8);
     box-shadow:
-      0 4px 12px rgba(0,0,0,.7),
-      0 1px 0 rgba(255,255,255,.05),
-      inset 0 1px 0 rgba(255,255,255,.08),
-      inset 0 -2px 0 rgba(0,0,0,.4);
+      0 6px 20px rgba(0,0,0,.8),
+      0 2px 0 rgba(255,255,255,.06),
+      inset 0 1px 0 rgba(255,255,255,.15),
+      inset 0 -2px 0 rgba(0,0,0,.5),
+      inset 2px 0 4px rgba(0,0,0,.3),
+      inset -2px 0 4px rgba(0,0,0,.3);
     transition: all .2s;
   }
-  /* Reflejo cristal superior */
-  .stat-box::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40%;
-    background: linear-gradient(180deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.02) 60%, transparent 100%);
-    border-radius: 5px 5px 0 0; pointer-events: none;
+  /* Tornillo en cada esquina del instrumento */
+  .stat-box .bolt-tl, .stat-box .bolt-tr,
+  .stat-box .bolt-bl, .stat-box .bolt-br {
+    position: absolute; width: 9px; height: 9px; border-radius: 50%; z-index: 3;
+    background: radial-gradient(circle at 38% 32%, #c8d4e0 0%, #7a8898 20%, #3a4858 50%, #0a0e16 100%);
+    border: 1px solid rgba(0,0,0,.9);
+    box-shadow: 0 1px 4px rgba(0,0,0,.9), inset 0 1px 2px rgba(255,255,255,.3), inset 0 -1px 2px rgba(0,0,0,.6);
   }
-  /* Scanlines */
-  .stat-box::after {
+  .stat-box .bolt-tl { top: 5px;  left: 5px; }
+  .stat-box .bolt-tr { top: 5px;  right: 5px; }
+  .stat-box .bolt-bl { bottom: 5px; left: 5px; }
+  .stat-box .bolt-br { bottom: 5px; right: 5px; }
+  /* Ranura Phillips */
+  .stat-box .bolt-tl::before, .stat-box .bolt-tr::before,
+  .stat-box .bolt-bl::before, .stat-box .bolt-br::before {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 5px; height: 1px;
+    background: rgba(0,0,0,.7);
+    box-shadow: 0 0 0 0.5px rgba(0,0,0,.5);
+  }
+  .stat-box .bolt-tl::after, .stat-box .bolt-tr::after,
+  .stat-box .bolt-bl::after, .stat-box .bolt-br::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotate(90deg);
+    width: 5px; height: 1px;
+    background: rgba(0,0,0,.7);
+  }
+  /* Pantalla interior encajada */
+  .stat-screen {
+    margin: 10px 8px 8px;
+    border-radius: 4px;
+    padding: 12px 6px 10px;
+    text-align: center;
+    position: relative; overflow: hidden;
+    /* Pantalla hundida */
+    background: linear-gradient(180deg, #050810 0%, #080c14 60%, #060a10 100%);
+    border-top: 2px solid rgba(0,0,0,.9);
+    border-left: 2px solid rgba(0,0,0,.8);
+    border-right: 1px solid rgba(255,255,255,.06);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    box-shadow:
+      inset 0 2px 8px rgba(0,0,0,.8),
+      inset 0 0 20px rgba(0,0,0,.5);
+  }
+  /* Reflejo cristal pantalla */
+  .stat-screen::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 35%;
+    background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, transparent 100%);
+    border-radius: 3px 3px 0 0; pointer-events: none;
+  }
+  /* Scanlines pantalla */
+  .stat-screen::after {
     content: ''; position: absolute; inset: 0;
-    background: repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,0,0,.06) 3px, rgba(0,0,0,.06) 4px);
+    background: repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 4px);
     animation: scanlines 5s linear infinite;
-    pointer-events: none; border-radius: 5px; opacity: .5;
+    pointer-events: none; border-radius: 3px; opacity: .6;
   }
-  .stat-box:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(0,0,0,.7), 0 0 14px rgba(56,189,248,.15), inset 0 1px 0 rgba(255,255,255,.1);
-  }
-  .stat-box.stat-today {
-    border-top: 1px solid rgba(56,189,248,.4);
-    border-left: 1px solid rgba(56,189,248,.25);
-    border-right: 1px solid rgba(0,0,0,.5);
-    border-bottom: 2px solid rgba(0,0,0,.6);
-    background:
-      linear-gradient(160deg, rgba(56,189,248,.1) 0%, transparent 40%, rgba(56,189,248,.04) 100%),
-      linear-gradient(180deg, #1a2840 0%, #111e30 50%, #162035 100%);
-    box-shadow: 0 4px 12px rgba(0,0,0,.7), 0 0 18px rgba(56,189,248,.12), inset 0 1px 0 rgba(56,189,248,.15);
+  .stat-box:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.8), 0 0 16px rgba(56,189,248,.12), inset 0 1px 0 rgba(255,255,255,.18); }
+  .stat-box.stat-today .stat-screen {
+    background: linear-gradient(180deg, #060c14 0%, #08101e 60%, #060c14 100%);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.8), inset 0 0 20px rgba(56,189,248,.04);
   }
   .stat-num { font-family: 'Share Tech Mono', monospace; font-size: 26px; font-weight: 700; color: var(--green); line-height: 1; text-shadow: 0 0 12px rgba(0,229,160,.6); }
   .stat-num.blue { color: var(--blue); text-shadow: 0 0 12px rgba(56,189,248,.6); }
@@ -682,26 +723,42 @@
   <div class="stats-bar" id="statsBar">
     <div class="stats-grid">
     <div class="stat-box">
-      <div class="stat-icon">💬</div>
-      <div class="stat-num" id="sTotal">-</div>
-      <div class="stat-label">Conversaciones</div>
+      <div class="bolt-tl"></div><div class="bolt-tr"></div>
+      <div class="stat-screen">
+        <div class="stat-icon">💬</div>
+        <div class="stat-num" id="sTotal">-</div>
+        <div class="stat-label">Conversaciones</div>
+      </div>
+      <div class="bolt-bl"></div><div class="bolt-br"></div>
     </div>
     <div class="stat-box">
-      <div class="stat-icon">💰</div>
-      <div class="stat-num" id="sDelivered">-</div>
-      <div class="stat-label">Ventas totales</div>
+      <div class="bolt-tl"></div><div class="bolt-tr"></div>
+      <div class="stat-screen">
+        <div class="stat-icon">💰</div>
+        <div class="stat-num" id="sDelivered">-</div>
+        <div class="stat-label">Ventas totales</div>
+      </div>
+      <div class="bolt-bl"></div><div class="bolt-br"></div>
     </div>
     <div class="stat-box stat-today">
-      <div class="stat-today-tag">HOY</div>
-      <div class="stat-icon">📲</div>
-      <div class="stat-num blue" id="sTodayConvs">-</div>
-      <div class="stat-label">Convs. hoy</div>
+      <div class="bolt-tl"></div><div class="bolt-tr"></div>
+      <div class="stat-screen">
+        <div class="stat-today-tag">HOY</div>
+        <div class="stat-icon">📲</div>
+        <div class="stat-num blue" id="sTodayConvs">-</div>
+        <div class="stat-label">Convs. hoy</div>
+      </div>
+      <div class="bolt-bl"></div><div class="bolt-br"></div>
     </div>
     <div class="stat-box stat-today">
-      <div class="stat-today-tag">HOY</div>
-      <div class="stat-icon">⭐</div>
-      <div class="stat-num yellow" id="sTodaySales">-</div>
-      <div class="stat-label">Ventas hoy</div>
+      <div class="bolt-tl"></div><div class="bolt-tr"></div>
+      <div class="stat-screen">
+        <div class="stat-today-tag">HOY</div>
+        <div class="stat-icon">⭐</div>
+        <div class="stat-num yellow" id="sTodaySales">-</div>
+        <div class="stat-label">Ventas hoy</div>
+      </div>
+      <div class="bolt-bl"></div><div class="bolt-br"></div>
     </div>
     </div><!-- /stats-grid -->
   </div><!-- /stats-bar -->
