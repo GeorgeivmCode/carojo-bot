@@ -16,9 +16,9 @@
     --bg:       #090e13;
     --panel:    #0d1821;
     --hover:    #152233;
-    --border:   #1e3048;
-    --sent:     #0a2540;
-    --received: #0d1e2e;
+    --border:   #1a3a58;
+    --sent:     #0a1f3a;
+    --received: #080f18;
     --text:     #cdd9e5;
     --sub:      #5a7a99;
     --green:    #00e5a0;
@@ -48,8 +48,8 @@
   .sidenav {
     width: 60px; background: var(--panel); display: flex; flex-direction: column;
     align-items: center; padding: 12px 0; gap: 8px; flex-shrink: 0;
-    border-right: 1px solid var(--border);
-    box-shadow: 2px 0 20px rgba(0,229,160,.06);
+    border-right: 1px solid rgba(56,189,248,.2);
+    box-shadow: 2px 0 20px rgba(56,189,248,.05);
   }
   .sidenav-logo { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; margin-bottom: 8px; flex-shrink: 0; box-shadow: 0 0 12px rgba(0,229,160,.3); }
   .sidenav-logo img { width: 100%; height: 100%; object-fit: cover; }
@@ -59,8 +59,8 @@
   .nav-spacer { flex: 1; }
 
   /* ── Contact List ── */
-  .contact-list { width: 360px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid var(--border); flex-shrink: 0; }
-  .contact-list-header { padding: 16px; border-bottom: 1px solid var(--border); }
+  .contact-list { width: 360px; background: var(--panel); display: flex; flex-direction: column; border-right: 1px solid rgba(56,189,248,.15); flex-shrink: 0; }
+  .contact-list-header { padding: 16px; border-bottom: 1px solid rgba(56,189,248,.15); }
   .contact-list-header h2 { font-family: 'Share Tech Mono', monospace; font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--green); text-shadow: 0 0 10px rgba(0,229,160,.5); letter-spacing: .08em; }
   .search-box { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 14px; outline: none; transition: border-color .2s, box-shadow .2s; }
   .search-box:focus { border-color: var(--blue); box-shadow: 0 0 8px rgba(56,189,248,.2); }
@@ -77,14 +77,14 @@
   .contact-card.active { background: var(--hover); border-left: 2px solid var(--green); box-shadow: inset 2px 0 8px rgba(0,229,160,.1); }
   .contact-avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--border); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; position: relative; border: 1px solid var(--border); }
   .bot-dot { position: absolute; bottom: 1px; right: 1px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--panel); }
-  .bot-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); animation: neonPulse 2s infinite; }
+  .bot-dot.on { background: var(--blue); box-shadow: 0 0 6px var(--blue); animation: neonPulse 2s infinite; }
   .bot-dot.off { background: var(--sub); }
   .contact-info { flex: 1; min-width: 0; }
   .contact-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .contact-last { font-size: 13px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
   .contact-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
   .contact-time { font-size: 11px; color: var(--sub); }
-  .unread-badge { background: var(--green); color: #000; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 700; box-shadow: 0 0 8px rgba(0,229,160,.6); }
+  .unread-badge { background: var(--blue); color: #000; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: 700; box-shadow: 0 0 8px rgba(56,189,248,.7); }
   .tag-pill { font-family: 'Share Tech Mono', monospace; font-size: 9px; padding: 2px 6px; border-radius: 3px; background: var(--border); color: var(--sub); letter-spacing: .05em; }
   .tag-pill.facturado { background: rgba(0,229,160,.1); color: var(--green); border: 1px solid rgba(0,229,160,.3); box-shadow: 0 0 6px rgba(0,229,160,.15); }
   .tag-pill.potencial { background: rgba(245,197,24,.1); color: var(--yellow); border: 1px solid rgba(245,197,24,.3); }
@@ -116,8 +116,8 @@
   .bubble-wrap.out { align-self: flex-end; }
   .bubble-wrap.in { align-self: flex-start; }
   .bubble { padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; word-break: break-word; position: relative; }
-  .bubble-wrap.out .bubble { background: var(--sent); border-top-right-radius: 2px; border: 1px solid rgba(56,189,248,.25); }
-  .bubble-wrap.in .bubble { background: var(--received); border-top-left-radius: 2px; border: 1px solid rgba(56,189,248,.08); }
+  .bubble-wrap.out .bubble { background: #0d2847; border-top-right-radius: 2px; border: 1px solid rgba(56,189,248,.4); box-shadow: inset 0 0 12px rgba(56,189,248,.04); }
+  .bubble-wrap.in .bubble { background: #080f18; border-top-left-radius: 2px; border: 1px solid rgba(255,255,255,.06); }
   /* ── Reply/cita ── */
   .reply-preview {
     background: rgba(56,189,248,.07); border-left: 3px solid var(--blue);
@@ -219,38 +219,48 @@
   }
   .send-btn:hover { background: #00f5b0; box-shadow: 0 0 24px rgba(0,229,160,.7), 0 0 8px rgba(0,229,160,1); transform: scale(1.05); }
 
-  /* ── Botón BOT 3D neon ── */
+  /* ── Botón BOT power ── */
+  @keyframes botPulseOn  { 0%,100%{box-shadow:0 0 10px rgba(0,229,160,.5),0 0 30px rgba(0,229,160,.2),inset 0 0 8px rgba(0,229,160,.1)} 50%{box-shadow:0 0 18px rgba(0,229,160,.8),0 0 50px rgba(0,229,160,.35),inset 0 0 14px rgba(0,229,160,.2)} }
+  @keyframes botPulseOff { 0%,100%{box-shadow:0 0 10px rgba(255,77,106,.4),0 0 20px rgba(255,77,106,.15)} 50%{box-shadow:0 0 18px rgba(255,77,106,.7),0 0 40px rgba(255,77,106,.3)} }
   .bot-toggle-btn {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 11px; font-weight: 700; letter-spacing: .1em;
-    padding: 6px 12px; border-radius: 5px; cursor: pointer;
-    border: 1px solid; border-bottom-width: 3px;
-    transition: all .12s;
-    box-shadow: 0 2px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
-    text-shadow: 0 0 8px currentColor;
+    font-size: 10px; font-weight: 700; letter-spacing: .12em;
+    padding: 7px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid; border-bottom: 3px solid;
+    transition: all .15s; position: relative; overflow: hidden;
+    text-shadow: 0 0 10px currentColor;
     transform: translateY(0);
   }
+  .bot-toggle-btn::before {
+    content: ''; position: absolute; top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
+    transition: left .4s;
+  }
+  .bot-toggle-btn:hover::before { left: 150%; }
   .bot-toggle-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
   .bot-toggle-btn.on {
-    color: var(--green); border-color: rgba(0,229,160,.5);
-    background: linear-gradient(180deg, rgba(0,229,160,.15) 0%, rgba(0,229,160,.05) 100%);
-    box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 0 14px rgba(0,229,160,.3), inset 0 1px 0 rgba(0,229,160,.15);
+    color: var(--green);
+    border-color: rgba(0,229,160,.6); border-bottom-color: rgba(0,229,160,.9);
+    background: linear-gradient(180deg, rgba(0,229,160,.18) 0%, rgba(0,229,160,.06) 100%);
+    animation: botPulseOn 2.5s ease-in-out infinite;
   }
   .bot-toggle-btn.off {
-    color: var(--red); border-color: rgba(255,77,106,.5);
+    color: var(--red);
+    border-color: rgba(255,77,106,.5); border-bottom-color: rgba(255,77,106,.8);
     background: linear-gradient(180deg, rgba(255,77,106,.15) 0%, rgba(255,77,106,.05) 100%);
-    box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 0 14px rgba(255,77,106,.3), inset 0 1px 0 rgba(255,77,106,.15);
+    animation: botPulseOff 2s ease-in-out infinite;
   }
 
   /* ── Right sidebar ── */
   .right-panel {
-    width: 300px; background: var(--panel); border-left: 1px solid var(--border);
+    width: 300px; background: var(--panel); border-left: 1px solid rgba(56,189,248,.15);
     display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0;
-    box-shadow: -2px 0 20px rgba(0,0,0,.4);
+    box-shadow: -2px 0 20px rgba(56,189,248,.05);
   }
   .right-panel::-webkit-scrollbar { width: 3px; }
   .right-panel::-webkit-scrollbar-thumb { background: rgba(56,189,248,.2); border-radius: 2px; }
-  .info-section { padding: 16px; border-bottom: 1px solid rgba(30,48,72,.8); }
+  .info-section { padding: 16px; border-bottom: 1px solid rgba(56,189,248,.12); }
   .info-section h4 {
     font-family: 'Share Tech Mono', monospace; font-size: 10px;
     text-transform: uppercase; letter-spacing: .15em;
@@ -264,7 +274,7 @@
 
   .toggle-bot {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; border-bottom: 1px solid rgba(30,48,72,.8);
+    padding: 12px 16px; border-bottom: 1px solid rgba(56,189,248,.12);
   }
   .toggle-label { font-family: 'Share Tech Mono', monospace; font-size: 12px; letter-spacing: .08em; color: var(--sub); text-transform: uppercase; }
   .switch { position: relative; width: 44px; height: 24px; }
@@ -450,7 +460,7 @@
       </div>
       <div class="chat-actions">
         <button class="icon-btn back-btn" style="display:none" title="Volver" onclick="backToContacts()">&#8592;</button>
-        <button class="bot-toggle-btn" id="headerBotToggle" onclick="headerToggleBot()" title="Pausar/activar bot">⬤ BOT</button>
+        <button class="bot-toggle-btn" id="headerBotToggle" onclick="headerToggleBot()" title="Pausar/activar bot">⏻ BOT ON</button>
         <button class="icon-btn" title="Marcar leido" onclick="markRead()">&#10003;</button>
         <button class="icon-btn" title="Refrescar" onclick="loadMessages(currentPhone)">&#8635;</button>
       </div>
@@ -893,6 +903,7 @@ function updateHeaderBotBtn(botActive) {
   if (!btn) return;
   btn.classList.toggle('on', !!botActive);
   btn.classList.toggle('off', !botActive);
+  btn.textContent = botActive ? '⏻ BOT ON' : '⏻ BOT OFF';
 }
 
 async function headerToggleBot() {
