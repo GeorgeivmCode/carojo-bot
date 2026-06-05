@@ -49,6 +49,7 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN email TEXT DEFAULT ''`); } catch 
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_wamid ON messages(wamid)`); } catch (_) {}
+try { db.exec(`ALTER TABLE messages ADD COLUMN reply_to TEXT DEFAULT ''`); } catch (_) {}
 
 // Settings table for VAPID keys and push subscriptions
 db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
@@ -116,11 +117,11 @@ function getUnreadContacts() {
 }
 
 // Messages
-function saveMessage(phone, direction, type, content, wamid = '') {
+function saveMessage(phone, direction, type, content, wamid = '', reply_to = '') {
   db.prepare(`
-    INSERT INTO messages (phone, direction, type, content, wamid)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(phone, direction, type, content, wamid);
+    INSERT INTO messages (phone, direction, type, content, wamid, reply_to)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(phone, direction, type, content, wamid, reply_to || '');
 }
 
 function getMessages(phone, limit = 50) {

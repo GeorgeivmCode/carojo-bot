@@ -17,8 +17,8 @@
     --panel:    #0d1821;
     --hover:    #152233;
     --border:   #1e3048;
-    --sent:     #003d2e;
-    --received: #111e2a;
+    --sent:     #0a2540;
+    --received: #0d1e2e;
     --text:     #cdd9e5;
     --sub:      #5a7a99;
     --green:    #00e5a0;
@@ -116,8 +116,16 @@
   .bubble-wrap.out { align-self: flex-end; }
   .bubble-wrap.in { align-self: flex-start; }
   .bubble { padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; word-break: break-word; position: relative; }
-  .bubble-wrap.out .bubble { background: var(--sent); border-top-right-radius: 2px; border: 1px solid rgba(0,229,160,.15); }
+  .bubble-wrap.out .bubble { background: var(--sent); border-top-right-radius: 2px; border: 1px solid rgba(56,189,248,.25); }
   .bubble-wrap.in .bubble { background: var(--received); border-top-left-radius: 2px; border: 1px solid rgba(56,189,248,.08); }
+  /* ── Reply/cita ── */
+  .reply-preview {
+    background: rgba(56,189,248,.07); border-left: 3px solid var(--blue);
+    border-radius: 4px; padding: 4px 8px; margin-bottom: 4px;
+    font-size: 12px; color: var(--sub); font-family: 'Share Tech Mono', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%; letter-spacing: .02em;
+  }
   .bubble-time { font-size: 11px; color: rgba(255,255,255,.4); margin-top: 4px; text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
   .msg-status { font-size: 13px; line-height: 1; }
   .msg-status.sent     { color: rgba(255,255,255,.4); }
@@ -210,6 +218,29 @@
     box-shadow: 0 0 14px rgba(0,229,160,.5), 0 0 4px rgba(0,229,160,.8);
   }
   .send-btn:hover { background: #00f5b0; box-shadow: 0 0 24px rgba(0,229,160,.7), 0 0 8px rgba(0,229,160,1); transform: scale(1.05); }
+
+  /* ── Botón BOT 3D neon ── */
+  .bot-toggle-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    padding: 6px 12px; border-radius: 5px; cursor: pointer;
+    border: 1px solid; border-bottom-width: 3px;
+    transition: all .12s;
+    box-shadow: 0 2px 6px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+    text-shadow: 0 0 8px currentColor;
+    transform: translateY(0);
+  }
+  .bot-toggle-btn:active { transform: translateY(2px); border-bottom-width: 1px; }
+  .bot-toggle-btn.on {
+    color: var(--green); border-color: rgba(0,229,160,.5);
+    background: linear-gradient(180deg, rgba(0,229,160,.15) 0%, rgba(0,229,160,.05) 100%);
+    box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 0 14px rgba(0,229,160,.3), inset 0 1px 0 rgba(0,229,160,.15);
+  }
+  .bot-toggle-btn.off {
+    color: var(--red); border-color: rgba(255,77,106,.5);
+    background: linear-gradient(180deg, rgba(255,77,106,.15) 0%, rgba(255,77,106,.05) 100%);
+    box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 0 14px rgba(255,77,106,.3), inset 0 1px 0 rgba(255,77,106,.15);
+  }
 
   /* ── Right sidebar ── */
   .right-panel {
@@ -419,7 +450,7 @@
       </div>
       <div class="chat-actions">
         <button class="icon-btn back-btn" style="display:none" title="Volver" onclick="backToContacts()">&#8592;</button>
-        <button class="icon-btn" id="headerBotToggle" onclick="headerToggleBot()" title="Pausar/activar bot" style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--sub)">BOT</button>
+        <button class="bot-toggle-btn" id="headerBotToggle" onclick="headerToggleBot()" title="Pausar/activar bot">⬤ BOT</button>
         <button class="icon-btn" title="Marcar leido" onclick="markRead()">&#10003;</button>
         <button class="icon-btn" title="Refrescar" onclick="loadMessages(currentPhone)">&#8635;</button>
       </div>
@@ -760,7 +791,7 @@ async function loadMessages(phone) {
       el.insertAdjacentHTML('beforeend', `<div class="date-divider">${formatDate(d)}</div>`);
       lastDate = d;
     }
-    appendBubble(m.direction, m.type, m.content, m.created_at, false, m.wamid || '', m.status || '');
+    appendBubble(m.direction, m.type, m.content, m.created_at, false, m.wamid || '', m.status || '', m.reply_to || '', msgs);
   }
   scrollBottom();
 }
@@ -774,11 +805,20 @@ function statusIcon(status) {
   return '';
 }
 
-function appendBubble(direction, type, content, ts, scroll = true, wamid = '', status = '') {
+function appendBubble(direction, type, content, ts, scroll = true, wamid = '', status = '', reply_to = '', allMsgs = []) {
   const el = document.getElementById('chatMessages');
   const dir = direction === 'out' ? 'out' : 'in';
   const time = ts ? new Date(ts.replace(' ','T')+'Z').toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',timeZone:'America/Bogota'}) : '';
   let body = '';
+  let replyHtml = '';
+  if (reply_to && allMsgs.length) {
+    const quoted = allMsgs.find(m => m.wamid === reply_to);
+    if (quoted) {
+      const qText = quoted.type === 'text' ? escHtml(quoted.content).substring(0, 80) : '[imagen]';
+      const qDir = quoted.direction === 'out' ? '🤖' : '👤';
+      replyHtml = `<div class="reply-preview">${qDir} ${qText}${quoted.content.length > 80 ? '…' : ''}</div>`;
+    }
+  }
 
   if (type === 'image') {
     try {
@@ -801,7 +841,7 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
 
   el.insertAdjacentHTML('beforeend', `
     <div class="bubble-wrap ${dir}"${wamidAttr}>
-      <div class="bubble">${body}<div class="bubble-time"><span>${time}</span>${statusHtml}</div></div>
+      <div class="bubble">${replyHtml}${body}<div class="bubble-time"><span>${time}</span>${statusHtml}</div></div>
     </div>`);
   if (scroll) scrollBottom();
 }
@@ -847,7 +887,9 @@ async function toggleBot(val) {
 
 function updateHeaderBotBtn(botActive) {
   const btn = document.getElementById('headerBotToggle');
-  if (btn) btn.style.color = botActive ? 'var(--green)' : 'var(--red)';
+  if (!btn) return;
+  btn.classList.toggle('on', !!botActive);
+  btn.classList.toggle('off', !botActive);
 }
 
 async function headerToggleBot() {

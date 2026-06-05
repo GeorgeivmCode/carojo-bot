@@ -327,7 +327,8 @@ app.post('/webhook', verifySignature, async (req, res) => {
     if (!db.getContact(phone)) db.createContact(phone);
     const cNow = db.getContact(phone);
     const textContent = msg.text?.body || '';
-    db.saveMessage(phone, 'in', 'text', textContent, wamid);
+    const replyTo = msg.context?.id || '';
+    db.saveMessage(phone, 'in', 'text', textContent, wamid, replyTo);
     db.updateContact(phone, {
       last_message:    textContent.substring(0, 200),
       last_message_at: db.now(),

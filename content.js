@@ -299,7 +299,10 @@ const TESTIMONIOS_TRIGGERS = [
   'es confiable', 'es serio', 'es estafa', 'estafa', 'no confio', 'no confío',
   'desconfio', 'desconfío', 'prueba', 'pruebas', 'testimonio', 'testimonios',
   'resultado', 'resultados', 'funciona', 'de verdad', 'en serio',
-  'es seguro', 'seguro', 'confianza', 'me da miedo', 'me da desconfianza'
+  'es seguro', 'seguro', 'confianza', 'me da miedo', 'me da desconfianza',
+  'engañando', 'engaño', 'engañar', 'me estan engañando', 'me van a engañar',
+  'es mentira', 'es verdad', 'me van a robar', 'me roban', 'robo',
+  'no creo', 'no me creo', 'dudas', 'no confio', 'sera verdad', 'será verdad'
 ];
 
 const STOPPED_MSG = `Entendido! 🌸 Acabo de pausar los mensajes para no interrumpirte mas.
