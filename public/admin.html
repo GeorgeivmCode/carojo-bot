@@ -356,15 +356,47 @@
   .state-delivered { background: rgba(0,229,160,.1); color: var(--green); border: 1px solid rgba(0,229,160,.3); box-shadow: 0 0 6px rgba(0,229,160,.2); }
   .state-stopped { background: rgba(90,122,153,.1); color: var(--sub); border: 1px solid rgba(90,122,153,.2); }
 
-  .stats-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 12px 16px; border-bottom: 1px solid rgba(30,48,72,.8); }
-  .stat-box {
-    background: var(--bg); border-radius: 6px; padding: 12px 10px;
-    text-align: center; position: relative; overflow: hidden;
-    border: 1px solid var(--border);
-    transition: box-shadow .2s;
+  @keyframes scanlines { 0%{background-position:0 0} 100%{background-position:0 40px} }
+
+  .stats-bar {
+    padding: 16px 12px 12px; border-bottom: 1px solid rgba(56,189,248,.25);
+    position: relative;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0px, rgba(255,255,255,.012) 1px, transparent 1px, transparent 4px),
+      repeating-linear-gradient(180deg, rgba(255,255,255,.008) 0px, rgba(255,255,255,.008) 1px, transparent 1px, transparent 4px),
+      linear-gradient(180deg, #0e1520 0%, #090d16 100%);
   }
-  .stat-box:hover { box-shadow: 0 0 12px rgba(56,189,248,.15); }
-  .stat-box.stat-today { border: 1px solid rgba(56,189,248,.35); box-shadow: 0 0 14px rgba(56,189,248,.1), inset 0 0 20px rgba(56,189,248,.03); }
+  /* Tornillos tablero */
+  .stats-bar::before { content: ''; position: absolute; top: 6px; left: 6px; width: 8px; height: 8px; border: 1px solid rgba(56,189,248,.3); border-radius: 50%; background: radial-gradient(circle, rgba(56,189,248,.15) 0%, transparent 70%); }
+  .stats-bar::after  { content: ''; position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border: 1px solid rgba(56,189,248,.3); border-radius: 50%; background: radial-gradient(circle, rgba(56,189,248,.15) 0%, transparent 70%); }
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-box {
+    border-radius: 6px; padding: 14px 8px;
+    text-align: center; position: relative; overflow: hidden;
+    border: 1px solid rgba(56,189,248,.2);
+    background: linear-gradient(160deg, rgba(255,255,255,.06) 0%, rgba(0,0,0,.2) 50%, rgba(56,189,248,.03) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.5);
+    transition: all .2s;
+  }
+  /* Reflejo cristal */
+  .stat-box::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 45%;
+    background: linear-gradient(180deg, rgba(255,255,255,.07) 0%, transparent 100%);
+    border-radius: 6px 6px 0 0; pointer-events: none;
+  }
+  /* Scanlines */
+  .stat-box::after {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,0,0,.07) 3px, rgba(0,0,0,.07) 4px);
+    animation: scanlines 4s linear infinite;
+    pointer-events: none; border-radius: 6px; opacity: .6;
+  }
+  .stat-box:hover { border-color: rgba(56,189,248,.45); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 0 16px rgba(56,189,248,.18); }
+  .stat-box.stat-today {
+    border: 1px solid rgba(56,189,248,.5);
+    background: linear-gradient(160deg, rgba(56,189,248,.1) 0%, rgba(0,0,0,.15) 50%, rgba(56,189,248,.06) 100%);
+    box-shadow: inset 0 1px 0 rgba(56,189,248,.2), 0 0 20px rgba(56,189,248,.15);
+  }
   .stat-num { font-family: 'Share Tech Mono', monospace; font-size: 26px; font-weight: 700; color: var(--green); line-height: 1; text-shadow: 0 0 12px rgba(0,229,160,.6); }
   .stat-num.blue { color: var(--blue); text-shadow: 0 0 12px rgba(56,189,248,.6); }
   .stat-num.yellow { color: var(--yellow); text-shadow: 0 0 12px rgba(245,197,24,.5); }
@@ -566,6 +598,7 @@
 <!-- Right Panel -->
 <aside class="right-panel" id="rightPanel" style="display:none;">
   <div class="stats-bar" id="statsBar">
+    <div class="stats-grid">
     <div class="stat-box">
       <div class="stat-icon">💬</div>
       <div class="stat-num" id="sTotal">-</div>
@@ -588,7 +621,8 @@
       <div class="stat-num yellow" id="sTodaySales">-</div>
       <div class="stat-label">Ventas hoy</div>
     </div>
-  </div>
+    </div><!-- /stats-grid -->
+  </div><!-- /stats-bar -->
 
   <div class="toggle-bot">
     <span class="toggle-label">Bot activo</span>
