@@ -42,11 +42,32 @@
   @keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
 
   body {
-    background: var(--bg); color: var(--text);
+    color: var(--text);
     font-family: 'Segoe UI', sans-serif;
     height: 100vh; display: flex; overflow: hidden;
-    background-image: radial-gradient(ellipse at 20% 50%, rgba(0,229,160,.03) 0%, transparent 60%),
-                      radial-gradient(ellipse at 80% 20%, rgba(56,189,248,.03) 0%, transparent 60%);
+    background-color: #02040a;
+    background-image:
+      /* Viñeteo oscuro — más oscuro en bordes como la imagen */
+      radial-gradient(ellipse 100% 100% at 50% 50%,
+        rgba(0,15,50,.15) 0%,
+        rgba(0,5,20,.5) 50%,
+        rgba(0,0,10,.92) 100%
+      ),
+      /* Fila 1 óvalos */
+      radial-gradient(ellipse 5px 3px at 5px 4px,  rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      radial-gradient(ellipse 5px 3px at 15px 4px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      /* Fila 2 óvalos (offset) */
+      radial-gradient(ellipse 5px 3px at 0px 11px,  rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      radial-gradient(ellipse 5px 3px at 10px 11px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      radial-gradient(ellipse 5px 3px at 20px 11px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%);
+    background-size:
+      100% 100%,
+      20px 15px, 20px 15px,
+      20px 15px, 20px 15px, 20px 15px;
+    background-position:
+      0 0,
+      0 0, 0 0,
+      0 0, 0 0, 0 0;
   }
 
   /* ── Acero cepillado real ── */
