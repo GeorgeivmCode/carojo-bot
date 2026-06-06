@@ -292,9 +292,9 @@ Dale una oportunidad a tu lado creativo. Escribe el numero de tu pack:
 };
 
 const MOSTRARIO_TRIGGERS = [
-  'muéstrame', 'muestrame', 'que incluye', 'qué incluye', 'como es', 'cómo es',
-  'que trae', 'qué trae', 'quiero ver', 'puedo ver', 'foto', 'fotos',
-  'preview', 'muestra', 'ejemplo', 'ejemplos'
+  'muéstrame', 'muestrame', 'quiero ver', 'puedo ver',
+  'foto', 'fotos', 'preview', 'muéstralo', 'muestralo',
+  'ver el contenido', 'ver los cursos', 'como se ve', 'cómo se ve'
 ];
 
 const TESTIMONIOS_TRIGGERS = [

@@ -391,15 +391,18 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   }
 
   // Deteccion automatica de mostrario y testimonios
+  // IMPORTANTE: solo disparar antes del switch si la peticion es CLARAMENTE visual
+  // Para preguntas conceptuales (que incluye, metodologia, bonos) Carol responde primero
+  // y el mostrario se agrega como complemento despues de la respuesta de Carol
+  let sendMostrarioAfter = false;
+  let sendTestimoniosAfter = false;
   if (msgType === 'text') {
     const tl = text.toLowerCase();
     if (MOSTRARIO_TRIGGERS.some(t => tl.includes(t))) {
-      await sendGallery(phone, MOSTRARIO);
-      return;
+      sendMostrarioAfter = true;
     }
     if (TESTIMONIOS_TRIGGERS.some(t => tl.includes(t))) {
-      await sendGallery(phone, TESTIMONIOS);
-      return;
+      sendTestimoniosAfter = true;
     }
   }
 
@@ -473,6 +476,15 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       break;
     default:
       await handleNew(contact, text);
+  }
+
+  // Complemento visual: se envia DESPUES de que Carol o el handler respondio
+  // Solo si la pregunta fue claramente visual (no para preguntas conceptuales)
+  if (sendMostrarioAfter) {
+    try { await sendGallery(phone, MOSTRARIO); } catch (e) { console.error('Error mostrario:', e.message); }
+  }
+  if (sendTestimoniosAfter) {
+    try { await sendGallery(phone, TESTIMONIOS); } catch (e) { console.error('Error testimonios:', e.message); }
   }
 }
 
