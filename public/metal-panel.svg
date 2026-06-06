@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600">
+  <defs>
+
+    <!-- PASO 1: Ruido base elongado horizontalmente → grano de metal cepillado -->
+    <filter id="brushed" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="linearRGB">
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency="0.012 0.75"
+        numOctaves="5"
+        seed="8"
+        stitchTiles="stitch"
+        result="noise"/>
+      <!-- Desaturar a gris -->
+      <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+      <!-- Ajustar contraste y tono azul-acero -->
+      <feComponentTransfer in="grayNoise" result="metalGrain">
+        <feFuncR type="linear" slope="0.35" intercept="0.30"/>
+        <feFuncG type="linear" slope="0.35" intercept="0.32"/>
+        <feFuncB type="linear" slope="0.38" intercept="0.36"/>
+      </feComponentTransfer>
+    </filter>
+
+    <!-- PASO 2: Iluminacion especular para el brillo metalico -->
+    <filter id="specular" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="linearRGB">
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency="0.012 0.75"
+        numOctaves="5"
+        seed="8"
+        stitchTiles="stitch"
+        result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+      <feSpecularLighting
+        in="grayNoise"
+        surfaceScale="4"
+        specularConstant="2.2"
+        specularExponent="40"
+        lighting-color="#8faec8"
+        result="specLight">
+        <!-- Luz rasante desde arriba-izquierda, angulo bajo tipo hangar industrial -->
+        <feDistantLight azimuth="120" elevation="18"/>
+      </feSpecularLighting>
+      <feBlend in="SourceGraphic" in2="specLight" mode="screen" result="lit"/>
+    </filter>
+
+    <!-- PASO 3: Segunda luz desde angulo opuesto para dar profundidad -->
+    <filter id="specular2" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="linearRGB">
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency="0.012 0.75"
+        numOctaves="5"
+        seed="8"
+        stitchTiles="stitch"
+        result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
+      <feSpecularLighting
+        in="grayNoise"
+        surfaceScale="2"
+        specularConstant="0.8"
+        specularExponent="15"
+        lighting-color="#4a6a88"
+        result="specLight2">
+        <feDistantLight azimuth="300" elevation="25"/>
+      </feSpecularLighting>
+      <feBlend in="SourceGraphic" in2="specLight2" mode="screen"/>
+    </filter>
+
+    <!-- Gradiente base oscuro titanio -->
+    <linearGradient id="titanium" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#1c2130"/>
+      <stop offset="25%"  stop-color="#131720"/>
+      <stop offset="50%"  stop-color="#0d1018"/>
+      <stop offset="75%"  stop-color="#131720"/>
+      <stop offset="100%" stop-color="#1c2130"/>
+    </linearGradient>
+
+    <!-- Gradiente horizontal para simular curvatura del panel -->
+    <linearGradient id="panelCurve" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#000000" stop-opacity="0.4"/>
+      <stop offset="20%"  stop-color="#000000" stop-opacity="0.1"/>
+      <stop offset="50%"  stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="80%"  stop-color="#000000" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.4"/>
+    </linearGradient>
+
+    <!-- Pattern de remaches / tornillos para detalle nave espacial -->
+    <pattern id="rivets" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+      <!-- Rivet esquina superior izquierda -->
+      <circle cx="8" cy="8" r="2.5" fill="none" stroke="#2a3545" stroke-width="0.8"/>
+      <circle cx="8" cy="8" r="1.2" fill="#1a2535"/>
+      <circle cx="7.2" cy="7.2" r="0.4" fill="#4a6070" opacity="0.7"/>
+      <!-- Rivet esquina superior derecha -->
+      <circle cx="72" cy="8" r="2.5" fill="none" stroke="#2a3545" stroke-width="0.8"/>
+      <circle cx="72" cy="8" r="1.2" fill="#1a2535"/>
+      <circle cx="71.2" cy="7.2" r="0.4" fill="#4a6070" opacity="0.7"/>
+      <!-- Rivet esquina inferior izquierda -->
+      <circle cx="8" cy="72" r="2.5" fill="none" stroke="#2a3545" stroke-width="0.8"/>
+      <circle cx="8" cy="72" r="1.2" fill="#1a2535"/>
+      <circle cx="7.2" cy="71.2" r="0.4" fill="#4a6070" opacity="0.7"/>
+      <!-- Rivet esquina inferior derecha -->
+      <circle cx="72" cy="72" r="2.5" fill="none" stroke="#2a3545" stroke-width="0.8"/>
+      <circle cx="72" cy="72" r="1.2" fill="#1a2535"/>
+      <circle cx="71.2" cy="71.2" r="0.4" fill="#4a6070" opacity="0.7"/>
+      <!-- Lineas de panel sutiles -->
+      <line x1="0" y1="80" x2="80" y2="80" stroke="#0a0d12" stroke-width="0.8" opacity="0.6"/>
+      <line x1="80" y1="0" x2="80" y2="80" stroke="#0a0d12" stroke-width="0.8" opacity="0.6"/>
+      <!-- Highlight en borde de panel -->
+      <line x1="0" y1="0" x2="80" y2="0" stroke="#2a3548" stroke-width="0.5" opacity="0.5"/>
+      <line x1="0" y1="0" x2="0" y2="80" stroke="#2a3548" stroke-width="0.5" opacity="0.5"/>
+    </pattern>
+
+  </defs>
+
+  <!-- CAPA 1: base titanio oscuro -->
+  <rect width="600" height="600" fill="url(#titanium)"/>
+
+  <!-- CAPA 2: grano de metal cepillado con ruido SVG -->
+  <rect width="600" height="600" fill="#1a2030" opacity="0.9" filter="url(#brushed)"/>
+
+  <!-- CAPA 3: luz especular principal — brillo metalico -->
+  <rect width="600" height="600" fill="#10151e" opacity="0.85" filter="url(#specular)"/>
+
+  <!-- CAPA 4: segunda luz para profundidad -->
+  <rect width="600" height="600" fill="#0d1018" opacity="0.5" filter="url(#specular2)"/>
+
+  <!-- CAPA 5: curvatura del panel -->
+  <rect width="600" height="600" fill="url(#panelCurve)"/>
+
+  <!-- CAPA 6: remaches y lineas de panel estilo nave -->
+  <rect width="600" height="600" fill="url(#rivets)"/>
+
+  <!-- CAPA 7: viñeta en bordes para profundidad -->
+  <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+    <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#000000" stop-opacity="0.55"/>
+  </radialGradient>
+  <rect width="600" height="600" fill="url(#vignette)"/>
+
+</svg>
