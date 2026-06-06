@@ -638,6 +638,7 @@
     .chat-panel.mobile-open { display: flex !important; flex-direction: column; }
     .right-panel { display: none !important; }
     .back-btn { display: flex !important; }
+    .bot-toggle-btn { font-size: 9px !important; padding: 5px 9px !important; letter-spacing: .08em !important; }
     .bubble-wrap { max-width: 90%; }
     .chat-footer { padding: 8px 10px; }
     .chat-messages { padding: 10px; overflow-y: auto; flex: 1; }
@@ -726,7 +727,6 @@
       <div class="chat-actions">
         <button class="back-btn" style="display:none" title="Volver" onclick="backToContacts()">&#10094;</button>
         <button class="bot-toggle-btn" id="headerBotToggle" onclick="headerToggleBot()" title="Pausar/activar bot">⏻ BOT ON</button>
-        <button class="icon-btn" title="Marcar leido" onclick="markRead()">&#10003;</button>
         <button class="icon-btn" title="Refrescar" onclick="loadMessages(currentPhone)">&#8635;</button>
       </div>
     </div>
