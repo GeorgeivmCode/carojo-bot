@@ -100,6 +100,30 @@ const GIFT_URLS = {
   globoflexia: 'https://drive.google.com/drive/folders/1YyTR18FTIR5vhmISZ6IPgTRFs5mnqW98'
 };
 
+const GIFT_NAMES = {
+  resina:      'Arte en Resina Epoxica',
+  globoflexia: 'Globoflexia y Decoracion',
+  bordados:    'Bordados Florales'
+};
+
+const GIFT_MSGS = {
+  resina: `Tu curso de regalo *Arte en Resina Epoxica* ya esta activo! 🌟
+
+Con este curso vas a aprender a crear piezas unicas en resina — desde aretes y accesorios hasta cuadros decorativos que puedes vender. Es un negocio increible que complementa perfecto el lettering!
+
+Aqui esta tu acceso:`,
+  globoflexia: `Tu curso de regalo *Globoflexia y Decoracion* ya esta activo! 🎈
+
+Con este curso vas a aprender a hacer arreglos, figuras y decoraciones con globos — un servicio muy solicitado para fiestas y eventos que te puede dar ingresos desde el primer fin de semana!
+
+Aqui esta tu acceso:`,
+  bordados: `Tu curso de regalo *Bordados Florales* ya esta activo! 🌸
+
+Con este curso vas a aprender bordados a mano con flores, hojas y texturas — piezas que tienen muchisima demanda en mercados y tiendas en linea. Perfecto para combinar con tu arte en lettering!
+
+Aqui esta tu acceso:`
+};
+
 function detectGiftChoice(text) {
   const t = text.toLowerCase();
 
@@ -115,9 +139,9 @@ function detectGiftChoice(text) {
   // Si menciona mas de uno esta preguntando por ambos, no eligiendo
   if ([eResina, eGlobo, eBordado].filter(Boolean).length > 1) return null;
 
-  if (eResina)  return GIFT_URLS.resina;
-  if (eGlobo)   return GIFT_URLS.globoflexia;
-  if (eBordado) return GIFT_URLS.bordados;
+  if (eResina)  return 'resina';
+  if (eGlobo)   return 'globoflexia';
+  if (eBordado) return 'bordados';
   return null;
 }
 
@@ -733,20 +757,32 @@ async function handlePostDelivery(contact, text) {
     return;
   }
 
-  if (contact.pack_selected === 'diamante' && contact.r1_sent && !contact.gift_sent) {
-    // Si ya sabe cual curso quiere → entregar link directo
-    const giftLink = detectGiftChoice(text);
-    if (giftLink) {
-      await sendAndSave(phone,
-        `Tu curso de regalo esta listo!\n\n${giftLink}\n\nToca el enlace para abrirlo. Disfruta mucho!`
-      );
-      db.updateContact(phone, { gift_sent: 1 });
-      return;
-    }
-    // Si pregunta por el regalo en general → ofrecer opciones
-    if (isAskingForGift(text)) {
-      await sendAndSave(phone, GIFT_OFFER_MSG);
-      return;
+  if (contact.pack_selected === 'diamante' && contact.r1_sent) {
+    if (!contact.gift_sent) {
+      // Cliente elige su regalo → entregar con mensaje coherente
+      const giftKey = detectGiftChoice(text);
+      if (giftKey) {
+        const msg = GIFT_MSGS[giftKey];
+        const url = GIFT_URLS[giftKey];
+        await sendAndSave(phone, `${msg}\n\n${url}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
+        db.updateContact(phone, { gift_sent: 1 });
+        return;
+      }
+      // Cliente pregunta por el regalo en general → ofrecer opciones
+      if (isAskingForGift(text)) {
+        await sendAndSave(phone, GIFT_OFFER_MSG);
+        return;
+      }
+    } else {
+      // Cliente ya tiene su regalo — si pide otro, informar que cuesta $10.000
+      const wantsAnother = ['otro curso', 'otro regalo', 'los tres', 'los otros', 'quiero otro', 'puedo tener otro',
+        'y los otros', 'los demas', 'los demás', 'tambien quiero', 'también quiero'].some(w => text.includes(w));
+      if (wantsAnother || (isAskingForGift(text) && contact.gift_sent)) {
+        await sendAndSave(phone,
+          'Ya tienes tu curso de regalo activado! 🎁\n\nSi quieres acceder a los otros dos cursos, cada uno tiene un costo de $10.000. Son:\n\n🌸 Bordados Florales\n✨ Arte en Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nCual te interesa? Te digo como hacerlo 💬'
+        );
+        return;
+      }
     }
   }
 
