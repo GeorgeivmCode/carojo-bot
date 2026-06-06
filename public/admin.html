@@ -248,10 +248,10 @@
   .chat-messages::-webkit-scrollbar { width: 3px; }
   .chat-messages::-webkit-scrollbar-thumb { background: rgba(56,189,248,.2); border-radius: 2px; }
 
-  .bubble-wrap { display: flex; max-width: 70%; }
+  .bubble-wrap { display: flex; max-width: 70%; min-width: 0; overflow: hidden; }
   .bubble-wrap.out { align-self: flex-end; }
   .bubble-wrap.in { align-self: flex-start; }
-  .bubble { padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; word-break: break-word; position: relative; }
+  .bubble { padding: 8px 12px; border-radius: 8px; font-size: 14px; line-height: 1.5; word-break: break-word; overflow-wrap: break-word; word-wrap: break-word; overflow: hidden; position: relative; min-width: 0; max-width: 100%; }
   .bubble-wrap.out .bubble {
     background: linear-gradient(135deg, #071f12 0%, #051508 100%);
     border-top-right-radius: 2px;

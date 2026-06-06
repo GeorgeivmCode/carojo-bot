@@ -538,10 +538,15 @@ async function handleOfferedBasico(contact, text) {
   if (text === '1' || text.includes('diamante')) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
+  // Basico explícito va ANTES de YES_WORDS — "no gracias quiero el básico" no debe confirmar ORO
+  } else if (text === '3' || text.includes('basico') || text.includes('básico')) {
+    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
+    await sendAndSave(phone, BASICO_DETAILS);
   } else if (text === '2' || text.includes('oro') || hasWord(text, YES_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
-  } else if (text === '3' || text.includes('basico') || text.includes('básico') || hasWord(text, NO_WORDS)) {
+  } else if (hasWord(text, NO_WORDS)) {
+    // Dice "no" al upsell sin especificar pack → confirma básico (ya lo eligió antes)
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_DETAILS);
   } else {
