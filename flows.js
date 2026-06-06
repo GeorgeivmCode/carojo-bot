@@ -950,6 +950,18 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado' });
 
+  // Actualizar fila del sheet con el nuevo pack y monto total
+  if (GAS_SHEETS_URL) {
+    try {
+      await axios.post(GAS_SHEETS_URL, {
+        action:   'update',
+        telefono: phone,
+        pack:     upgradeTarget,
+        monto:    PACK_PRICES[upgradeTarget] || 0
+      }, { timeout: 10000 });
+    } catch (e) { console.error('Sheets update error:', e.message); }
+  }
+
   await notifyJorge(contact,
     `PACK COMPLETADO!\nDe: ${currentPack} → A: ${upgradeTarget}\nDiferencial: $${diferencial.toLocaleString('es-CO')}\nEmail: ${contact.email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
   );
