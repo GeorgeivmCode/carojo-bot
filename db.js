@@ -4,6 +4,11 @@ const path = require('path');
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'carojo.db');
 const db = new Database(DB_PATH);
 
+// WAL mode: lecturas y escrituras en paralelo — mejora dramaticamente el rendimiento
+db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
+db.pragma('cache_size = -8000'); // 8MB cache en memoria
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS contacts (
     phone       TEXT PRIMARY KEY,

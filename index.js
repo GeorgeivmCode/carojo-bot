@@ -444,7 +444,7 @@ app.get('/api/contacts', adminAuth, (req, res) => {
 
 app.get('/api/contacts/:phone/messages', adminAuth, (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
-  res.json(db.getMessages(req.params.phone, 100));
+  res.json(db.getMessages(req.params.phone, 60));
 });
 
 app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
@@ -635,9 +635,16 @@ app.post('/api/contacts/:phone/gallery', adminAuth, async (req, res) => {
   }
 });
 
+let statsCache = null;
+let statsCacheAt = 0;
 app.get('/api/stats', adminAuth, (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
-  res.json(db.getStats());
+  const now = Date.now();
+  if (!statsCache || now - statsCacheAt > 8000) {
+    statsCache = db.getStats();
+    statsCacheAt = now;
+  }
+  res.json(statsCache);
 });
 
 app.get('/api/vapid-key', (_req, res) => {
