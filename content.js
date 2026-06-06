@@ -202,15 +202,21 @@ Alcanzas a enviarme el comprobante hoy para separarte el regalo? 👇
 
 _(PD: Si ya no deseas recibir mas info, solo escribeme *Salir* y no te molestare mas 🌸)_`;
 
-const R2_MESSAGE = `Hola de nuevo! Carol de Carojo. 💛
+const R2_MESSAGE = `Hola! Carol de Carojo 💛
 
-Una de nuestras estudiantes nos escribio esto: *"En 8 dias ya vendi mis primeras libretas con lo que aprendi"*
+La semana pasada nos llego este mensaje:
 
-El lettering puede abrirte puertas que no imaginas. El PACK BASICO por solo $5.000 es el punto de entrada perfecto para arrancar hoy.
+*"Nunca pense que algo tan sencillo me fuera a cambiar la vida. Ya vendi mis primeras libretas en 8 dias"*
 
-Si quieres intentarlo escribe el numero del pack y listo!
+Lo que mas nos emociono no fue la venta. Fue que ella nunca habia hecho lettering antes de esto.
 
-_(Si no deseas recibir mas mensajes escribe *Salir*)_`;
+Y nos confeso que dudo mucho antes de dar el paso.
+
+Si algo te trajo hasta aqui, eso no fue casualidad. La unica diferencia entre ella y donde estas tu ahorita es que ella escribio 🎨
+
+Escribeme y arrancamos hoy.
+
+_(Escribe *Salir* si no deseas recibir mas mensajes)_`;
 
 const PAYMENT_WRONG_RECIPIENT = `Hmm, el destinatario en tu comprobante no coincide con nuestras cuentas. 🤔
 
