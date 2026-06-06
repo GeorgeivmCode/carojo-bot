@@ -1503,10 +1503,7 @@ async function revokeAccess() {
 async function unblockAccess() {
   if (!currentPhone) return;
   const c = allContacts.find(x => x.phone === currentPhone);
-  if (!c?.email) { showToast('El cliente no tiene Gmail registrado', 'error'); return; }
-  const pack = c.pack_selected || '';
-  if (!pack) { showToast('El cliente no tiene pack seleccionado', 'error'); return; }
-  if (!confirm(`Desbloquear acceso a ${pack.toUpperCase()} para ${c.name || currentPhone}?\n\nSe restaura el Drive y el estado vuelve a "entregado".`)) return;
+  if (!confirm(`Desbloquear a ${c?.name || currentPhone}?\n\nSe reactiva el bot y vuelve al estado anterior.`)) return;
   const res = await apiFetch(`/api/contacts/${currentPhone}/unblock-access`, { method: 'POST' });
   if (!res) return;
   const data = await res.json();
