@@ -188,7 +188,18 @@
   #sheetPanel iframe { flex: 1; border: none; width: 100%; height: 100%; }
 
   /* ── Chat ── */
-  .chat-panel { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+  .chat-panel {
+    flex: 1; display: flex; flex-direction: column; min-width: 0;
+    background-color: #02040a;
+    background-image:
+      radial-gradient(ellipse 100% 100% at 50% 50%, rgba(0,15,50,.15) 0%, rgba(0,5,20,.5) 50%, rgba(0,0,10,.92) 100%),
+      radial-gradient(ellipse 5px 3px at 5px 4px,  rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      radial-gradient(ellipse 5px 3px at 15px 4px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      radial-gradient(ellipse 5px 3px at 0px 11px,  rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      radial-gradient(ellipse 5px 3px at 10px 11px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
+      radial-gradient(ellipse 5px 3px at 20px 11px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%);
+    background-size: 100% 100%, 20px 15px, 20px 15px, 20px 15px, 20px 15px, 20px 15px;
+  }
   .chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--sub); gap: 12px; }
   .chat-empty svg { width: 80px; height: 80px; opacity: .15; filter: drop-shadow(0 0 8px var(--green)); }
   .chat-header {
