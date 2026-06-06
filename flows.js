@@ -331,8 +331,16 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     return;
   }
 
-  // Cliente que dijo Salir antes pero vuelve a escribir — reiniciar flujo
+  // Cliente que dijo Salir antes pero vuelve a escribir
   if (contact.state === 'stopped') {
+    // Palabras de cierre cortes — el cliente solo esta respondiendo "gracias" al STOPPED_MSG
+    const CIERRE_CORTÉS = ['gracias', 'ok', 'okay', 'okey', 'bien', 'perfecto', 'de nada',
+      'entendido', 'chao', 'bye', 'adios', 'adiós', 'hasta luego', 'claro', 'genial',
+      'super', 'excelente', 'listo', 'dale', 'bueno', 'jaja', 'jeje', '👍', '✅', '🙏'];
+    const esCierreCortés = CIERRE_CORTÉS.some(p => text === p || text === p + '!' || text === p + '.');
+    if (esCierreCortés) return; // Ignorar — no reiniciar el flujo
+
+    // Cualquier otro mensaje = intención de compra o retomar — reiniciar flujo
     db.updateContact(phone, { state: 'new', r1_sent: 0, r2_sent: 0 });
     contact = db.getContact(phone);
     await handleNew(contact, text);
