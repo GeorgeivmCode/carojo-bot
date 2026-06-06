@@ -794,6 +794,7 @@
             <button class="qr-btn purple" onclick="restoreAccess()">🔑 Restaurar acceso</button>
             <button class="qr-btn pink" onclick="changePack()">📦 Cambiar pack</button>
             <button class="qr-btn silver" onclick="revokeAccess()">🗑️ Revocar acceso</button>
+            <button class="qr-btn teal" onclick="unblockAccess()">🔓 Desbloquear</button>
             <button class="qr-btn orange" onclick="resetToNew()">🔄 Nueva compra</button>
             <button class="qr-btn red" onclick="markFraud()">🚫 Fraude</button>
           </div>
@@ -1122,9 +1123,12 @@ async function loadMessages(phone) {
   el.innerHTML = '';
   let lastDate = '';
   for (const m of msgs) {
-    const d = (m.created_at || '').substring(0, 10);
+    // Convertir a fecha Colombia para agrupar correctamente
+    const raw = m.created_at || '';
+    const dt = new Date(raw.length === 10 ? raw + 'T12:00:00Z' : raw.replace(' ','T')+'Z');
+    const d = dt.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year:'numeric', month:'2-digit', day:'2-digit' });
     if (d !== lastDate) {
-      el.insertAdjacentHTML('beforeend', `<div class="date-divider">${formatDate(d)}</div>`);
+      el.insertAdjacentHTML('beforeend', `<div class="date-divider">${formatDate(raw)}</div>`);
       lastDate = d;
     }
     appendBubble(m.direction, m.type, m.content, m.created_at, false, m.wamid || '', m.status || '', m.reply_to || '', msgs);
@@ -1367,9 +1371,21 @@ function formatTime(ts) {
 
 function formatDate(d) {
   if (!d) return '';
-  const today = new Date().toISOString().substring(0, 10);
-  if (d === today) return 'Hoy';
-  return d;
+  // Convertir fecha UTC a fecha Colombia (UTC-5) para comparar correctamente
+  const toColDate = (isoStr) => {
+    const dt = new Date(isoStr.length === 10 ? isoStr + 'T12:00:00Z' : isoStr.replace(' ','T')+'Z');
+    return dt.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year:'numeric', month:'2-digit', day:'2-digit' });
+  };
+  const todayCo  = toColDate(new Date().toISOString());
+  const msgCo    = toColDate(d);
+  if (msgCo === todayCo) return '— Hoy —';
+  // Calcular si fue ayer
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yestCo = toColDate(yesterday.toISOString());
+  if (msgCo === yestCo) return '— Ayer —';
+  // Otros días: mostrar "lun 2 jun"
+  const dt = new Date(d.length === 10 ? d + 'T12:00:00Z' : d.replace(' ','T')+'Z');
+  return '— ' + dt.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', weekday:'short', day:'numeric', month:'short' }) + ' —';
 }
 
 function handleKey(e) {
@@ -1481,6 +1497,20 @@ async function revokeAccess() {
   if (!res) return;
   const data = await res.json();
   if (data.ok) showToast('Acceso Drive revocado.', 'success');
+  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
+async function unblockAccess() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  if (!c?.email) { showToast('El cliente no tiene Gmail registrado', 'error'); return; }
+  const pack = c.pack_selected || '';
+  if (!pack) { showToast('El cliente no tiene pack seleccionado', 'error'); return; }
+  if (!confirm(`Desbloquear acceso a ${pack.toUpperCase()} para ${c.name || currentPhone}?\n\nSe restaura el Drive y el estado vuelve a "entregado".`)) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/unblock-access`, { method: 'POST' });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) showToast('Acceso desbloqueado correctamente.', 'success');
   else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 
