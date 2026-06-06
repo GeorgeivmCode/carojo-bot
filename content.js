@@ -202,15 +202,15 @@ Alcanzas a enviarme el comprobante hoy para separarte el regalo? 👇
 
 _(PD: Si ya no deseas recibir mas info, solo escribeme *Salir* y no te molestare mas 🌸)_`;
 
-const R2_MESSAGE = `Hola 😊 Antes de que se cierre nuestra conversacion queria escribirte un segundito.
+const R2_MESSAGE = `Hola 😊 Antes de que se cierre nuestra conversación quería escribirte un segundito.
 
-Se que a veces uno lo piensa dos veces antes de invertir, y esta bien! Pero queria compartirte esto que me escribio una alumna la semana pasada:
+Sé que a veces uno lo piensa dos veces antes de invertir, ¡y está bien! Pero quería compartirte esto que me escribió una alumna la semana pasada:
 
-💬 *"Compre el MEGA PACK DIAMANTE sin saber nada y en 8 dias ya vendi mis primeras libretas personalizadas. Lo que invierte lo recupere el primer fin de semana"* 💕
+💬 *"Compré el MEGA PACK DIAMANTE sin saber nada y en 8 días ya vendí mis primeras libretas personalizadas. Lo que invertí lo recuperé el primer fin de semana"* 💕
 
-Si hay algo que te freno — una duda, el momento, lo que sea — cuentame y lo resolvemos. Que fue lo que te hizo pensarlo? 👇
+Si hay algo que te frenó — una duda, el momento, lo que sea — cuéntame y lo resolvemos. ¿Qué fue lo que te hizo pensarlo? 👇
 
-_(Si ya no quieres mas info escribeme *Salir* 🌸)_`;
+_(Si ya no quieres más info escríbeme "Salir" 🌸)_`;
 
 const PAYMENT_WRONG_RECIPIENT = `Hmm, el destinatario en tu comprobante no coincide con nuestras cuentas. 🤔
 
