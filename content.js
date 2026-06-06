@@ -385,15 +385,15 @@ Oye, tengo una preguntita rapida... ¿sabias que puedes agregar mas cursos a lo 
 Por $5.000 adicionales completas el *SUPERPACK ORO* y llevas 2 cursos mas.
 Por $10.000 adicionales llevas el *MEGA PACK DIAMANTE* completo — 4 cursos mas + 11 bonos.
 
-Si te interesa escribeme y te cuento como funciona 💛`;
+¿Cuál de los dos te llama mas la atencion? Cuentame y lo vemos juntas 💛`;
 
-const UPSELL_ORO = `Que bueno que ya tienes tu SuperPack Oro activo! 🎉
+const UPSELL_ORO = `Que bueno que ya tienes tu SUPERPACK ORO activo! 🎉
 
-Oye, tengo una preguntita rapida... ¿sabias que puedes agregar los cursos que faltan?
+Oye, tengo una preguntita rapida... ¿sabias que por $5.000 mas llevas el *MEGA PACK DIAMANTE* completo?
 
-Por solo $5.000 adicionales completas el *MEGA PACK DIAMANTE* — 2 cursos mas + 11 bonos increibles.
+Son 4 cursos adicionales + 11 bonos encima de todo lo que ya tienes.
 
-Si te interesa escribeme 💛`;
+¿Te llama la atencion completarlo? Cuentame y lo vemos juntas 💛`;
 
 const UPGRADE_CHOICE_BASICO = `Que bueno! Tienes dos opciones:
 
