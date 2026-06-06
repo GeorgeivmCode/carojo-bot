@@ -447,23 +447,33 @@ NO rechaces por:
 
 Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
 
+LECTURA OBLIGATORIA DIGITO POR DIGITO:
+Antes de cualquier validacion, lee el comprobante completo con maxima atencion. Lee los numeros digito por digito, no asumas. Si un numero parece "3058989359" leelo asi: 3-0-5-8-9-8-9-3-5-9 y verifica cada posicion.
+
 Extrae:
 1. Monto pagado. Formato colombiano: $5.000 o $5.000,00 = 5000. $10.000 = 10000. $15.000 = 15000. Ignora puntos de miles y comas decimales. El valor debe ser 5000, 10000 o 15000.
-2. Numero destinatario (debe ser 3058989359 o 3217239198)
-3. Nombre destinatario
-4. Estado de la transaccion
-5. Si la app/banco es reconocida como real colombiana
-6. Nombre exacto de la app/banco usada para pagar (ej: "Nequi", "Daviplata", "Bancolombia Bre-B", "BBVA", "NuBank", "Lulo Bank", "Davivienda", "Banco de Bogota", "Corresponsal Wompi", "Corresponsal Redeban")
+2. Numero destinatario (debe ser 3058989359 o 3217239198) — leelo digito por digito
+3. Nombre destinatario — incluyendo nombres enmascarados con asteriscos
+4. Fecha de la transaccion — dia, mes y año exactos
+5. Estado de la transaccion
+6. Nombre exacto de la app/banco usada para pagar
 
-Destinatario valido — CUALQUIERA de estas condiciones es suficiente:
-- El NUMERO visible es EXACTAMENTE 3058989359 o EXACTAMENTE 3217239198. Los numeros pueden aparecer con espacios o guiones (ej: "305 898 9359" o "305-898-9359") — elimina espacios y guiones antes de comparar. Lee cada digito: 3-0-5-8-9-8-9-3-5-9. Un solo digito diferente = destinatario_invalido.
-- El NOMBRE visible es "Jorge Vanegas", "Jorge Ivan Vanegas Martinez", "Carol Apolinar" o "Carol Lizeth Apolinar Wilches" (aunque no aparezca el numero)
-- No aparece ni nombre ni numero del destinatario → asumir valido
+REGLA DE LOS 3 PILARES — el comprobante es valido SOLO si tiene al menos 2 de estos 3, y el NUMERO siempre debe ser uno de ellos:
+- NUMERO: 3058989359 o 3217239198 verificado digito por digito → OBLIGATORIO siempre
+- NOMBRE: Jorge Vanegas / Jorge Ivan Vanegas Martinez / Carol Apolinar / Carol Lizeth Apolinar Wilches (exacto o enmascarado con asteriscos)
+- FECHA: fecha de hoy ${today} visible y legible
 
-RECHAZAR destinatario si el numero visible (sin espacios ni guiones) tiene CUALQUIER digito diferente a 3058989359 o 3217239198, o si el nombre no coincide con los autorizados.
-Numero correcto sin nombre = VALIDO. Nombre correcto sin numero = VALIDO. Ninguno de los dos = VALIDO.
+Combinaciones validas: NUMERO+FECHA / NUMERO+NOMBRE / NUMERO+NOMBRE+FECHA
+Combinaciones invalidas: solo NUMERO sin fecha ni nombre / FECHA+NOMBRE sin numero / ninguno
 
-valido = true SOLO si: monto correcto + destinatario valido + transaccion exitosa + fecha de hoy o no legible.
+Si el NUMERO no aparece en el comprobante → destinatario_invalido (sin importar si el nombre esta correcto).
+Si el NUMERO aparece pero ni FECHA ni NOMBRE son verificables → destinatario_invalido.
+
+NUMERO: Lee digito por digito. 3058989359 = 3-0-5-8-9-8-9-3-5-9. Un solo digito diferente = invalido.
+NOMBRE enmascarado: JO**E V****AS o JOR** VAN***S = Jorge Vanegas = VALIDO. Solo rechaza si tiene CORCHETES [].
+FECHA: Si no es legible o no aparece → no rechaces por fecha, pero si no hay nombre tampoco → invalido.
+
+valido = true SOLO si: monto correcto + al menos NUMERO + (NOMBRE o FECHA) + transaccion exitosa.
 
 VALIDACION DE FECHA:
 - La fecha de hoy es ${today} (formato DD/MM/AAAA, hora Colombia).
