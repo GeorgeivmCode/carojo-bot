@@ -585,12 +585,17 @@ app.post('/api/contacts/:phone/unblock-access', adminAuth, async (req, res) => {
   const phone = req.params.phone;
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
-  if (!c.email || !c.pack_selected) return res.status(400).json({ error: 'sin email o pack registrado' });
-  const { grantDriveAccess } = require('./drive');
-  try { await grantDriveAccess(c.email, c.pack_selected); } catch (e) {
-    return res.status(500).json({ error: 'Error restaurando Drive: ' + e.message });
+  // Si tiene email y pack, restaurar Drive tambien
+  if (c.email && c.pack_selected) {
+    const { grantDriveAccess } = require('./drive');
+    try { await grantDriveAccess(c.email, c.pack_selected); } catch (e) {
+      console.error('Unblock Drive error:', e.message);
+    }
   }
-  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', bot_active: 1 });
+  // Determinar estado correcto segun si ya habia comprado o no
+  const newState = c.delivered_at ? 'delivered' : 'awaiting_comprobante';
+  const newTag   = c.delivered_at ? 'Facturado' : 'Sin etiqueta';
+  db.updateContact(phone, { state: newState, tag: newTag, bot_active: 1 });
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   res.json({ ok: true });
