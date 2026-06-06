@@ -774,12 +774,13 @@ async function handlePostDelivery(contact, text) {
         return;
       }
     } else {
-      // Cliente ya tiene su regalo — si pide otro, informar que cuesta $10.000
-      const wantsAnother = ['otro curso', 'otro regalo', 'los tres', 'los otros', 'quiero otro', 'puedo tener otro',
-        'y los otros', 'los demas', 'los demás', 'tambien quiero', 'también quiero'].some(w => text.includes(w));
-      if (wantsAnother || (isAskingForGift(text) && contact.gift_sent)) {
+      // Cliente ya tiene su regalo — solo si pide EXPLICITAMENTE otro, informar que cuesta $10.000
+      // NO activar por mencionar "resina", "bordado" etc. (pueden estar hablando del contenido del pack)
+      const wantsAnother = ['otro regalo', 'quiero otro', 'puedo tener otro', 'comprar otro',
+        'me das otro', 'y el otro', 'los otros dos', 'otro curso de regalo'].some(w => text.includes(w));
+      if (wantsAnother) {
         await sendAndSave(phone,
-          'Ya tienes tu curso de regalo activado! 🎁\n\nSi quieres acceder a los otros dos cursos, cada uno tiene un costo de $10.000. Son:\n\n🌸 Bordados Florales\n✨ Arte en Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nCual te interesa? Te digo como hacerlo 💬'
+          'Ya tienes tu curso de regalo activado! 🎁\n\nSi quieres los otros dos, cada uno tiene un costo adicional de $10.000. Son:\n\n🌸 Bordados Florales\n✨ Arte en Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nCual te interesa? Te explico como adquirirlo 💬'
         );
         return;
       }
