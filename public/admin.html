@@ -188,7 +188,16 @@
   #sheetPanel iframe { flex: 1; border: none; width: 100%; height: 100%; }
 
   /* ── Chat ── */
-  .chat-panel { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+  .chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+  .chat-messages {
+    background-image:
+      /* Overlay oscuro para que las burbujas resalten */
+      linear-gradient(rgba(2,3,10,.55), rgba(2,3,10,.55)),
+      url('/space.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: local;
+  }
   .chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--sub); gap: 12px; }
   .chat-empty svg { width: 80px; height: 80px; opacity: .15; filter: drop-shadow(0 0 8px var(--green)); }
   .chat-header {
