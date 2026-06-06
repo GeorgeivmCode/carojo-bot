@@ -73,44 +73,28 @@
   /* ── Acero cepillado real ── */
   /* Mixin de textura acero — se aplica via background en cada panel */
   :root {
+    /* Metal cepillado: rayas horizontales ultrafinas uniformes — NO verticales (esas parecen pantalla rota) */
     --steel-texture:
       repeating-linear-gradient(
-        90deg,
+        0deg,
         transparent 0px,
-        transparent 1px,
-        rgba(255,255,255,.04) 1px,
-        rgba(255,255,255,.04) 2px,
-        transparent 2px,
         transparent 3px,
-        rgba(255,255,255,.02) 3px,
-        rgba(255,255,255,.02) 4px,
-        transparent 4px,
-        transparent 7px,
-        rgba(255,255,255,.05) 7px,
-        rgba(255,255,255,.05) 8px,
-        transparent 8px,
-        transparent 11px,
-        rgba(255,255,255,.02) 11px,
-        rgba(255,255,255,.02) 12px,
-        transparent 12px,
-        transparent 16px
+        rgba(255,255,255,.025) 3px,
+        rgba(255,255,255,.025) 4px
       );
     --steel-base: linear-gradient(180deg,
-      #141720 0%,
-      #0f121a 15%,
-      #0a0d14 35%,
-      #0c1018 55%,
-      #0f1320 75%,
-      #0a0d14 100%
+      #181c26 0%,
+      #111418 20%,
+      #0d1016 50%,
+      #111418 80%,
+      #181c26 100%
     );
-    /* Highlight diagonal tipo luz rasante en metal */
-    --steel-light: linear-gradient(115deg,
+    /* Luz rasante suave — brillo central tipo panel de avion */
+    --steel-light: linear-gradient(160deg,
       rgba(255,255,255,.0) 0%,
-      rgba(255,255,255,.0) 30%,
-      rgba(255,255,255,.08) 45%,
-      rgba(255,255,255,.12) 50%,
-      rgba(255,255,255,.08) 55%,
-      rgba(255,255,255,.0) 70%,
+      rgba(255,255,255,.06) 40%,
+      rgba(255,255,255,.10) 50%,
+      rgba(255,255,255,.06) 60%,
       rgba(255,255,255,.0) 100%
     );
   }
