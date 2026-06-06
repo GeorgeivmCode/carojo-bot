@@ -304,7 +304,11 @@ const TESTIMONIOS_TRIGGERS = [
   'es seguro', 'seguro', 'confianza', 'me da miedo', 'me da desconfianza',
   'engañando', 'engaño', 'engañar', 'me estan engañando', 'me van a engañar',
   'es mentira', 'es verdad', 'me van a robar', 'me roban', 'robo',
-  'no creo', 'no me creo', 'dudas', 'no confio', 'sera verdad', 'será verdad'
+  'no creo', 'no me creo', 'dudas', 'no confio', 'sera verdad', 'será verdad',
+  'no envian', 'no envían', 'no me envian', 'no me envían', 'no llega', 'no me llega',
+  'y si pago', 'si pago', 'pago y no', 'y si no', 'que garantia', 'qué garantía',
+  'como se que', 'cómo sé que', 'como sé que', 'me van a dar', 'van a dar',
+  'es real', 'es fake', 'no mandan', 'despues de pagar', 'después de pagar'
 ];
 
 const STOPPED_MSG = `Entendido! 🌸 Acabo de pausar los mensajes para no interrumpirte mas.
