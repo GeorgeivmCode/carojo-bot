@@ -128,7 +128,9 @@ const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Pago recibido. 🎉
 
 Para activarte el acceso solo necesito tu correo Gmail. El sistema te manda la notificacion directamente ahi — es la forma mas rapida y segura de entregarte el material.
 
-📧 A que *Gmail* te lo enviamos? (debe terminar en @gmail.com) 💌`;
+📧 A que *Gmail* te lo enviamos? (debe terminar en @gmail.com) 💌
+
+Escribenos el Gmail que usas a diario — el acceso queda registrado a ese correo. Y si esta lleno no te preocupes, igual te llega todo 😊`;
 
 const DELIVERY_BASICO = `Hola! 🎉✨
 
