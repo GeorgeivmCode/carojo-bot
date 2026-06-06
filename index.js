@@ -564,6 +564,54 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/contacts/:phone/revoke-access', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  if (!c.email || !c.pack_selected) return res.status(400).json({ error: 'sin email o pack registrado' });
+  const { revokeAccess } = require('./drive');
+  try { await revokeAccess(c.email, c.pack_selected); } catch (e) {
+    return res.status(500).json({ error: 'Error revocando Drive: ' + e.message });
+  }
+  db.updateContact(phone, { state: 'awaiting_comprobante', tag: 'Acceso revocado' });
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true });
+});
+
+app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  const { pack } = req.body;
+  if (!['basico', 'oro', 'diamante'].includes(pack)) return res.status(400).json({ error: 'pack invalido' });
+  const email = c.email;
+  if (!email) return res.status(400).json({ error: 'el cliente no tiene Gmail registrado' });
+  const { grantDriveAccess, revokeAccess } = require('./drive');
+  // Revocar pack anterior si es diferente
+  if (c.pack_selected && c.pack_selected !== pack) {
+    try { await revokeAccess(email, c.pack_selected); } catch (e) { console.error('Revoke change-pack:', e.message); }
+  }
+  // Dar acceso al pack nuevo
+  try { await grantDriveAccess(email, pack); } catch (e) {
+    return res.status(500).json({ error: 'Error dando acceso Drive: ' + e.message });
+  }
+  db.updateContact(phone, { pack_selected: pack, state: 'delivered', tag: 'Facturado' });
+  // Reenviar mensaje de entrega con nuevo pack
+  const { generateAccessToken } = require('./flows');
+  const { deliveryMessage } = require('./content');
+  const accessToken = generateAccessToken(phone, pack);
+  const accessUrl = `https://carojo-bot.onrender.com/acceso/${accessToken}`;
+  try {
+    await sendAndSave(phone, deliveryMessage(pack, accessUrl));
+  } catch (e) { console.error('Send change-pack delivery:', e.message); }
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true });
+});
+
 app.post('/api/contacts/:phone/mark-fraud', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const phone = req.params.phone;

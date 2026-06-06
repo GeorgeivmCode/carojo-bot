@@ -376,6 +376,41 @@ function deliveryMessage(pack, accessUrl) {
   return msg;
 }
 
+// ── Upsell post-entrega ───────────────────────────────────────────────────────
+
+const UPSELL_BASICO = `Que bueno que ya tienes tu Pack Basico activo! 🎉
+
+Oye, tengo una preguntita rapida... ¿sabias que puedes agregar mas cursos a lo que ya compraste?
+
+Por $5.000 adicionales completas el *SUPERPACK ORO* y llevas 2 cursos mas.
+Por $10.000 adicionales llevas el *MEGA PACK DIAMANTE* completo — 4 cursos mas + 11 bonos.
+
+Si te interesa escribeme y te cuento como funciona 💛`;
+
+const UPSELL_ORO = `Que bueno que ya tienes tu SuperPack Oro activo! 🎉
+
+Oye, tengo una preguntita rapida... ¿sabias que puedes agregar los cursos que faltan?
+
+Por solo $5.000 adicionales completas el *MEGA PACK DIAMANTE* — 2 cursos mas + 11 bonos increibles.
+
+Si te interesa escribeme 💛`;
+
+const UPGRADE_CHOICE_BASICO = `Que bueno! Tienes dos opciones:
+
+✨ *SUPERPACK ORO* — $5.000 adicionales (2 cursos mas)
+💎 *MEGA PACK DIAMANTE* — $10.000 adicionales (4 cursos mas + 11 bonos)
+
+Cual prefieres? Escribe *ORO* o *DIAMANTE* 😊`;
+
+const UPGRADE_PAYMENT_DETAILS = (monto, packNuevo) =>
+`Perfecto! Para completar al ${packNuevo} el valor adicional es *$${Number(monto).toLocaleString('es-CO')}*.
+
+Puedes pagar a las mismas cuentas:
+🟣 Nequi o BRE-B: *3058989359* (Jorge Vanegas)
+🔴 Daviplata: *3217239198* (Carol Apolinar)
+
+Cuando hagas el pago me mandas el comprobante y te activo el acceso al instante 📲`;
+
 module.exports = {
   WELCOME_MESSAGE,
   DIAMANTE_DETAILS, ORO_DETAILS, ORO_UPSELL,
@@ -389,5 +424,6 @@ module.exports = {
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
+  UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
   deliveryMessage
 };

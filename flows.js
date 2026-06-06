@@ -30,7 +30,8 @@ const {
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
-  MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS, deliveryMessage
+  MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS, deliveryMessage,
+  UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS
 } = require('./content');
 
 // Estados donde el cliente ya comprometió un pack o está enviando comprobante
@@ -467,6 +468,9 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     case 'delivered':
       await handlePostDelivery(contact, text);
       break;
+    case 'awaiting_upgrade_comprobante':
+      await handleUpgradeComprobante(contact, msgType, content);
+      break;
     default:
       await handleNew(contact, text);
   }
@@ -751,6 +755,20 @@ async function handleEmail(contact, emailText) {
   await notifyJorge(contact,
     `ENTREGA completada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
   );
+
+  // Upsell post-entrega — solo para basico y oro, 2 minutos despues
+  if (pack !== 'diamante') {
+    setTimeout(async () => {
+      try {
+        const fresh = db.getContact(phone);
+        if (fresh && fresh.state === 'delivered' && !fresh.upsell_sent) {
+          const msg = pack === 'basico' ? UPSELL_BASICO : UPSELL_ORO;
+          await sendAndSave(phone, msg);
+          db.updateContact(phone, { upsell_sent: 1 });
+        }
+      } catch (e) { console.error('Upsell error:', e.message); }
+    }, 2 * 60 * 1000);
+  }
 }
 
 async function handlePostDelivery(contact, text) {
@@ -762,6 +780,44 @@ async function handlePostDelivery(contact, text) {
     contact = db.getContact(phone);
     await handleNew(contact, text);
     return;
+  }
+
+  // Upsell: cliente respondio al mensaje de agregar cursos
+  if (contact.upsell_sent && !contact.upgrade_target && contact.pack_selected !== 'diamante') {
+    const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
+      'me interesa', 'como', 'cómo', 'cuanto', 'cuánto', 'si quiero', 'sí quiero'].some(w => text.includes(w));
+    if (wantsUpgrade) {
+      if (contact.pack_selected === 'basico') {
+        // Si ya menciona un pack especifico, ir directo
+        if (text.includes('diamante') || text === '1') {
+          db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante' });
+          await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(10000, 'MEGA PACK DIAMANTE'));
+        } else if (text.includes('oro') || text === '2') {
+          db.updateContact(phone, { upgrade_target: 'oro', state: 'awaiting_upgrade_comprobante' });
+          await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(5000, 'SUPERPACK ORO'));
+        } else {
+          await sendAndSave(phone, UPGRADE_CHOICE_BASICO);
+        }
+        return;
+      } else if (contact.pack_selected === 'oro') {
+        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante' });
+        await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(5000, 'MEGA PACK DIAMANTE'));
+        return;
+      }
+    }
+    // Despues del UPGRADE_CHOICE_BASICO, cliente elige pack
+    if (contact.pack_selected === 'basico' && !contact.upgrade_target) {
+      if (text.includes('diamante') || text === '1') {
+        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante' });
+        await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(10000, 'MEGA PACK DIAMANTE'));
+        return;
+      }
+      if (text.includes('oro') || text === '2') {
+        db.updateContact(phone, { upgrade_target: 'oro', state: 'awaiting_upgrade_comprobante' });
+        await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(5000, 'SUPERPACK ORO'));
+        return;
+      }
+    }
   }
 
   if (contact.pack_selected === 'diamante' && contact.r1_sent) {
@@ -797,6 +853,94 @@ async function handlePostDelivery(contact, text) {
   const history = db.getRecentMessages(phone, 8);
   const reply = await carol(history, text);
   await sendAndSave(phone, reply);
+}
+
+async function handleUpgradeComprobante(contact, msgType, content) {
+  const phone = contact.phone;
+  const upgradeTarget = contact.upgrade_target;
+  const currentPack   = contact.pack_selected;
+  if (!upgradeTarget) { db.updateContact(phone, { state: 'delivered' }); return; }
+
+  const diferencial = PACK_AMOUNTS[upgradeTarget] - PACK_AMOUNTS[currentPack];
+  const packLabel   = upgradeTarget === 'diamante' ? 'MEGA PACK DIAMANTE' : 'SUPERPACK ORO';
+
+  if (msgType === 'text') {
+    const text = content.trim().toLowerCase();
+    if (hasWord(text, NO_WORDS) || text.includes('no quiero') || text.includes('mejor no')) {
+      db.updateContact(phone, { upgrade_target: '', state: 'delivered' });
+      await sendAndSave(phone, 'Sin problema! Ya tienes tu pack activo. Cualquier cosa me cuentas 💛');
+    } else {
+      await sendAndSave(phone, `Para completar al ${packLabel} necesito el comprobante de $${diferencial.toLocaleString('es-CO')}. 📸`);
+    }
+    return;
+  }
+
+  if (msgType !== 'image' && msgType !== 'document') return;
+
+  let imageBuffer, mimeType;
+  try {
+    const parsed = JSON.parse(content);
+    imageBuffer = Buffer.from(parsed.buffer, 'base64');
+    mimeType    = parsed.mimeType;
+  } catch {
+    await sendAndSave(phone, 'No pude abrir la imagen. Intentalo de nuevo. 📸');
+    return;
+  }
+
+  await sendAndSave(phone, 'Un momento, verificando tu pago... ⏳');
+
+  let result;
+  try {
+    result = await verifyPayment(imageBuffer, mimeType, upgradeTarget);
+  } catch (e) {
+    console.error(`verifyPayment upgrade error [${phone}]:`, e.message);
+    await sendAndSave(phone, 'Tuve un problema procesando tu imagen. Por favor enviamela de nuevo. 📸');
+    return;
+  }
+
+  if (!result.valido) {
+    const { razon_rechazo, monto } = result;
+    if (razon_rechazo === 'comprobante_falso')         await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
+    else if (razon_rechazo === 'destinatario_invalido') await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
+    else if (razon_rechazo === 'transaccion_no_exitosa') await sendAndSave(phone, PAYMENT_NOT_SUCCESSFUL);
+    else if (razon_rechazo === 'monto_invalido' || (monto && monto !== diferencial))
+      await sendAndSave(phone, PAYMENT_WRONG_AMOUNT(monto, diferencial));
+    else await sendAndSave(phone, PAYMENT_REJECTED_MSG(null));
+    return;
+  }
+
+  // Verificar monto == diferencial
+  const rawMonto = result.monto;
+  const normalizedMonto = rawMonto != null
+    ? parseInt(String(rawMonto).replace(/,\d*$/, '').replace(/\./g, ''), 10) || null
+    : null;
+
+  if (normalizedMonto && normalizedMonto !== diferencial) {
+    await sendAndSave(phone, PAYMENT_WRONG_AMOUNT(normalizedMonto, diferencial));
+    return;
+  }
+
+  // Pago valido — revocar pack anterior, dar acceso al nuevo
+  const { revokeAccess } = require('./drive');
+  if (contact.email && currentPack) {
+    try { await revokeAccess(contact.email, currentPack); } catch (e) { console.error('Revoke upgrade:', e.message); }
+  }
+  try {
+    await grantDriveAccess(contact.email, upgradeTarget);
+  } catch (e) {
+    console.error('Grant upgrade:', e.message);
+    await notifyJorge(contact, `ERROR Drive upgrade:\nDe: ${currentPack}\nA: ${upgradeTarget}\nEmail: ${contact.email}\nError: ${e.message}`);
+  }
+
+  const accessToken = generateAccessToken(phone, upgradeTarget);
+  const accessUrl   = `${BOT_URL}/acceso/${accessToken}`;
+  await sendAndSave(phone, deliveryMessage(upgradeTarget, accessUrl));
+
+  db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado' });
+
+  await notifyJorge(contact,
+    `PACK COMPLETADO!\nDe: ${currentPack} → A: ${upgradeTarget}\nDiferencial: $${diferencial.toLocaleString('es-CO')}\nEmail: ${contact.email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+  );
 }
 
 async function sendAndSave(phone, textOrParts) {

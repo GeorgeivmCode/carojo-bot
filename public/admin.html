@@ -32,6 +32,11 @@
     --blue:     #38bdf8;
     --purple:   #a78bfa;
     --orange:   #f97316;
+    --cyan:     #06b6d4;
+    --pink:     #ec4899;
+    --teal:     #14b8a6;
+    --lime:     #84cc16;
+    --silver:   #94a3b8;
     --glow-g:   0 0 8px rgba(0,229,160,.4);
     --glow-b:   0 0 8px rgba(56,189,248,.4);
     --glow-r:   0 0 8px rgba(255,77,106,.4);
@@ -358,6 +363,42 @@
     background: linear-gradient(180deg, rgba(255,77,106,.18) 0%, rgba(255,77,106,.06) 100%);
     border-color: var(--red); border-bottom-color: var(--red);
     box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(255,77,106,.35), inset 0 1px 0 rgba(255,77,106,.2);
+  }
+  .qr-btn.blue { color: var(--blue); }
+  .qr-btn.blue:hover {
+    background: linear-gradient(180deg, rgba(56,189,248,.18) 0%, rgba(56,189,248,.06) 100%);
+    border-color: var(--blue); border-bottom-color: var(--blue);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(56,189,248,.35), inset 0 1px 0 rgba(56,189,248,.2);
+  }
+  .qr-btn.cyan { color: var(--cyan); }
+  .qr-btn.cyan:hover {
+    background: linear-gradient(180deg, rgba(6,182,212,.18) 0%, rgba(6,182,212,.06) 100%);
+    border-color: var(--cyan); border-bottom-color: var(--cyan);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(6,182,212,.35), inset 0 1px 0 rgba(6,182,212,.2);
+  }
+  .qr-btn.pink { color: var(--pink); }
+  .qr-btn.pink:hover {
+    background: linear-gradient(180deg, rgba(236,72,153,.18) 0%, rgba(236,72,153,.06) 100%);
+    border-color: var(--pink); border-bottom-color: var(--pink);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(236,72,153,.35), inset 0 1px 0 rgba(236,72,153,.2);
+  }
+  .qr-btn.teal { color: var(--teal); }
+  .qr-btn.teal:hover {
+    background: linear-gradient(180deg, rgba(20,184,166,.18) 0%, rgba(20,184,166,.06) 100%);
+    border-color: var(--teal); border-bottom-color: var(--teal);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(20,184,166,.35), inset 0 1px 0 rgba(20,184,166,.2);
+  }
+  .qr-btn.lime { color: var(--lime); }
+  .qr-btn.lime:hover {
+    background: linear-gradient(180deg, rgba(132,204,22,.18) 0%, rgba(132,204,22,.06) 100%);
+    border-color: var(--lime); border-bottom-color: var(--lime);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(132,204,22,.35), inset 0 1px 0 rgba(132,204,22,.2);
+  }
+  .qr-btn.silver { color: var(--silver); }
+  .qr-btn.silver:hover {
+    background: linear-gradient(180deg, rgba(148,163,184,.18) 0%, rgba(148,163,184,.06) 100%);
+    border-color: var(--silver); border-bottom-color: var(--silver);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(148,163,184,.35), inset 0 1px 0 rgba(148,163,184,.2);
   }
   /* old flex fallback */
   .quick-replies { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -742,15 +783,17 @@
           <div class="cmd-group-label">// ventas</div>
           <div class="cmd-row">
             <button class="qr-btn green" onclick="registerSale()">💾 Registrar</button>
-            <button class="qr-btn" onclick="approvePayment()">✅ Aprobar pago</button>
+            <button class="qr-btn blue" onclick="approvePayment()">✅ Aprobar pago</button>
             <button class="qr-btn yellow" onclick="insertQR('pedir_gmail')">📧 Pedir Gmail</button>
-            <button class="qr-btn yellow" onclick="changeEmail()">✏️ Cambiar Gmail</button>
+            <button class="qr-btn cyan" onclick="changeEmail()">✏️ Cambiar Gmail</button>
           </div>
         </div>
         <div class="cmd-group">
           <div class="cmd-group-label">// cliente</div>
           <div class="cmd-row">
             <button class="qr-btn purple" onclick="restoreAccess()">🔑 Restaurar acceso</button>
+            <button class="qr-btn pink" onclick="changePack()">📦 Cambiar pack</button>
+            <button class="qr-btn silver" onclick="revokeAccess()">🗑️ Revocar acceso</button>
             <button class="qr-btn orange" onclick="resetToNew()">🔄 Nueva compra</button>
             <button class="qr-btn red" onclick="markFraud()">🚫 Fraude</button>
           </div>
@@ -758,8 +801,8 @@
         <div class="cmd-group">
           <div class="cmd-group-label">// contenido</div>
           <div class="cmd-row">
-            <button class="qr-btn green" onclick="sendGalleryFromPanel('mostrario')">📸 Mostrario</button>
-            <button class="qr-btn yellow" onclick="sendGalleryFromPanel('testimonios')">💬 Testimonios</button>
+            <button class="qr-btn teal" onclick="sendGalleryFromPanel('mostrario')">📸 Mostrario</button>
+            <button class="qr-btn lime" onclick="sendGalleryFromPanel('testimonios')">💬 Testimonios</button>
           </div>
         </div>
       </div>
@@ -1427,6 +1470,37 @@ async function restoreAccess() {
   if (!res) return;
   const data = await res.json();
   if (data.ok) showToast('Acceso restaurado! Link enviado al cliente.', 'success');
+  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
+async function revokeAccess() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  if (!confirm(`Revocar acceso a Drive de ${c?.name || currentPhone}?\n\nSolo se quita el acceso. El bot sigue activo y NO se marca como fraude.`)) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/revoke-access`, { method: 'POST' });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) showToast('Acceso Drive revocado.', 'success');
+  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
+async function changePack() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  if (!c?.email) { showToast('El cliente no tiene Gmail registrado', 'error'); return; }
+  const pack = prompt(`Pack actual: ${c.pack_selected || 'ninguno'}\n\nEscribe el nuevo pack:\nbasico / oro / diamante`, c.pack_selected || '');
+  if (!pack) return;
+  const packClean = pack.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (!['basico', 'oro', 'diamante'].includes(packClean)) { showToast('Pack invalido. Escribe basico, oro o diamante.', 'error'); return; }
+  if (!confirm(`Cambiar pack de ${c.name || currentPhone} a ${packClean.toUpperCase()}?\n\nSe revocara el acceso anterior y se entregara el nuevo pack al correo ${c.email}.`)) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/change-pack`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pack: packClean })
+  });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) showToast(`Pack cambiado a ${packClean.toUpperCase()} y acceso entregado.`, 'success');
   else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 
