@@ -202,21 +202,15 @@ Alcanzas a enviarme el comprobante hoy para separarte el regalo? 👇
 
 _(PD: Si ya no deseas recibir mas info, solo escribeme *Salir* y no te molestare mas 🌸)_`;
 
-const R2_MESSAGE = `Hola! Carol de Carojo 💛
+const R2_MESSAGE = `Hola 😊 Antes de que se cierre nuestra conversacion queria escribirte un segundito.
 
-La semana pasada nos llego este mensaje:
+Se que a veces uno lo piensa dos veces antes de invertir, y esta bien! Pero queria compartirte esto que me escribio una alumna la semana pasada:
 
-*"Nunca pense que algo tan sencillo me fuera a cambiar la vida. Ya vendi mis primeras libretas en 8 dias"*
+💬 *"Compre el MEGA PACK DIAMANTE sin saber nada y en 8 dias ya vendi mis primeras libretas personalizadas. Lo que invierte lo recupere el primer fin de semana"* 💕
 
-Lo que mas nos emociono no fue la venta. Fue que ella nunca habia hecho lettering antes de esto.
+Si hay algo que te freno — una duda, el momento, lo que sea — cuentame y lo resolvemos. Que fue lo que te hizo pensarlo? 👇
 
-Y nos confeso que dudo mucho antes de dar el paso.
-
-Si algo te trajo hasta aqui, eso no fue casualidad. La unica diferencia entre ella y donde estas tu ahorita es que ella escribio 🎨
-
-Escribeme y arrancamos hoy.
-
-_(Escribe *Salir* si no deseas recibir mas mensajes)_`;
+_(Si ya no quieres mas info escribeme *Salir* 🌸)_`;
 
 const PAYMENT_WRONG_RECIPIENT = `Hmm, el destinatario en tu comprobante no coincide con nuestras cuentas. 🤔
 
