@@ -309,7 +309,6 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   }
 
   if (!contact.bot_active) return;
-  if (contact.state === 'stopped') return;
 
   const text = (msgType === 'text' ? content : '').trim().toLowerCase();
 
