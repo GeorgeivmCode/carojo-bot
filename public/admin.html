@@ -190,15 +190,18 @@
   /* ── Chat ── */
   .chat-panel {
     flex: 1; display: flex; flex-direction: column; min-width: 0;
-    background-color: #02040a;
+    background-color: #03060f;
     background-image:
-      radial-gradient(ellipse 100% 100% at 50% 50%, rgba(0,15,50,.15) 0%, rgba(0,5,20,.5) 50%, rgba(0,0,10,.92) 100%),
-      radial-gradient(ellipse 5px 3px at 5px 4px,  rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
-      radial-gradient(ellipse 5px 3px at 15px 4px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
-      radial-gradient(ellipse 5px 3px at 0px 11px,  rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
-      radial-gradient(ellipse 5px 3px at 10px 11px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%),
-      radial-gradient(ellipse 5px 3px at 20px 11px, rgba(18,55,175,.65) 0%, rgba(5,18,65,.3) 55%, transparent 75%);
-    background-size: 100% 100%, 20px 15px, 20px 15px, 20px 15px, 20px 15px, 20px 15px;
+      /* Viñeta oscura encima */
+      radial-gradient(ellipse 120% 120% at 50% 50%,
+        transparent 0%,
+        transparent 30%,
+        rgba(0,0,8,.4) 60%,
+        rgba(0,0,5,.85) 100%
+      ),
+      /* SVG chapa diamante */
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='18'%3E%3Cdefs%3E%3CradialGradient id='b1' cx='40%25' cy='35%25' r='60%25'%3E%3Cstop offset='0%25' stop-color='%232244aa' stop-opacity='0.9'/%3E%3Cstop offset='100%25' stop-color='%23050c20' stop-opacity='0.4'/%3E%3C/radialGradient%3E%3CradialGradient id='b2' cx='40%25' cy='35%25' r='60%25'%3E%3Cstop offset='0%25' stop-color='%231a3888' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%23040a18' stop-opacity='0.3'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='24' height='18' fill='%23030610'/%3E%3Cellipse cx='6' cy='5' rx='4.5' ry='2.8' fill='url(%23b1)'/%3E%3Cellipse cx='18' cy='5' rx='4.5' ry='2.8' fill='url(%23b1)'/%3E%3Cellipse cx='0' cy='13' rx='4.5' ry='2.8' fill='url(%23b2)'/%3E%3Cellipse cx='12' cy='13' rx='4.5' ry='2.8' fill='url(%23b2)'/%3E%3Cellipse cx='24' cy='13' rx='4.5' ry='2.8' fill='url(%23b2)'/%3E%3Cellipse cx='6' cy='4.2' rx='3' ry='1.5' fill='rgba(80,120,255,0.15)'/%3E%3Cellipse cx='18' cy='4.2' rx='3' ry='1.5' fill='rgba(80,120,255,0.15)'/%3E%3Cellipse cx='12' cy='12.2' rx='3' ry='1.5' fill='rgba(60,100,220,0.12)'/%3E%3C/svg%3E");
+    background-size: 100% 100%, 24px 18px;
   }
   .chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--sub); gap: 12px; }
   .chat-empty svg { width: 80px; height: 80px; opacity: .15; filter: drop-shadow(0 0 8px var(--green)); }
