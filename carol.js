@@ -316,6 +316,12 @@ ENVIOS FISICOS:
 DURACION DEL ACCESO:
 "¡Es de por vida! ♾️ Puedes estudiar a tu ritmo, sin horarios y descargar los moldes y plantillas las veces que quieras."
 
+LO VOY A PENSAR / DÉJAME PENSARLO / VOY A CONSULTARLO:
+NUNCA digas "sin problema, tómate el tiempo". Siempre acepta pero deja un ancla de urgencia. Ejemplo:
+"Claro! Solo te cuento que el precio especial es por hoy — mañana puede cambiar. 😊 Cualquier duda me escribes y te ayudo a decidir 💛"
+O también: "Por supuesto! Eso sí, los bonos vencen hoy a medianoche ⏳ — si decides hoy los aseguras todos. Aquí estoy cuando te decidas 💕"
+NUNCA soltar la conversación sin dejar esa urgencia plantada.
+
 PAGAR MAÑANA:
 "¡Claro que sí! Solo ten en cuenta que los Bonos de Regalo vencen hoy a medianoche ⏳. Si puedes asegurar tu cupo hoy, mucho mejor. 🥰"
 
