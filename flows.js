@@ -582,18 +582,26 @@ async function handleOfferedBasico(contact, text) {
     await sendAndSave(phone, await carol(history, text));
     return;
   }
-  if (text === '1' || text.includes('diamante')) {
+  const mentionsDiamante = text === '1' || text.includes('diamante');
+  const mentionsOro      = text === '2' || text.includes('oro') || text.includes('superpack');
+  const mentionsBasico   = text === '3' || text.includes('basico') || text.includes('básico');
+
+  if (mentionsDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  // Basico explícito va ANTES de YES_WORDS — "no gracias quiero el básico" no debe confirmar ORO
-  } else if (text === '3' || text.includes('basico') || text.includes('básico')) {
+  // Si menciona basico Y oro al mismo tiempo → prefiere oro (el cliente se confundió pero quiere el mayor)
+  } else if (mentionsBasico && mentionsOro) {
+    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
+    await sendAndSave(phone, ORO_DETAILS);
+  // Basico explícito sin oro — va ANTES de YES_WORDS
+  } else if (mentionsBasico) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     const rechazaUpsell = text.includes('no gracias') || text.includes('no, gracias') || hasWord(text, NO_WORDS);
     if (rechazaUpsell) {
       await sendAndSave(phone, 'Sin problema! Aqui van los datos para el Pack Basico 📖');
     }
     await sendAndSave(phone, BASICO_DETAILS);
-  } else if (text === '2' || text.includes('oro') || hasWord(text, YES_WORDS)) {
+  } else if (mentionsOro || hasWord(text, YES_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else if (hasWord(text, NO_WORDS)) {
