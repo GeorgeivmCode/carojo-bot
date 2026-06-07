@@ -806,6 +806,11 @@ async function handlePostDelivery(contact, text) {
   if (contact.upsell_sent && !contact.upgrade_target && contact.pack_selected !== 'diamante') {
     const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
       'me interesa', 'como', 'cómo', 'cuanto', 'cuánto', 'si quiero', 'sí quiero'].some(w => text.includes(w));
+    const rejectsUpgrade = hasWord(text, NO_WORDS) || ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
+    if (rejectsUpgrade) {
+      await sendAndSave(phone, 'Entendido! 💛 Disfruta tu pack. Si en algun momento quieres agregar mas cursos aqui estoy.');
+      return;
+    }
     if (wantsUpgrade) {
       if (contact.pack_selected === 'basico') {
         // Si ya menciona un pack especifico, ir directo
