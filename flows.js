@@ -963,6 +963,18 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado' });
 
+  // Si el upgrade fue a Diamante, ofrecer regalo igual que en entrega normal
+  if (upgradeTarget === 'diamante') {
+    setTimeout(async () => {
+      try {
+        const fresh = db.getContact(phone);
+        if (fresh && fresh.state === 'delivered' && !fresh.gift_sent) {
+          await sendAndSave(phone, GIFT_OFFER_MSG);
+        }
+      } catch (e) { console.error('Gift upgrade error:', e.message); }
+    }, 30 * 1000); // 30 segundos después de la entrega
+  }
+
   // Actualizar fila del sheet con el nuevo pack y monto total
   if (GAS_SHEETS_URL) {
     try {
