@@ -574,9 +574,9 @@ app.post('/api/contacts/:phone/send-gift', adminAuth, async (req, res) => {
     bordados:    'https://drive.google.com/drive/u/0/folders/1XpP3s7KXEnOUDizYTxlTN8jkry_uSQEY'
   };
   const GIFT_MSGS = {
-    resina:      'Tu curso de regalo *Arte en Resina Epoxica* ya esta activo! 🌟\n\nCon este curso vas a aprender a crear piezas unicas en resina — desde aretes y accesorios hasta cuadros decorativos que puedes vender.',
-    globoflexia: 'Tu curso de regalo *Globoflexia y Decoracion* ya esta activo! 🎈\n\nVas a aprender a crear figuras, animales y decoraciones con globos — ideal para eventos y fiestas.',
-    bordados:    'Tu curso de regalo *Bordados Florales* ya esta activo! 🌸\n\nAprende a bordar flores y patrones hermosos en tela — una tecnica delicada y muy valorada.'
+    resina:      'Tu curso de regalo *Arte en Resina Epoxica* ya esta activo! 🌟\n\nCon este curso vas a aprender a crear piezas unicas en resina — desde aretes y accesorios hasta cuadros decorativos que puedes vender. Es un negocio increible que complementa perfecto el lettering!\n\nAqui esta tu acceso:',
+    globoflexia: 'Tu curso de regalo *Globoflexia y Decoracion* ya esta activo! 🎈\n\nCon este curso vas a aprender a hacer arreglos, figuras y decoraciones con globos — un servicio muy solicitado para fiestas y eventos que te puede dar ingresos desde el primer fin de semana!\n\nAqui esta tu acceso:',
+    bordados:    'Tu curso de regalo *Bordados Florales* ya esta activo! 🌸\n\nCon este curso vas a aprender bordados a mano con flores, hojas y texturas — piezas que tienen muchisima demanda en mercados y tiendas en linea. Perfecto para combinar con tu arte en lettering!\n\nAqui esta tu acceso:'
   };
   if (!gift || !GIFT_MSGS[gift]) return res.status(400).json({ error: 'Regalo invalido (resina/globoflexia/bordados)' });
   const c = db.getContact(phone);
