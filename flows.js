@@ -895,7 +895,14 @@ async function handleUpgradeComprobante(contact, msgType, content) {
       db.updateContact(phone, { upgrade_target: '', state: 'delivered' });
       await sendAndSave(phone, 'Sin problema! Ya tienes tu pack activo. Cualquier cosa me cuentas 💛');
     } else {
-      await sendAndSave(phone, `Para completar al ${packLabel} necesito el comprobante de $${diferencial.toLocaleString('es-CO')}. 📸`);
+      // Frases de aplazamiento → urgencia
+      const isDelaying = ['adelante', 'despues', 'después', 'luego', 'mas tarde', 'más tarde',
+        'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'espera', 'pensarlo'].some(w => text.includes(w));
+      if (isDelaying) {
+        await sendAndSave(phone, `Claro! Solo te cuento que el precio especial es por hoy — mañana puede cambiar. 😊 Cuando estés lista me mandas el comprobante de $${diferencial.toLocaleString('es-CO')} y te activo al instante 💛`);
+      } else {
+        await sendAndSave(phone, `Para completar al ${packLabel} necesito el comprobante de $${diferencial.toLocaleString('es-CO')}. 📸`);
+      }
     }
     return;
   }
