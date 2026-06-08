@@ -891,18 +891,39 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   if (msgType === 'text') {
     const text = content.trim().toLowerCase();
-    if (hasWord(text, NO_WORDS) || text.includes('no quiero') || text.includes('mejor no')) {
+    const isNo = hasWord(text, NO_WORDS) || text.includes('no quiero') || text.includes('mejor no');
+    const isDelaying = ['adelante', 'despues', 'después', 'luego', 'mas tarde', 'más tarde',
+      'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'espera', 'pensarlo'].some(w => text.includes(w));
+
+    if (isNo) {
       db.updateContact(phone, { upgrade_target: '', state: 'delivered' });
-      await sendAndSave(phone, 'Sin problema! Ya tienes tu pack activo. Cualquier cosa me cuentas 💛');
-    } else {
-      // Frases de aplazamiento → urgencia
-      const isDelaying = ['adelante', 'despues', 'después', 'luego', 'mas tarde', 'más tarde',
-        'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'espera', 'pensarlo'].some(w => text.includes(w));
-      if (isDelaying) {
-        await sendAndSave(phone, `Claro! Te queda guardado el cupo 💛\n\nSolo recuerda que el curso de regalo GRATIS que escoges tu misma es exclusivo para las que completan hoy — es nuestra forma de celebrar que diste el paso al Diamante. 🎁\n\nCuando estés lista me mandas el comprobante de $${diferencial.toLocaleString('es-CO')} y te activo todo al instante 💎`);
+      if (upgradeTarget === 'diamante') {
+        const packActual = currentPack === 'basico'
+          ? 'Pack Basico'
+          : 'SUPERPACK ORO';
+        const cursosExtra = currentPack === 'basico' ? 4 : 2;
+        await sendAndSave(phone,
+          `Sin problema! Ya tienes tu ${packActual} activo y eso es lo importante 💛\n\nCuando quieras puedes subir al MEGA PACK DIAMANTE por $${diferencial.toLocaleString('es-CO')} adicionales y escoger TU MISMA un curso GRATIS:\n🌸 Bordados Florales\n✨ Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nTu pack queda activo pero incompleto — el Diamante tiene ${cursosExtra} cursos mas que siguen esperandote. 😊\n\nAqui estoy cuando lo decidas 💎`
+        );
       } else {
-        await sendAndSave(phone, `Para completar al ${packLabel} necesito el comprobante de $${diferencial.toLocaleString('es-CO')}. 📸`);
+        // upgradeTarget === 'oro' desde basico
+        await sendAndSave(phone,
+          `Sin problema! Ya tienes tu Pack Basico activo y eso es lo importante 💛\n\nCuando quieras puedes subir al SUPERPACK ORO por $${diferencial.toLocaleString('es-CO')} adicionales y llevarte 2 cursos mas. O si prefieres ir directo al MEGA PACK DIAMANTE son $10.000 adicionales y te llevas 4 cursos + 11 bonos + 🎁 un curso de regalo GRATIS.\n\nAqui estoy cuando lo decidas 💎`
+        );
       }
+    } else if (isDelaying) {
+      if (upgradeTarget === 'diamante') {
+        await sendAndSave(phone,
+          `Claro! Te queda guardado el cupo 💛\n\nSolo recuerda que el curso de regalo GRATIS es solo por hoy — escoges TU MISMA entre:\n🌸 Bordados Florales\n✨ Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nEs nuestra forma de celebrar que diste el paso al Diamante 🎁\n\nCuando estés lista me mandas el comprobante de $${diferencial.toLocaleString('es-CO')} y te activo todo al instante 💎`
+        );
+      } else {
+        // upgradeTarget === 'oro' desde basico
+        await sendAndSave(phone,
+          `Claro! Te queda guardado el cupo 💛 Solo recuerda que el precio especial es por hoy. Cuando estés lista me mandas el comprobante de $${diferencial.toLocaleString('es-CO')} y te activo al instante 💎`
+        );
+      }
+    } else {
+      await sendAndSave(phone, `Para completar al ${packLabel} necesito el comprobante de $${diferencial.toLocaleString('es-CO')}. 📸`);
     }
     return;
   }
