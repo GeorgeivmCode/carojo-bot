@@ -363,7 +363,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
       return;
     }
-    if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new' || contact.state === 'awaiting_choice') {
+    if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new' || contact.state === 'awaiting_choice' || contact.state === 'awaiting_upgrade_comprobante') {
       // Si está en 'new', revisar mensajes recientes por si es cliente antiguo
       if (contact.state === 'new') {
         const recentMsgs = db.getRecentMessages(phone, 4);
@@ -377,7 +377,11 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
           return;
         }
       }
-      await handleComprobante(contact, content);
+      if (contact.state === 'awaiting_upgrade_comprobante') {
+        await handleUpgradeComprobante(contact, msgType, content);
+      } else {
+        await handleComprobante(contact, content);
+      }
       return;
     }
     if (contact.state === 'awaiting_email') {
