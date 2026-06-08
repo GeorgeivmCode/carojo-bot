@@ -311,7 +311,10 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
 
   if (!contact.bot_active) return;
 
-  const text = (msgType === 'text' ? content : '').trim().toLowerCase();
+  let text = (msgType === 'text' ? content : '').trim().toLowerCase();
+  // Normalizar "opcion 1/2/3" / "opción 1/2/3" → solo el numero para deteccion en handlers
+  const opcionMatch = text.match(/opci[oó]n\s*([123])/);
+  if (opcionMatch) text = opcionMatch[1];
 
   // Cliente antiguo sin acceso — en cualquier estado que NO sea compra comprometida
   // awaiting_email se excluye: ya pagó, solo está dando su correo; "no me llega" aquí es por Gmail lleno
@@ -818,6 +821,17 @@ async function handlePostDelivery(contact, text) {
 
   // Upsell: cliente respondio al mensaje de agregar cursos
   if (contact.upsell_sent && !contact.upgrade_target && contact.pack_selected !== 'diamante') {
+    // Despedida o cierre cortés — no re-activar upsell (ej: "Listo", "Ok, adios", "Gracias", "Chao")
+    const isFarewell = ['adios', 'adiós', 'chao', 'bye', 'hasta luego', 'nos vemos'].some(w => text.includes(w));
+    const isClosingOnly = text === 'listo' || text === 'ok' || text === 'gracias' || text === 'perfecto' ||
+      text === 'entendido' || text === 'claro' || text === 'bueno' || text === 'bien' ||
+      text === 'de nada' || text === 'dale' || text === 'jajaja' || text === 'jaja' || text === '👍';
+    if (isFarewell || isClosingOnly) {
+      // Dejar que Carol maneje con una despedida cálida
+      const history = db.getRecentMessages(phone, 8);
+      await sendAndSave(phone, await carol(history, text));
+      return;
+    }
     const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
       'me interesa', 'como', 'cómo', 'cuanto', 'cuánto', 'si quiero', 'sí quiero'].some(w => text.includes(w));
     const rejectsUpgrade = hasWord(text, NO_WORDS) || ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
