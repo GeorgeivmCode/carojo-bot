@@ -502,6 +502,16 @@ async function handleNew(contact, text) {
 
 async function handleChoice(contact, text) {
   const phone = contact.phone;
+
+  // Cliente perdido preguntando como funciona → guiar directo a elegir
+  const isLost = ['que debo hacer', 'qué debo hacer', 'como lo compro', 'cómo lo compro',
+    'que hago', 'qué hago', 'como funciona', 'cómo funciona', 'por donde empiezo',
+    'por dónde empiezo', 'como empiezo', 'cómo empiezo'].some(w => text.includes(w));
+  if (isLost) {
+    await sendAndSave(phone, 'Es muy facil! 😊 Solo escríbeme el número del pack que más te llame la atención:\n\n1️⃣ MEGA PACK DIAMANTE ($15.000)\n2️⃣ SUPERPACK ORO ($10.000)\n3️⃣ PACK BÁSICO ($5.000)\n\nY te cuento todo al instante 💛');
+    return;
+  }
+
   // Pregunta larga que menciona un pack = pregunta sobre el producto, no seleccion
   // Criterio: tiene ? Y mas de 5 palabras (ej: "pero si es el pack diamante necesita envio?")
   // NO aplica a selecciones cortas como "diamante?" o "el 1?"
