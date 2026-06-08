@@ -899,7 +899,7 @@ async function handleUpgradeComprobante(contact, msgType, content) {
       const isDelaying = ['adelante', 'despues', 'después', 'luego', 'mas tarde', 'más tarde',
         'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'espera', 'pensarlo'].some(w => text.includes(w));
       if (isDelaying) {
-        await sendAndSave(phone, `Claro! Solo te cuento que el precio especial es por hoy — mañana puede cambiar. 😊 Cuando estés lista me mandas el comprobante de $${diferencial.toLocaleString('es-CO')} y te activo al instante 💛`);
+        await sendAndSave(phone, `Claro! Te queda guardado el cupo 💛\n\nSolo recuerda que el curso de regalo GRATIS que escoges tu misma es exclusivo para las que completan hoy — es nuestra forma de celebrar que diste el paso al Diamante. 🎁\n\nCuando estés lista me mandas el comprobante de $${diferencial.toLocaleString('es-CO')} y te activo todo al instante 💎`);
       } else {
         await sendAndSave(phone, `Para completar al ${packLabel} necesito el comprobante de $${diferencial.toLocaleString('es-CO')}. 📸`);
       }
