@@ -746,6 +746,10 @@ async function handleEmail(contact, emailText) {
   const email = gmailMatch ? gmailMatch[0].toLowerCase() : rawText;
 
   if (!gmailMatch) {
+    // Cierre/confirmacion — cliente acaba de recibir la solicitud de email, aun no lo da
+    const CLOSING_EMAIL = ['listo', 'ok', 'gracias', 'perfecto', 'entendido', 'dale', 'claro', 'si', 'sí'];
+    if (CLOSING_EMAIL.some(w => rawText === w)) return; // ignorar silenciosamente
+
     // Dice explícitamente que no tiene Gmail o que está lleno
     const sinGmail = ['no tengo gmail', 'no tengo correo', 'no tengo email', 'no hay espacio',
       'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
@@ -819,6 +823,21 @@ async function handlePostDelivery(contact, text) {
     return;
   }
 
+  // Pre-upsell: cierre cortés post-entrega — evitar que Carol responda varias veces a "Gracias"
+  if (!contact.upsell_sent && contact.pack_selected !== 'diamante') {
+    const DELIVERY_CLOSINGS = ['gracias', 'ok', 'listo', 'perfecto', 'de nada', 'dale', 'bien', 'bueno', 'entendido', 'claro'];
+    const isDeliveryClosure = DELIVERY_CLOSINGS.some(w => text === w) || ['adios', 'adiós', 'chao', 'bye'].some(w => text.includes(w));
+    if (isDeliveryClosure) {
+      const recentMsgs = db.getRecentMessages(phone, 4);
+      const lastBot = recentMsgs.filter(m => m.direction === 'out')[0];
+      const alreadyAnswered = lastBot && ['de nada', 'disfruta', 'abrazo', 'ánimo', 'animo', 'cualquier duda', 'cualquier cosa'].some(w => lastBot.content.toLowerCase().includes(w));
+      if (!alreadyAnswered) {
+        await sendAndSave(phone, 'De nada! 💛 Cualquier duda con el material me escribes.');
+      }
+      return;
+    }
+  }
+
   // Upsell: cliente respondio al mensaje de agregar cursos
   if (contact.upsell_sent && !contact.upgrade_target && contact.pack_selected !== 'diamante') {
     // Despedida o cierre cortés — no re-activar upsell (ej: "Listo", "Ok, adios", "Gracias", "Chao")
@@ -827,9 +846,23 @@ async function handlePostDelivery(contact, text) {
       text === 'entendido' || text === 'claro' || text === 'bueno' || text === 'bien' ||
       text === 'de nada' || text === 'dale' || text === 'jajaja' || text === 'jaja' || text === '👍';
     if (isFarewell || isClosingOnly) {
-      // Dejar que Carol maneje con una despedida cálida
-      const history = db.getRecentMessages(phone, 8);
-      await sendAndSave(phone, await carol(history, text));
+      // Cierre cortés = rechazo al upsell
+      await sendAndSave(phone, 'Entendido! 💛 Disfruta tu pack. Si en algun momento quieres agregar mas cursos aqui estoy.');
+      return;
+    }
+    // Dudoso: quiere pero aplaza — urgencia con regalo si va al Diamante
+    const isDelaying = ['después', 'despues', 'luego', 'mas tarde', 'más tarde', 'mañana', 'manana',
+      'ahorita', 'pensarlo', 'le aviso', 'aviso', 'otro dia', 'otro día', 'espera'].some(w => text.includes(w));
+    if (isDelaying) {
+      if (contact.pack_selected === 'basico') {
+        await sendAndSave(phone,
+          'Claro! Te queda guardado el cupo 💛\n\nSolo recuerda que el MEGA PACK DIAMANTE tiene un curso de regalo GRATIS que es solo por hoy — escoges TU MISMA entre:\n🌸 Bordados Florales\n✨ Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nCuando estes lista me escribes y lo vemos 💎'
+        );
+      } else {
+        await sendAndSave(phone,
+          'Claro! Te queda guardado el cupo 💛 Solo recuerda que el precio especial es por hoy. Cuando estes lista me escribes y te activo todo al instante 💎'
+        );
+      }
       return;
     }
     const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
