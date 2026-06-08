@@ -859,7 +859,7 @@ async function handlePostDelivery(contact, text) {
     }
   }
 
-  if (contact.pack_selected === 'diamante' && contact.r1_sent) {
+  if (contact.pack_selected === 'diamante') {
     if (!contact.gift_sent) {
       // Cliente elige su regalo → entregar con mensaje coherente
       const giftKey = detectGiftChoice(text);
