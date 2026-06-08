@@ -564,6 +564,31 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/contacts/:phone/send-gift', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const { gift } = req.body;
+  const GIFT_URLS = {
+    resina:      'https://drive.google.com/drive/folders/1iZ6y6PtYg5APKftiR4296bT8i2rlJG0L',
+    globoflexia: 'https://drive.google.com/drive/folders/1YyTR18FTIR5vhmISZ6IPgTRFs5mnqW98',
+    bordados:    'https://drive.google.com/drive/u/0/folders/1XpP3s7KXEnOUDizYTxlTN8jkry_uSQEY'
+  };
+  const GIFT_MSGS = {
+    resina:      'Tu curso de regalo *Arte en Resina Epoxica* ya esta activo! 🌟\n\nCon este curso vas a aprender a crear piezas unicas en resina — desde aretes y accesorios hasta cuadros decorativos que puedes vender.',
+    globoflexia: 'Tu curso de regalo *Globoflexia y Decoracion* ya esta activo! 🎈\n\nVas a aprender a crear figuras, animales y decoraciones con globos — ideal para eventos y fiestas.',
+    bordados:    'Tu curso de regalo *Bordados Florales* ya esta activo! 🌸\n\nAprende a bordar flores y patrones hermosos en tela — una tecnica delicada y muy valorada.'
+  };
+  if (!gift || !GIFT_MSGS[gift]) return res.status(400).json({ error: 'Regalo invalido (resina/globoflexia/bordados)' });
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  const msg = `${GIFT_MSGS[gift]}\n\n${GIFT_URLS[gift]}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`;
+  await sendAndSave(phone, msg);
+  db.updateContact(phone, { gift_sent: 1 });
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true });
+});
+
 app.post('/api/contacts/:phone/revoke-access', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const phone = req.params.phone;

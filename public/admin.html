@@ -792,6 +792,7 @@
           <div class="cmd-group-label">// cliente</div>
           <div class="cmd-row">
             <button class="qr-btn purple" onclick="restoreAccess()">🔑 Restaurar acceso</button>
+            <button class="qr-btn yellow" onclick="sendGiftManual()">🎁 Enviar regalo</button>
             <button class="qr-btn pink" onclick="changePack()">📦 Cambiar pack</button>
             <button class="qr-btn silver" onclick="revokeAccess()">🗑️ Revocar acceso</button>
             <button class="qr-btn teal" onclick="unblockAccess()">🔓 Desbloquear</button>
@@ -1465,6 +1466,24 @@ async function resetToNew() {
   });
   if (!res) return;
   showToast('Chat reiniciado. El bot atenderá al cliente como nuevo.', 'success');
+}
+
+async function sendGiftManual() {
+  if (!currentPhone) return;
+  const gift = prompt('¿Cuál regalo enviar?\n\nresina\ngloboflexia\nbordados', 'resina');
+  if (!gift) return;
+  const giftClean = gift.toLowerCase().trim();
+  if (!['resina', 'globoflexia', 'bordados'].includes(giftClean)) { showToast('Opcion invalida. Escribe resina, globoflexia o bordados.', 'error'); return; }
+  if (!confirm(`Enviar regalo "${giftClean}" a ${allContacts.find(x => x.phone === currentPhone)?.name || currentPhone}?`)) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/send-gift`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gift: giftClean })
+  });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) showToast('Regalo enviado correctamente! 🎁', 'success');
+  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 
 async function restoreAccess() {
