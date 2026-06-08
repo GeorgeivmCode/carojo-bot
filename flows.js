@@ -290,7 +290,10 @@ async function logSaleToSheets(contact, pack, email) {
       ad_id:     contact.ad_id     || '',
       ad_name:   contact.ad_name   || ''
     }, { timeout: 10000 });
-  } catch (e) { console.error('Sheets error:', e.message); }
+  } catch (e) {
+    console.error('Sheets error:', e.message);
+    try { await notifyJorge(contact, `ALERTA: Venta no registrada en Sheet!\nPack: ${pack}\nEmail: ${email}\nTel: ${contact.phone}\nError: ${e.message}`); } catch (_) {}
+  }
 }
 
 async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
@@ -605,7 +608,8 @@ async function handleOfferedOro(contact, text) {
 async function handleOfferedBasico(contact, text) {
   const phone = contact.phone;
   // "no alcanzo/puedo/tengo" = no puede pagar hoy, no es seleccion de pack — va a Carol
-  const cantAfford = ['alcanzo', 'no puedo', 'no tengo', 'no me alcanza', 'no hay', 'no me llega'].some(w => text.includes(w));
+  const cantAfford = ['alcanzo', 'no me alcanza', 'no tengo plata', 'no tengo dinero',
+    'no tengo para', 'no me llega para', 'no puedo pagar'].some(w => text.includes(w));
   if (cantAfford) {
     const history = db.getRecentMessages(phone, 8);
     await sendAndSave(phone, await carol(history, text));
@@ -626,17 +630,18 @@ async function handleOfferedBasico(contact, text) {
   } else if (mentionsBasico) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     const rechazaUpsell = text.includes('no gracias') || text.includes('no, gracias') || hasWord(text, NO_WORDS);
-    const intro = rechazaUpsell ? 'Sin problema! Aqui van los datos para tu Pack Basico 📖' : 'Perfecto! Aqui van los datos para tu Pack Basico 📖';
-    await sendAndSave(phone, `${intro}\n\nAh, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎`);
+    if (rechazaUpsell) await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖');
     await sendAndSave(phone, BASICO_DETAILS);
+    await sendAndSave(phone, 'Ah, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
   } else if (mentionsOro || hasWord(text, YES_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else if (hasWord(text, NO_WORDS)) {
     // Dice "no" al upsell sin especificar pack → confirma básico (ya lo eligió antes)
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
-    await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖\n\nAh, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
+    await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖');
     await sendAndSave(phone, BASICO_DETAILS);
+    await sendAndSave(phone, 'Ah, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
   } else {
     const history = db.getRecentMessages(phone, 8);
     await sendAndSave(phone, await carol(history, text));
@@ -758,7 +763,7 @@ async function handleEmail(contact, emailText) {
 
   if (!gmailMatch) {
     // Cierre/confirmacion — cliente acaba de recibir la solicitud de email, aun no lo da
-    const CLOSING_EMAIL = ['listo', 'ok', 'gracias', 'perfecto', 'entendido', 'dale', 'claro', 'si', 'sí'];
+    const CLOSING_EMAIL = ['listo', 'ok', 'gracias', 'perfecto', 'entendido', 'dale', 'claro'];
     if (CLOSING_EMAIL.some(w => rawText === w)) return; // ignorar silenciosamente
 
     // Dice explícitamente que no tiene Gmail o que está lleno
@@ -863,7 +868,7 @@ async function handlePostDelivery(contact, text) {
     }
     // Dudoso: quiere pero aplaza — urgencia con regalo si va al Diamante
     const isDelaying = ['después', 'despues', 'luego', 'mas tarde', 'más tarde', 'mañana', 'manana',
-      'ahorita', 'pensarlo', 'le aviso', 'aviso', 'otro dia', 'otro día', 'espera'].some(w => text.includes(w));
+      'ahorita', 'pensarlo', 'le aviso', 'aviso', 'otro dia', 'otro día'].some(w => text.includes(w));
     if (isDelaying) {
       if (contact.pack_selected === 'basico') {
         await sendAndSave(phone,
@@ -877,7 +882,7 @@ async function handlePostDelivery(contact, text) {
       return;
     }
     const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
-      'me interesa', 'como', 'cómo', 'cuanto', 'cuánto', 'si quiero', 'sí quiero'].some(w => text.includes(w));
+      'me interesa', 'cuanto', 'cuánto', 'si quiero', 'sí quiero'].some(w => text.includes(w));
     const rejectsUpgrade = hasWord(text, NO_WORDS) || ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
     if (rejectsUpgrade) {
       await sendAndSave(phone, 'Entendido! 💛 Disfruta tu pack. Si en algun momento quieres agregar mas cursos aqui estoy.');
