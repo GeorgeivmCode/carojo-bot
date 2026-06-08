@@ -437,6 +437,18 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         await sendAndSave(phone, SEND_COMPROBANTE_MSG);
         break;
       }
+      // Curiosidad por el regalo del Diamante — solo si tiene Basico seleccionado
+      if (contact.pack_selected === 'basico') {
+        const isGiftCuriosity = ['regalo', 'cual es', 'cuál es', 'de que se trata', 'de qué se trata',
+          'cuentame', 'cuéntame', 'me cuentas', 'que tiene', 'qué tiene', 'que es ese',
+          'que sorpresa', 'qué sorpresa', 'que es lo que', 'qué es lo que'].some(w => text.includes(w));
+        if (isGiftCuriosity) {
+          await sendAndSave(phone,
+            'El regalo es exclusivo del MEGA PACK DIAMANTE 💎\n\nEscoges TU MISMA uno de estos 3 cursos completos totalmente gratis:\n🌸 Bordados Florales\n✨ Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nCada uno vale mas de $30.000 por fuera. Con el Diamante son $15.000 en total, llevas 5 cursos, 11 bonos y el curso de regalo que elijas.\n\nTe interesa? Escribe DIAMANTE y te activo todo 💛'
+          );
+          break;
+        }
+      }
       // Cambio de pack en medio del flujo — directo al pago, sin upsell
       const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega');
       const wantsOro = !wantsDiamante && (text === '2' || text.includes('oro') || text.includes('super') || text.includes('superpack'));
@@ -614,9 +626,8 @@ async function handleOfferedBasico(contact, text) {
   } else if (mentionsBasico) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     const rechazaUpsell = text.includes('no gracias') || text.includes('no, gracias') || hasWord(text, NO_WORDS);
-    if (rechazaUpsell) {
-      await sendAndSave(phone, 'Sin problema! Aqui van los datos para el Pack Basico 📖');
-    }
+    const intro = rechazaUpsell ? 'Sin problema! Aqui van los datos para tu Pack Basico 📖' : 'Perfecto! Aqui van los datos para tu Pack Basico 📖';
+    await sendAndSave(phone, `${intro}\n\nAh, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎`);
     await sendAndSave(phone, BASICO_DETAILS);
   } else if (mentionsOro || hasWord(text, YES_WORDS)) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
@@ -624,7 +635,7 @@ async function handleOfferedBasico(contact, text) {
   } else if (hasWord(text, NO_WORDS)) {
     // Dice "no" al upsell sin especificar pack → confirma básico (ya lo eligió antes)
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
-    await sendAndSave(phone, 'Sin problema! Aqui van los datos para el Pack Basico 📖');
+    await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖\n\nAh, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
     await sendAndSave(phone, BASICO_DETAILS);
   } else {
     const history = db.getRecentMessages(phone, 8);
