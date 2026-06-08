@@ -453,9 +453,12 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         }
       }
       // Cambio de pack en medio del flujo — directo al pago, sin upsell
-      const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega');
-      const wantsOro = !wantsDiamante && (text === '2' || text.includes('oro') || text.includes('super') || text.includes('superpack'));
-      const wantsBasico = !wantsDiamante && !wantsOro && (text === '3' || text.includes('basico') || text.includes('básico'));
+      const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega') ||
+        ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p));
+      const wantsOro = !wantsDiamante && (text === '2' || text.includes('oro') || text.includes('super') || text.includes('superpack') ||
+        ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)));
+      const wantsBasico = !wantsDiamante && !wantsOro && (text === '3' || text.includes('basico') || text.includes('básico') ||
+        ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)));
       if (wantsDiamante) {
         if (contact.pack_selected !== 'diamante') {
           db.updateContact(phone, { pack_selected: 'diamante' });
@@ -544,9 +547,12 @@ async function handleChoice(contact, text) {
     return;
   }
   // Seleccion por numero o keywords de pack (logica original)
-  const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante');
-  const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text.includes('oro'));
-  const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico');
+  const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante') ||
+    ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p));
+  const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text.includes('oro') ||
+    ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)));
+  const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico' ||
+    ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)));
 
   if (isDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
@@ -616,9 +622,12 @@ async function handleOfferedBasico(contact, text) {
     await sendAndSave(phone, await carol(history, text));
     return;
   }
-  const mentionsDiamante = text === '1' || text.includes('diamante');
-  const mentionsOro      = text === '2' || text.includes('oro') || text.includes('superpack');
-  const mentionsBasico   = text === '3' || text.includes('basico') || text.includes('básico');
+  const PRECIO_DIAMANTE = ['15 mil', '15mil', 'quince mil', '15.000', '$15', 'de 15', 'los 15', 'por 15'];
+  const PRECIO_ORO      = ['10 mil', '10mil', 'diez mil', '10.000', '$10', 'de 10', 'los 10', 'por 10'];
+  const PRECIO_BASICO   = ['5 mil', '5mil', 'cinco mil', '5.000', '$5', 'de 5', 'los 5', 'por 5'];
+  const mentionsDiamante = text === '1' || text.includes('diamante') || PRECIO_DIAMANTE.some(p => text.includes(p));
+  const mentionsOro      = !mentionsDiamante && (text === '2' || text.includes('oro') || text.includes('superpack') || PRECIO_ORO.some(p => text.includes(p)));
+  const mentionsBasico   = !mentionsDiamante && !mentionsOro && (text === '3' || text.includes('basico') || text.includes('básico') || PRECIO_BASICO.some(p => text.includes(p)));
 
   if (mentionsDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
