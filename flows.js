@@ -545,7 +545,7 @@ async function handleChoice(contact, text) {
   }
   // Seleccion por numero o keywords de pack (logica original)
   const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante');
-  const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text === 'oro');
+  const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text.includes('oro'));
   const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico');
 
   if (isDiamante) {
@@ -574,7 +574,8 @@ async function handleChoice(contact, text) {
 
 function hasWord(text, words) {
   const tokens = text.split(/[\s,!?¡¿.;:]+/).filter(Boolean);
-  return words.some(w => tokens.includes(w));
+  // Frases de varias palabras (ej. "de una") se comparan como substring en el texto original
+  return words.some(w => w.includes(' ') ? text.includes(w) : tokens.includes(w));
 }
 
 const YES_WORDS = ['si', 'sí', 'dale', 'listo', 'ok', 'claro', 'confirmo', 'confirmado', 'voy', 'perfecto', 'hagalo', 'hagámoslo', 'quiero', 'de una'];
@@ -968,9 +969,18 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   if (msgType === 'text') {
     const text = content.trim().toLowerCase();
+
+    // Cliente llega desde un anuncio nuevo mientras tenia upgrade pendiente — reiniciar flujo
+    if (text === 'quiero el curso de timoteo') {
+      db.updateContact(phone, { state: 'new', bot_active: 1, upgrade_target: '', r1_sent: 0, r2_sent: 0 });
+      contact = db.getContact(phone);
+      await handleNew(contact, text);
+      return;
+    }
+
     const isNo = hasWord(text, NO_WORDS) || text.includes('no quiero') || text.includes('mejor no');
-    const isDelaying = ['adelante', 'despues', 'después', 'luego', 'mas tarde', 'más tarde',
-      'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'espera', 'pensarlo'].some(w => text.includes(w));
+    const isDelaying = ['despues', 'después', 'luego', 'mas tarde', 'más tarde',
+      'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'pensarlo'].some(w => text.includes(w));
 
     if (isNo) {
       db.updateContact(phone, { upgrade_target: '', state: 'delivered' });
@@ -1089,7 +1099,10 @@ async function handleUpgradeComprobante(contact, msgType, content) {
         pack:     upgradeTarget,
         monto:    PACK_PRICES[upgradeTarget] || 0
       }, { timeout: 10000 });
-    } catch (e) { console.error('Sheets update error:', e.message); }
+    } catch (e) {
+      console.error('Sheets update error:', e.message);
+      try { await notifyJorge(contact, `ALERTA: Sheet upgrade no actualizado!\nDe: ${currentPack} → A: ${upgradeTarget}\nEmail: ${contact.email}\nTel: ${phone}\nError: ${e.message}`); } catch (_) {}
+    }
   }
 
   await notifyJorge(contact,

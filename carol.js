@@ -407,7 +407,15 @@ async function carolRespond(history, userMessage) {
         ? '[imagen enviada por el cliente]'
         : m.content
     }));
-  messages.push({ role: 'user', content: userMessage });
+
+  // Asegurar que el array no empiece con 'assistant' (requisito de Anthropic)
+  while (messages.length && messages[0].role === 'assistant') messages.shift();
+
+  // Evitar mensaje duplicado: el historial ya incluye el mensaje actual (guardado antes de llamar carol)
+  const lastMsg = messages[messages.length - 1];
+  if (!lastMsg || lastMsg.role !== 'user') {
+    messages.push({ role: 'user', content: userMessage });
+  }
 
   const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
