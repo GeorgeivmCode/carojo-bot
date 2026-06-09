@@ -364,6 +364,18 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       return;
     }
     if (contact.state === 'delivered') {
+      // Si el upsell ya fue enviado y el pack no es diamante → posible comprobante de upgrade
+      if (contact.upsell_sent && contact.pack_selected !== 'diamante') {
+        const upgradeTarget = contact.upgrade_target ||
+          (contact.pack_selected === 'oro' ? 'diamante' :
+           contact.pack_selected === 'basico' ? 'diamante' : null);
+        if (upgradeTarget) {
+          db.updateContact(phone, { state: 'awaiting_upgrade_comprobante', upgrade_target: upgradeTarget });
+          contact = db.getContact(phone);
+          await handleUpgradeComprobante(contact, msgType, content);
+          return;
+        }
+      }
       await sendAndSave(phone, 'Ya recibí tu mensaje. Un momento que te ayudo con eso. 🙏');
       db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
       await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
