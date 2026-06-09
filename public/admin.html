@@ -75,9 +75,33 @@
   /* ── Logo box en contact-list ── */
   .contact-list-logo {
     padding: 14px 16px 10px;
-    border-bottom: 1px solid rgba(56,189,248,.3);
+    border-bottom: 1px solid rgba(247,37,133,.3);
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
+    flex-shrink: 0; position: relative;
+  }
+  /* Tornillos en las 4 esquinas del logo box */
+  .contact-list-logo .bolt-tl, .contact-list-logo .bolt-tr,
+  .contact-list-logo .bolt-bl, .contact-list-logo .bolt-br {
+    position: absolute; width: 9px; height: 9px; border-radius: 50%; z-index: 3;
+    background: radial-gradient(circle at 38% 32%, #c8d4e0 0%, #7a8898 20%, #3a4858 50%, #0a0e16 100%);
+    border: 1px solid rgba(0,0,0,.9);
+    box-shadow: 0 1px 4px rgba(0,0,0,.9), inset 0 1px 2px rgba(255,255,255,.3), inset 0 -1px 2px rgba(0,0,0,.6);
+  }
+  .contact-list-logo .bolt-tl { top: 5px; left: 5px; }
+  .contact-list-logo .bolt-tr { top: 5px; right: 5px; }
+  .contact-list-logo .bolt-bl { bottom: 5px; left: 5px; }
+  .contact-list-logo .bolt-br { bottom: 5px; right: 5px; }
+  .contact-list-logo .bolt-tl::before, .contact-list-logo .bolt-tr::before,
+  .contact-list-logo .bolt-bl::before, .contact-list-logo .bolt-br::before {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 5px; height: 1px; background: rgba(0,0,0,.7);
+  }
+  .contact-list-logo .bolt-tl::after, .contact-list-logo .bolt-tr::after,
+  .contact-list-logo .bolt-bl::after, .contact-list-logo .bolt-br::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%) rotate(90deg);
+    width: 5px; height: 1px; background: rgba(0,0,0,.7);
   }
   .contact-list-logo img {
     width: 100%; max-width: 260px; height: auto;
@@ -184,7 +208,7 @@
   .sidenav {
     width: 60px; display: flex; flex-direction: column;
     align-items: center; padding: 12px 0; gap: 8px; flex-shrink: 0;
-    border-right: 2px solid rgba(56,189,248,.5);
+    border-right: 2px solid rgba(247,37,133,.5);
     box-shadow: 3px 0 20px rgba(0,0,0,.7), inset -1px 0 0 rgba(255,255,255,.05), 2px 0 10px rgba(56,189,248,.12);
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
   }
@@ -197,11 +221,11 @@
   /* ── Contact List ── */
   .contact-list {
     width: 360px; display: flex; flex-direction: column; flex-shrink: 0;
-    border-right: 2px solid rgba(56,189,248,.45);
+    border-right: 2px solid rgba(247,37,133,.45);
     box-shadow: 3px 0 20px rgba(0,0,0,.6), inset -1px 0 0 rgba(255,255,255,.04), 2px 0 8px rgba(56,189,248,.1);
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
   }
-  .contact-list-header { padding: 16px; border-bottom: 1px solid rgba(56,189,248,.3); box-shadow: 0 1px 8px rgba(56,189,248,.08); }
+  .contact-list-header { padding: 16px; border-bottom: 1px solid rgba(247,37,133,.3); box-shadow: 0 1px 8px rgba(247,37,133,.08); }
   .contact-list-header h2 { font-family: 'Share Tech Mono', monospace; font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--green); text-shadow: 0 0 10px rgba(0,229,160,.5); letter-spacing: .08em; }
   .search-box { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 14px; outline: none; transition: border-color .2s, box-shadow .2s; }
   .search-box:focus { border-color: var(--blue); box-shadow: 0 0 8px rgba(56,189,248,.2); }
@@ -238,7 +262,7 @@
   .chat-empty svg { width: 80px; height: 80px; opacity: .15; filter: drop-shadow(0 0 8px var(--green)); }
   .chat-header {
     display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-    border-bottom: 1px solid rgba(56,189,248,.35); flex-shrink: 0;
+    border-bottom: 1px solid rgba(247,37,133,.35); flex-shrink: 0;
     box-shadow: 0 1px 12px rgba(56,189,248,.1), 0 2px 20px rgba(0,0,0,.3);
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
     position: relative;
@@ -339,7 +363,7 @@
   .date-divider { text-align: center; color: var(--sub); font-size: 11px; padding: 8px 0; font-family: 'Share Tech Mono', monospace; letter-spacing: .08em; }
 
   .chat-footer {
-    border-top: 1px solid rgba(56,189,248,.35);
+    border-top: 1px solid rgba(247,37,133,.35);
     padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
     box-shadow: 0 -2px 20px rgba(0,0,0,.5), 0 -1px 12px rgba(56,189,248,.08);
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
@@ -504,14 +528,14 @@
 
   /* ── Right sidebar ── */
   .right-panel {
-    width: 300px; border-left: 2px solid rgba(56,189,248,.45);
+    width: 300px; border-left: 2px solid rgba(247,37,133,.45);
     display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0;
     box-shadow: -3px 0 20px rgba(0,0,0,.6), inset 1px 0 0 rgba(255,255,255,.04), -2px 0 8px rgba(56,189,248,.1);
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
   }
   .right-panel::-webkit-scrollbar { width: 3px; }
   .right-panel::-webkit-scrollbar-thumb { background: rgba(56,189,248,.2); border-radius: 2px; }
-  .info-section { padding: 16px; border-bottom: 1px solid rgba(56,189,248,.25); box-shadow: 0 1px 6px rgba(56,189,248,.05); }
+  .info-section { padding: 16px; border-bottom: 1px solid rgba(247,37,133,.25); box-shadow: 0 1px 6px rgba(56,189,248,.05); }
   .info-section h4 {
     font-family: 'Share Tech Mono', monospace; font-size: 10px;
     text-transform: uppercase; letter-spacing: .15em;
@@ -525,7 +549,7 @@
 
   .toggle-bot {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; border-bottom: 1px solid rgba(56,189,248,.25);
+    padding: 12px 16px; border-bottom: 1px solid rgba(247,37,133,.25);
     box-shadow: 0 1px 6px rgba(56,189,248,.05);
   }
   .toggle-label { font-family: 'Share Tech Mono', monospace; font-size: 12px; letter-spacing: .08em; color: var(--sub); text-transform: uppercase; }
@@ -551,7 +575,7 @@
   @keyframes scanlines { 0%{background-position:0 0} 100%{background-position:0 40px} }
 
   .stats-bar {
-    padding: 20px 12px 12px; border-bottom: 2px solid rgba(56,189,248,.35);
+    padding: 20px 12px 12px; border-bottom: 2px solid rgba(247,37,133,.35);
     position: relative;
     box-shadow: 0 3px 14px rgba(0,0,0,.6), 0 1px 0 rgba(56,189,248,.15);
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
@@ -794,6 +818,8 @@
 <!-- Contact List -->
 <section class="contact-list">
   <div class="contact-list-logo">
+    <div class="bolt-tl"></div><div class="bolt-tr"></div>
+    <div class="bolt-bl"></div><div class="bolt-br"></div>
     <img src="/logo.png" alt="CarojoChat">
   </div>
   <div class="contact-list-header">
