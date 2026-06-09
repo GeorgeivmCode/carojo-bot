@@ -55,12 +55,17 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
     animation: splashFade 2.6s ease-out forwards;
     pointer-events: none;
+    overflow: hidden;
   }
-  #splash img {
-    width: min(400px, 82vw);
-    mix-blend-mode: screen;
-    filter: drop-shadow(0 0 30px rgba(56,189,248,.8)) drop-shadow(0 0 60px rgba(247,37,133,.6));
+  /* wrapper aplica el glow, img aplica el blend — separados para evitar corte */
+  #splash .splash-logo-wrap {
+    width: min(400px, 78vw);
+    filter: drop-shadow(0 0 28px rgba(56,189,248,.85)) drop-shadow(0 0 56px rgba(247,37,133,.65));
     animation: splashLogoIn .7s ease-out forwards;
+  }
+  #splash .splash-logo-wrap img {
+    width: 100%; height: auto; display: block;
+    mix-blend-mode: screen;
   }
   #splash .splash-sub {
     font-family: 'Share Tech Mono', monospace;
@@ -733,7 +738,7 @@
 
 <!-- Splash screen -->
 <div id="splash">
-  <img src="/logo.png" alt="CarojoChat">
+  <div class="splash-logo-wrap"><img src="/logo.png" alt="CarojoChat"></div>
   <span class="splash-sub">Cargando panel...</span>
 </div>
 
