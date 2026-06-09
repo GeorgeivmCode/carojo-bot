@@ -293,9 +293,9 @@
   .chat-watermark {
     position: absolute; inset: 0; pointer-events: none; z-index: 0;
     background: url('/logo.png') center center / 55% auto no-repeat;
-    opacity: 0;
+    opacity: 0; transition: opacity .3s;
   }
-  .chat-panel:has(#chatEmpty[style*="none"]) .chat-watermark { opacity: 0.08; }
+  .chat-panel.chat-open .chat-watermark { opacity: 0.08; }
   .chat-messages::-webkit-scrollbar { width: 3px; }
   .chat-messages::-webkit-scrollbar-thumb { background: rgba(56,189,248,.2); border-radius: 2px; }
 
@@ -1114,6 +1114,7 @@ function updateContactInList(c) {
 async function selectContact(phone) {
   currentPhone = phone;
   document.getElementById('chatEmpty').style.display = 'none';
+  document.getElementById('chatPanel').classList.add('chat-open');
   const cc = document.getElementById('chatContent');
   cc.style.display = 'flex';
   cc.style.flexDirection = 'column';
