@@ -881,8 +881,11 @@ async function handlePostDelivery(contact, text) {
       text === 'entendido' || text === 'claro' || text === 'bueno' || text === 'bien' ||
       text === 'de nada' || text === 'dale' || text === 'jajaja' || text === 'jaja' || text === '👍';
     if (isFarewell || isClosingOnly) {
-      // Cierre cortés = rechazo al upsell
-      await sendAndSave(phone, 'Entendido! 💛 Disfruta tu pack. Si en algun momento quieres agregar mas cursos aqui estoy.');
+      if (contact.pack_selected === 'basico') {
+        await sendAndSave(phone, 'Entendido! 💛 Disfruta tu Pack Basico. Cuando quieras puedes completarlo al MEGA PACK DIAMANTE — 4 cursos mas + un curso de regalo GRATIS que escoges tu misma. Solo escríbeme y lo vemos 💎');
+      } else {
+        await sendAndSave(phone, 'Entendido! 💛 Disfruta tu SUPERPACK ORO. Cuando quieras puedes completarlo al MEGA PACK DIAMANTE — 4 cursos adicionales + un curso de regalo GRATIS a tu eleccion. Solo escríbeme y lo activamos 💎');
+      }
       return;
     }
     // Dudoso: quiere pero aplaza — urgencia con regalo si va al Diamante
@@ -915,7 +918,11 @@ async function handlePostDelivery(contact, text) {
     }
     const rejectsUpgrade = hasWord(text, NO_WORDS) || ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
     if (rejectsUpgrade) {
-      await sendAndSave(phone, 'Entendido! 💛 Disfruta tu pack. Si en algun momento quieres agregar mas cursos aqui estoy.');
+      if (contact.pack_selected === 'basico') {
+        await sendAndSave(phone, 'Entendido! 💛 Disfruta tu Pack Basico. Cuando quieras puedes completarlo al MEGA PACK DIAMANTE — 4 cursos mas + un curso de regalo GRATIS que escoges tu misma. Solo escríbeme y lo vemos 💎');
+      } else {
+        await sendAndSave(phone, 'Entendido! 💛 Disfruta tu SUPERPACK ORO. Cuando quieras puedes completarlo al MEGA PACK DIAMANTE — 4 cursos adicionales + un curso de regalo GRATIS a tu eleccion. Solo escríbeme y lo activamos 💎');
+      }
       return;
     }
     if (wantsUpgrade) {
