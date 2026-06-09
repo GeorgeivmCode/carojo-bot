@@ -916,7 +916,10 @@ async function handlePostDelivery(contact, text) {
       return;
     }
     const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
-      'me interesa', 'cuanto', 'cuánto', 'si quiero', 'sí quiero'].some(w => text.includes(w));
+      'me interesa', 'cuanto', 'cuánto', 'si quiero', 'sí quiero',
+      'comprobante', 'ya pague', 'ya pagué', 'te mando', 'ahi va', 'ahí va',
+      'voy a pagar', 'como pago', 'cómo pago', 'datos de pago', 'numero de cuenta',
+      'nequi', 'daviplata'].some(w => text.includes(w));
     // Soporte post-venta — detectar antes del rechazo para no confundir "no me llegó" con "no quiero"
     const needsSupport = ['no me llegó', 'no me llego', 'no llegó', 'no llego', 'no recibí', 'no recibi',
       'no tengo acceso', 'no puedo abrir', 'no me aparece', 'no funciona', 'no abre',
