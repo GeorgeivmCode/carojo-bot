@@ -45,11 +45,47 @@
   }
   @keyframes neonPulse { 0%,100%{opacity:1} 50%{opacity:.7} }
   @keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+  @keyframes splashFade { 0%{opacity:1} 80%{opacity:1} 100%{opacity:0} }
+  @keyframes splashLogoIn { 0%{opacity:0;transform:scale(.85)} 100%{opacity:1;transform:scale(1)} }
+
+  /* ── Splash screen ── */
+  #splash {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #02040a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+    animation: splashFade 2.2s ease-out forwards;
+    pointer-events: none;
+  }
+  #splash img {
+    width: min(320px, 75vw);
+    filter: drop-shadow(0 0 24px rgba(56,189,248,.7)) drop-shadow(0 0 48px rgba(247,37,133,.5));
+    animation: splashLogoIn .6s ease-out forwards;
+  }
+  #splash .splash-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; letter-spacing: .15em;
+    color: rgba(56,189,248,.5);
+    text-transform: uppercase;
+  }
+
+  /* ── Top header ── */
+  #top-header {
+    height: 52px; width: 100%; flex-shrink: 0;
+    display: flex; align-items: center; padding: 0 20px;
+    border-bottom: 1px solid rgba(56,189,248,.35);
+    box-shadow: 0 2px 16px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.04), 0 4px 20px rgba(56,189,248,.08);
+    background: var(--steel-light), var(--steel-texture), var(--steel-base);
+    position: relative; z-index: 10;
+  }
+  #top-header img {
+    height: 34px; width: auto;
+    filter: drop-shadow(0 0 8px rgba(56,189,248,.6)) drop-shadow(0 0 16px rgba(247,37,133,.35));
+  }
 
   body {
     color: var(--text);
     font-family: 'Segoe UI', sans-serif;
-    height: 100vh; display: flex; overflow: hidden;
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
     background-color: #02040a;
     background-image:
       /* Viñeteo oscuro — más oscuro en bordes como la imagen */
@@ -150,8 +186,7 @@
     box-shadow: 3px 0 20px rgba(0,0,0,.7), inset -1px 0 0 rgba(255,255,255,.05), 2px 0 10px rgba(56,189,248,.12);
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
   }
-  .sidenav-logo { width: 56px; height: auto; margin-bottom: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  .sidenav-logo img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 0 8px rgba(56,189,248,.5)) drop-shadow(0 0 16px rgba(247,37,133,.3)); }
+  .sidenav-logo { display: none; }
   .nav-icon { width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--sub); transition: all .2s; font-size: 20px; border: 1px solid transparent; }
   .nav-icon:hover { background: var(--hover); color: var(--text); border-color: var(--border); }
   .nav-icon.active { color: var(--green); background: rgba(0,229,160,.08); border-color: rgba(0,229,160,.3); box-shadow: 0 0 12px rgba(0,229,160,.2), inset 0 0 8px rgba(0,229,160,.05); }
@@ -693,6 +728,12 @@
 </head>
 <body>
 
+<!-- Splash screen -->
+<div id="splash">
+  <img src="/logo.png" alt="CarojoChat">
+  <span class="splash-sub">Cargando panel...</span>
+</div>
+
 <!-- Login Overlay -->
 <div id="loginOverlay">
   <div class="login-box">
@@ -703,9 +744,19 @@
   </div>
 </div>
 
+<!-- Top Header -->
+<header id="top-header">
+  <img src="/logo.png" alt="CarojoChat">
+</header>
+
+<!-- Main row: sidenav + content -->
+<div style="display:flex;flex:1;overflow:hidden;">
+
 <!-- Left Nav -->
 <nav class="sidenav">
-  <div class="sidenav-logo"><img src="/logo.png" alt="Carojo"></div>
+  <div class="nav-icon active" id="nav-chats" title="Chats" onclick="showTab('chats')">&#128172;</div>
+  <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
+  <div class="nav-spacer"></div>
   <div class="nav-icon active" id="nav-chats" title="Chats" onclick="showTab('chats')">&#128172;</div>
   <div class="nav-icon" title="Ventas" id="nav-ventas" onclick="showTab('ventas')">&#128203;</div>
   <div class="nav-spacer"></div>
@@ -1729,6 +1780,13 @@ if (localStorage.getItem('adminPass')) {
   hideLogin();
   initApp();
 }
+
+// Remover splash del DOM al terminar animacion
+const splashEl = document.getElementById('splash');
+if (splashEl) {
+  splashEl.addEventListener('animationend', () => splashEl.remove());
+}
 </script>
+</div><!-- /main row -->
 </body>
 </html>
