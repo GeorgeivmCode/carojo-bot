@@ -289,13 +289,21 @@
     color: #7dd8fc;
   }
 
-  .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+  .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; display: flex; flex-direction: column; gap: 4px; position: relative; }
   .chat-watermark {
-    position: absolute; inset: 0; pointer-events: none; z-index: 0;
-    background: url('/logo.png') center center / 55% auto no-repeat;
-    opacity: 0; transition: opacity .3s;
+    position: sticky; top: 0; height: 0; overflow: visible;
+    pointer-events: none; z-index: 0; align-self: center;
   }
-  .chat-panel.chat-open .chat-watermark { opacity: 0.08; }
+  .chat-watermark::after {
+    content: '';
+    position: absolute;
+    top: 50vh; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 55vw; max-width: 500px;
+    aspect-ratio: 1681/635;
+    background: url('/logo.png') center / contain no-repeat;
+    opacity: 0.08;
+  }
   .chat-messages::-webkit-scrollbar { width: 3px; }
   .chat-messages::-webkit-scrollbar-thumb { background: rgba(56,189,248,.2); border-radius: 2px; }
 
@@ -809,7 +817,6 @@
 
 <!-- Chat Panel -->
 <section class="chat-panel" id="chatPanel">
-  <div class="chat-watermark"></div>
   <div class="chat-empty" id="chatEmpty">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
     <p>Selecciona una conversacion</p>
@@ -829,7 +836,7 @@
       </div>
     </div>
 
-    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-messages" id="chatMessages"><div class="chat-watermark"></div></div>
 
     <div class="chat-footer">
       <div class="cmd-panel" id="quickReplies">
@@ -1114,7 +1121,6 @@ function updateContactInList(c) {
 async function selectContact(phone) {
   currentPhone = phone;
   document.getElementById('chatEmpty').style.display = 'none';
-  document.getElementById('chatPanel').classList.add('chat-open');
   const cc = document.getElementById('chatContent');
   cc.style.display = 'flex';
   cc.style.flexDirection = 'column';
