@@ -887,7 +887,9 @@ async function handlePostDelivery(contact, text) {
     }
     // Dudoso: quiere pero aplaza — urgencia con regalo si va al Diamante
     const isDelaying = ['después', 'despues', 'luego', 'mas tarde', 'más tarde', 'mañana', 'manana',
-      'ahorita', 'pensarlo', 'le aviso', 'aviso', 'otro dia', 'otro día'].some(w => text.includes(w));
+      'ahorita', 'pensarlo', 'le aviso', 'aviso', 'otro dia', 'otro día',
+      'por el momento', 'por ahora', 'de momento', 'asi estoy bien', 'así estoy bien',
+      'estoy bien asi', 'estoy bien así'].some(w => text.includes(w));
     if (isDelaying) {
       if (contact.pack_selected === 'basico') {
         await sendAndSave(phone,
