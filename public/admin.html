@@ -59,13 +59,12 @@
   }
   /* wrapper aplica el glow, img aplica el blend — separados para evitar corte */
   #splash .splash-logo-wrap {
-    width: min(400px, 78vw);
-    filter: drop-shadow(0 0 28px rgba(56,189,248,.85)) drop-shadow(0 0 56px rgba(247,37,133,.65));
+    width: min(420px, 80vw);
+    filter: drop-shadow(0 0 12px #38bdf8) drop-shadow(0 0 28px #38bdf8) drop-shadow(0 0 12px #f72585) drop-shadow(0 0 32px #f72585);
     animation: splashLogoIn .7s ease-out forwards;
   }
   #splash .splash-logo-wrap img {
     width: 100%; height: auto; display: block;
-    mix-blend-mode: screen;
   }
   #splash .splash-sub {
     font-family: 'Share Tech Mono', monospace;
@@ -83,8 +82,7 @@
   }
   .contact-list-logo img {
     width: 100%; max-width: 260px; height: auto;
-    mix-blend-mode: screen;
-    filter: drop-shadow(0 0 10px rgba(56,189,248,.7)) drop-shadow(0 0 18px rgba(247,37,133,.45));
+    filter: drop-shadow(0 0 8px #38bdf8) drop-shadow(0 0 16px #38bdf8) drop-shadow(0 0 8px #f72585) drop-shadow(0 0 20px #f72585);
   }
 
   body {
