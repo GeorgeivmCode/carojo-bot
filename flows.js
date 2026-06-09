@@ -875,12 +875,22 @@ async function handlePostDelivery(contact, text) {
 
   // Upsell: cliente respondio al mensaje de agregar cursos
   if (contact.upsell_sent && !contact.upgrade_target && contact.pack_selected !== 'diamante') {
+
+    // Si ya se envio la semilla de duda y vuelve a rechazar → despedida amable
+    const recentMsgs = db.getRecentMessages(phone, 4);
+    const lastBot = recentMsgs.filter(m => m.direction === 'out')[0];
+    const yaSemilla = lastBot && lastBot.content.includes('Cuando quieras puedes completarlo al MEGA PACK DIAMANTE');
+
     // Despedida o cierre cortés — no re-activar upsell (ej: "Listo", "Ok, adios", "Gracias", "Chao")
     const isFarewell = ['adios', 'adiós', 'chao', 'bye', 'hasta luego', 'nos vemos'].some(w => text.includes(w));
     const isClosingOnly = text === 'listo' || text === 'ok' || text === 'gracias' || text === 'perfecto' ||
       text === 'entendido' || text === 'claro' || text === 'bueno' || text === 'bien' ||
       text === 'de nada' || text === 'dale' || text === 'jajaja' || text === 'jaja' || text === '👍';
     if (isFarewell || isClosingOnly) {
+      if (yaSemilla) {
+        await sendAndSave(phone, 'Perfecto! 💛 Que disfrutes mucho tu pack. Aqui estaremos cuando lo necesites. Hasta pronto! 🌸');
+        return;
+      }
       if (contact.pack_selected === 'basico') {
         await sendAndSave(phone, 'Entendido! 💛 Disfruta tu Pack Basico. Cuando quieras puedes completarlo al MEGA PACK DIAMANTE — 4 cursos mas + un curso de regalo GRATIS que escoges tu misma. Solo escríbeme y lo vemos 💎');
       } else {
@@ -918,6 +928,10 @@ async function handlePostDelivery(contact, text) {
     }
     const rejectsUpgrade = hasWord(text, NO_WORDS) || ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
     if (rejectsUpgrade) {
+      if (yaSemilla) {
+        await sendAndSave(phone, 'Perfecto! 💛 Que disfrutes mucho tu pack. Aqui estaremos cuando lo necesites. Hasta pronto! 🌸');
+        return;
+      }
       if (contact.pack_selected === 'basico') {
         await sendAndSave(phone, 'Entendido! 💛 Disfruta tu Pack Basico. Cuando quieras puedes completarlo al MEGA PACK DIAMANTE — 4 cursos mas + un curso de regalo GRATIS que escoges tu misma. Solo escríbeme y lo vemos 💎');
       } else {
