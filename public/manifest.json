@@ -1,23 +1,23 @@
 {
-  "name": "Carojo Bot Panel",
-  "short_name": "CarojoBot",
+  "name": "CarojoChat Panel",
+  "short_name": "CarojoChat",
   "description": "Panel de administracion del bot de WhatsApp",
   "start_url": "/admin.html",
   "display": "standalone",
-  "background_color": "#111b21",
-  "theme_color": "#00a884",
+  "background_color": "#0f0f1a",
+  "theme_color": "#38bdf8",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/icon.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]
