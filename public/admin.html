@@ -231,7 +231,7 @@
   #sheetPanel iframe { flex: 1; border: none; width: 100%; height: 100%; }
 
   /* ── Chat ── */
-  .chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+  .chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); position: relative; }
   .chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--sub); gap: 12px; }
   .chat-empty svg { width: 80px; height: 80px; opacity: .15; filter: drop-shadow(0 0 8px var(--green)); }
   .chat-header {
@@ -287,9 +287,12 @@
     color: #7dd8fc;
   }
 
-  .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; display: flex; flex-direction: column; gap: 4px; position: relative; }
-  .chat-messages::before { content: ''; position: absolute; inset: 0; background: url('/logo.png') center center / 55% auto no-repeat; opacity: 0.12; pointer-events: none; z-index: 0; mix-blend-mode: screen; filter: brightness(2); }
-  .chat-messages > * { position: relative; z-index: 1; }
+  .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+  .chat-watermark {
+    position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background: url('/logo.png') center center / 55% auto no-repeat;
+    mix-blend-mode: screen; opacity: 0.18;
+  }
   .chat-messages::-webkit-scrollbar { width: 3px; }
   .chat-messages::-webkit-scrollbar-thumb { background: rgba(56,189,248,.2); border-radius: 2px; }
 
@@ -803,6 +806,7 @@
 
 <!-- Chat Panel -->
 <section class="chat-panel" id="chatPanel">
+  <div class="chat-watermark"></div>
   <div class="chat-empty" id="chatEmpty">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>
     <p>Selecciona una conversacion</p>
