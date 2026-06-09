@@ -332,7 +332,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   if (contact.state === 'old_client') return;
 
   // Salir — detiene remarketing pero deja el bot activo por si vuelve
-  if (['salir', 'stop', 'no gracias', 'no me interesa', 'para', 'detener'].includes(text)) {
+  if (text === 'salir') {
     db.updateContact(phone, { state: 'stopped' });
     await sendAndSave(phone, STOPPED_MSG);
     return;
@@ -469,7 +469,12 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         break;
       }
       if (wantsOro) {
-        if (contact.pack_selected !== 'oro') {
+        // Si ya tiene Diamante y pregunta por Oro → Carol intenta retenerla antes de bajar
+        if (contact.pack_selected === 'diamante') {
+          const history = db.getRecentMessages(phone, 8);
+          const ctx = '[CONTEXTO INTERNO: La clienta YA tiene el MEGA PACK DIAMANTE seleccionado ($15.000) y está preguntando por el Oro. Muéstrale la diferencia de valor — lo que pierde si baja al Oro — e intenta retenerla en Diamante. Si insiste explícitamente en el Oro después de tu explicación, entonces acepta. NO cambies el pack automáticamente.]';
+          await sendAndSave(phone, await carol(history, ctx + '\n\nMensaje de la clienta: ' + text));
+        } else if (contact.pack_selected !== 'oro') {
           db.updateContact(phone, { pack_selected: 'oro' });
           await sendAndSave(phone, ORO_DETAILS);
         } else {
@@ -699,6 +704,8 @@ async function handleComprobante(contact, mediaContent) {
         );
       }
       return;
+    } else if (razon_rechazo === 'confirmacion_previa') {
+      await sendAndSave(phone, 'Si, esos datos estan perfectos! 💛 Ya puedes darle "Enviar". Cuando te aparezca la pantalla de confirmacion del pago me la mandas aqui y listo. 📲');
     } else if (razon_rechazo === 'comprobante_falso') {
       await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
     } else if (razon_rechazo === 'fecha_incorrecta') {
@@ -794,8 +801,10 @@ async function handleEmail(contact, emailText) {
     }
 
     // Todo lo demás (deferral, confusión, preguntas, etc.) → Carol con historial completo
+    // Contexto invisible: recordarle a Carol que la clienta ya pagó y solo necesita el Gmail
     const history = db.getRecentMessages(phone, 8);
-    const reply = await carol(history, emailText);
+    const ctxEmail = '[CONTEXTO INTERNO: Esta clienta YA PAGÓ su pack. Está en el paso final de dar su Gmail para recibir el acceso. NO ofrezcas packs ni preguntes qué pack quiere. Solo ayúdala a conseguir o escribir su correo Gmail.]';
+    const reply = await carol(history, ctxEmail + '\n\nMensaje de la clienta: ' + emailText);
     await sendAndSave(phone, reply);
     return;
   }
@@ -893,6 +902,15 @@ async function handlePostDelivery(contact, text) {
     }
     const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
       'me interesa', 'cuanto', 'cuánto', 'si quiero', 'sí quiero'].some(w => text.includes(w));
+    // Soporte post-venta — detectar antes del rechazo para no confundir "no me llegó" con "no quiero"
+    const needsSupport = ['no me llegó', 'no me llego', 'no llegó', 'no llego', 'no recibí', 'no recibi',
+      'no tengo acceso', 'no puedo abrir', 'no me aparece', 'no funciona', 'no abre',
+      'no me ha llegado', 'no me mandaron', 'no encuentro', 'no me dio'].some(w => text.includes(w));
+    if (needsSupport) {
+      const history = db.getRecentMessages(phone, 8);
+      await sendAndSave(phone, await carol(history, text));
+      return;
+    }
     const rejectsUpgrade = hasWord(text, NO_WORDS) || ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
     if (rejectsUpgrade) {
       await sendAndSave(phone, 'Entendido! 💛 Disfruta tu pack. Si en algun momento quieres agregar mas cursos aqui estoy.');

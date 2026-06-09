@@ -517,7 +517,8 @@ razon_rechazo:
 - "fecha_incorrecta" → fecha del comprobante es claramente de un dia anterior
 - "monto_invalido" → monto no es 5000/10000/15000
 - "destinatario_invalido" → nombre/numero claramente no coincide
-- "transaccion_no_exitosa" → estado fallida, pendiente, o imagen que muestra una pantalla de CONFIRMACION PREVIA al pago (con botones como "Pasar Plata", "Confirmar", "Aceptar", "Modificar") — estas pantallas muestran que el pago AUN NO se ha ejecutado
+- "confirmacion_previa" → pantalla que muestra los datos ANTES de ejecutar el pago. Señales: título "Revisa los datos antes de enviar la plata" o "Resumen del envío", botones visibles como "Enviar", "Corregir datos", "Pasar Plata", "Confirmar", "Aceptar" — el pago AUN NO se ha realizado. Diferente al comprobante real que dice "Envio Realizado" o "Detalle del movimiento"
+- "transaccion_no_exitosa" → estado fallida o pendiente en un comprobante real
 - "imagen_no_legible" → es un comprobante bancario real pero no se puede leer bien
 
 Responde SOLO en JSON (sin texto adicional):
