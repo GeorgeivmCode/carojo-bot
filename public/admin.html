@@ -289,21 +289,19 @@
     color: #7dd8fc;
   }
 
-  .chat-messages { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; display: flex; flex-direction: column; gap: 4px; position: relative; }
-  .chat-watermark {
-    position: sticky; top: 0; height: 0; overflow: visible;
-    pointer-events: none; z-index: 0; align-self: center;
+  .chat-messages {
+    flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px;
+    display: flex; flex-direction: column; gap: 4px;
+    position: relative;
   }
-  .chat-watermark::after {
+  .chat-messages::before {
     content: '';
-    position: absolute;
-    top: 50vh; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 55vw; max-width: 500px;
-    aspect-ratio: 1681/635;
-    background: url('/logo.png') center / contain no-repeat;
+    position: absolute; inset: 0;
+    background: url('/logo.png') center center / 55% auto no-repeat;
     opacity: 0.08;
+    pointer-events: none;
   }
+  .chat-messages > * { position: relative; z-index: 1; }
   .chat-messages::-webkit-scrollbar { width: 3px; }
   .chat-messages::-webkit-scrollbar-thumb { background: rgba(56,189,248,.2); border-radius: 2px; }
 
@@ -836,7 +834,7 @@
       </div>
     </div>
 
-    <div class="chat-messages" id="chatMessages"><div class="chat-watermark"></div></div>
+    <div class="chat-messages" id="chatMessages"></div>
 
     <div class="chat-footer">
       <div class="cmd-panel" id="quickReplies">
