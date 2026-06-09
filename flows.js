@@ -370,7 +370,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
           (contact.pack_selected === 'oro' ? 'diamante' :
            contact.pack_selected === 'basico' ? 'diamante' : null);
         if (upgradeTarget) {
-          db.updateContact(phone, { state: 'awaiting_upgrade_comprobante', upgrade_target: upgradeTarget });
+          db.updateContact(phone, { state: 'awaiting_upgrade_comprobante', upgrade_target: upgradeTarget, tag: 'Upgrade' });
           contact = db.getContact(phone);
           await handleUpgradeComprobante(contact, msgType, content);
           return;
@@ -958,17 +958,17 @@ async function handlePostDelivery(contact, text) {
       if (contact.pack_selected === 'basico') {
         // Si ya menciona un pack especifico, ir directo
         if (text.includes('diamante') || text === '1') {
-          db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante' });
+          db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
           await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(10000, 'MEGA PACK DIAMANTE'));
         } else if (text.includes('oro') || text === '2') {
-          db.updateContact(phone, { upgrade_target: 'oro', state: 'awaiting_upgrade_comprobante' });
+          db.updateContact(phone, { upgrade_target: 'oro', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
           await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(5000, 'SUPERPACK ORO'));
         } else {
           await sendAndSave(phone, UPGRADE_CHOICE_BASICO);
         }
         return;
       } else if (contact.pack_selected === 'oro') {
-        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante' });
+        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
         await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(5000, 'MEGA PACK DIAMANTE'));
         return;
       }
@@ -976,12 +976,12 @@ async function handlePostDelivery(contact, text) {
     // Despues del UPGRADE_CHOICE_BASICO, cliente elige pack
     if (contact.pack_selected === 'basico' && !contact.upgrade_target) {
       if (text.includes('diamante') || text === '1') {
-        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante' });
+        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
         await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(10000, 'MEGA PACK DIAMANTE'));
         return;
       }
       if (text.includes('oro') || text === '2') {
-        db.updateContact(phone, { upgrade_target: 'oro', state: 'awaiting_upgrade_comprobante' });
+        db.updateContact(phone, { upgrade_target: 'oro', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
         await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(5000, 'SUPERPACK ORO'));
         return;
       }
@@ -1155,14 +1155,14 @@ async function handleUpgradeComprobante(contact, msgType, content) {
     }, 30 * 1000); // 30 segundos después de la entrega
   }
 
-  // Actualizar fila del sheet con el nuevo pack y monto total
+  // Actualizar fila del sheet: pack nuevo + sumar solo el diferencial (no el precio completo)
   if (GAS_SHEETS_URL) {
     try {
       await axios.post(GAS_SHEETS_URL, {
-        action:   'update',
-        telefono: phone,
-        pack:     upgradeTarget,
-        monto:    PACK_PRICES[upgradeTarget] || 0
+        action:      'upgrade',
+        telefono:    phone,
+        pack:        upgradeTarget,
+        diferencial: diferencial
       }, { timeout: 10000 });
     } catch (e) {
       console.error('Sheets update error:', e.message);
