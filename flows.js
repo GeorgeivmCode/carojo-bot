@@ -536,8 +536,9 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         }
         break;
       }
-      // Frases de cortesia/confirmacion simples — ignorar silenciosamente, ya se mandaron los datos
-      const isPolite = /^(por favor|porfa|porfavor|dale|ok|listo|gracias|si|sí|claro|perfecto|entendido|bueno|okey|oka|okay)[\s.!]*$/i.test(text);
+      // "por favor" solo — cortesia pura que no es respuesta a ninguna pregunta
+      // No incluir si/dale/listo/claro porque pueden ser respuesta a una pregunta de Carol
+      const isPolite = /^(por favor|porfa|porfavor)[\s.!]*$/i.test(text);
       if (isPolite) break;
 
       // Cliente vuelve después de un rato queriendo pagar — re-enviar datos del pack ya seleccionado
