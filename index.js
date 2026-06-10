@@ -485,7 +485,7 @@ app.get('/api/contacts', adminAuth, (req, res) => {
 
 app.get('/api/contacts/:phone/messages', adminAuth, (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
-  res.json(db.getMessages(req.params.phone, 60));
+  res.json(db.getMessages(req.params.phone, 200));
 });
 
 app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
