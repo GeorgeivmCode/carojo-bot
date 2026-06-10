@@ -503,8 +503,27 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         }
         break;
       }
+      // Cliente vuelve después de un rato queriendo pagar — re-enviar datos del pack ya seleccionado
+      const wantsToPay = ['enviar la plata', 'enviar de una', 'de una la plata', 'mandar la plata',
+        'mandarte la plata', 'hacer el pago', 'ya voy a pagar', 'voy a enviar', 'voy a mandar',
+        'quiero pagar ya', 'ya puedo pagar', 'ya tengo para', 'ahorita le envio', 'ahorita le envío',
+        'ahora le envio', 'ahora le envío', 'ya le mando', 'voy a transferir', 'ya transferi',
+        'ya transferí', 'enviar ahora', 'pagar ahora', 'ya voy'].some(p => text.includes(p));
+      if (wantsToPay && contact.pack_selected) {
+        const packMsg = contact.pack_selected === 'diamante' ? DIAMANTE_DETAILS :
+                        contact.pack_selected === 'oro' ? ORO_DETAILS : BASICO_DETAILS;
+        await sendAndSave(phone, packMsg);
+        break;
+      }
       const history = db.getRecentMessages(phone, 8);
-      await sendAndSave(phone, await carol(history, text));
+      // Inyectar contexto del pack ya seleccionado para que Carol no pregunte de nuevo
+      const packLabel = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE ($15.000)' :
+                        contact.pack_selected === 'oro' ? 'SUPERPACK ORO ($10.000)' :
+                        contact.pack_selected === 'basico' ? 'PACK BÁSICO ($5.000)' : null;
+      const carolText = packLabel
+        ? `[CONTEXTO INTERNO: Esta clienta YA eligió el ${packLabel}. Solo necesita enviar el comprobante de pago. NO preguntes qué pack quiere — ya está confirmado. Responde en ese contexto.]\n\n${text}`
+        : text;
+      await sendAndSave(phone, await carol(history, carolText));
       break;
     }
     case 'awaiting_email':
