@@ -215,8 +215,8 @@
     background: var(--steel-light), var(--steel-texture), var(--steel-base);
   }
   .sidenav-logo { display: none; }
-  .nav-icon { width: 44px; min-height: 52px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; color: var(--sub); transition: all .2s; font-size: 18px; border: 1px solid transparent; font-family: 'Share Tech Mono', monospace; letter-spacing: .05em; }
-  .nav-icon span.nav-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; line-height: 1; }
+  .nav-icon { width: 44px; min-height: 52px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; color: var(--sub); transition: all .2s; border: 1px solid transparent; font-family: 'Share Tech Mono', monospace; writing-mode: vertical-rl; text-orientation: mixed; }
+  .nav-icon span.nav-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .15em; line-height: 1; writing-mode: vertical-lr; text-orientation: mixed; transform: rotate(180deg); }
   .nav-icon:hover { background: var(--hover); color: var(--text); border-color: var(--border); }
   .nav-icon.active { color: var(--green); background: rgba(0,229,160,.08); border-color: rgba(0,229,160,.3); box-shadow: 0 0 14px rgba(0,229,160,.25), inset 0 0 8px rgba(0,229,160,.06); text-shadow: 0 0 8px rgba(0,229,160,.8); }
   .nav-spacer { flex: 1; }
@@ -814,8 +814,8 @@
 
 <!-- Left Nav -->
 <nav class="sidenav">
-  <div class="nav-icon active" id="nav-chats" onclick="showTab('chats')"><span>💬</span><span class="nav-label">CHATS</span></div>
-  <div class="nav-icon" id="nav-ventas" onclick="showTab('ventas')"><span>📊</span><span class="nav-label">SHEET</span></div>
+  <div class="nav-icon active" id="nav-chats" onclick="showTab('chats')"><span class="nav-label">CHATS</span></div>
+  <div class="nav-icon" id="nav-ventas" onclick="showTab('ventas')"><span class="nav-label">SHEET</span></div>
   <div class="nav-spacer"></div>
 
   <!-- Stats mini — solo visible en mobile -->
