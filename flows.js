@@ -536,11 +536,6 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         }
         break;
       }
-      // "por favor" solo — cortesia pura que no es respuesta a ninguna pregunta
-      // No incluir si/dale/listo/claro porque pueden ser respuesta a una pregunta de Carol
-      const isPolite = /^(por favor|porfa|porfavor)[\s.!]*$/i.test(text);
-      if (isPolite) break;
-
       // Cliente vuelve después de un rato queriendo pagar — re-enviar datos del pack ya seleccionado
       const wantsToPay = ['enviar la plata', 'enviar de una', 'de una la plata', 'mandar la plata',
         'mandarte la plata', 'hacer el pago', 'ya voy a pagar', 'voy a enviar', 'voy a mandar',
