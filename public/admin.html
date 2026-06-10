@@ -1279,10 +1279,10 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
     try {
       const parsed = JSON.parse(content);
       const mime = parsed.mimeType || 'image/jpeg';
-      body = `<img class="bubble-img" src="data:${mime};base64,${parsed.buffer}" alt="Comprobante">`;
+      body = `<img class="bubble-img" src="data:${mime};base64,${parsed.buffer}" alt="Comprobante" onclick="openLightbox(this.src)">`;
     } catch {
       if (content && (content.startsWith('https://') || content.startsWith('http://'))) {
-        body = `<img class="bubble-img" src="${escHtml(content)}" alt="Imagen">`;
+        body = `<img class="bubble-img" src="${escHtml(content)}" alt="Imagen" onclick="openLightbox(this.src)">`;
       } else {
         body = '[imagen]';
       }
@@ -1851,6 +1851,20 @@ const splashEl = document.getElementById('splash');
 if (splashEl) {
   splashEl.addEventListener('animationend', () => splashEl.remove());
 }
+</script>
+<div id="lightbox" onclick="closeLightbox()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;cursor:zoom-out;">
+  <img id="lightbox-img" src="" style="max-width:95vw;max-height:95vh;border-radius:8px;box-shadow:0 0 40px rgba(0,229,160,.3);">
+</div>
+<script>
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lightbox-img').src = src;
+  lb.style.display = 'flex';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 </script>
 </body>
 </html>
