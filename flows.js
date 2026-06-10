@@ -381,20 +381,13 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
       return;
     }
-    if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'new' || contact.state === 'awaiting_choice' || contact.state === 'awaiting_upgrade_comprobante') {
-      // Si está en 'new', revisar mensajes recientes por si es cliente antiguo
-      if (contact.state === 'new') {
-        const recentMsgs = db.getRecentMessages(phone, 4);
-        const hadOldTrigger = recentMsgs
-          .filter(m => m.direction === 'in' && m.type === 'text')
-          .some(m => OLD_CLIENT_TRIGGERS.some(t => m.content.toLowerCase().includes(t)));
-        if (hadOldTrigger) {
-          await sendAndSave(phone, PLANTILLA_ACCESO);
-          db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
-          await notifyJorge(contact, `CLIENTE ANTIGUO (envio imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
-          return;
-        }
-      }
+    // Estado new o awaiting_choice: no hay pack seleccionado, no procesar como comprobante
+    if (contact.state === 'new' || contact.state === 'awaiting_choice') {
+      await sendAndSave(phone, WELCOME_MESSAGE);
+      db.updateContact(phone, { state: 'awaiting_choice' });
+      return;
+    }
+    if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'awaiting_upgrade_comprobante') {
       if (contact.state === 'awaiting_upgrade_comprobante') {
         await handleUpgradeComprobante(contact, msgType, content);
       } else {
