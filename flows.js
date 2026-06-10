@@ -77,12 +77,27 @@ function isFechaAnterior(fechaText) {
     return dia !== hoyDia || mes !== hoyMes || anio !== hoyAnio;
   }
 
-  // Formato: "29/05/2026" o "29-05-2026"
+  // Formato: "29/05/2026" o "29-05-2026" (DD/MM/YYYY)
   const m2 = text.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if (m2) {
     const dia  = parseInt(m2[1]);
     const mes  = parseInt(m2[2]);
     const anio = parseInt(m2[3]);
+    return dia !== hoyDia || mes !== hoyMes || anio !== hoyAnio;
+  }
+
+  // Formato ingles: "JUN 10 2026" o "Jun 10, 2026" (Wompi/Corresponsal)
+  const mesesEn = {
+    jan:1, feb:2, mar:3, apr:4, may:5, jun:6,
+    jul:7, aug:8, sep:9, oct:10, nov:11, dec:12,
+    january:1, february:2, march:3, april:4, june:6,
+    july:7, august:8, september:9, october:10, november:11, december:12
+  };
+  const m3 = text.match(/([a-z]+)\s+(\d{1,2})[,\s]+(\d{4})/i);
+  if (m3 && mesesEn[m3[1].toLowerCase()]) {
+    const mes  = mesesEn[m3[1].toLowerCase()];
+    const dia  = parseInt(m3[2]);
+    const anio = parseInt(m3[3]);
     return dia !== hoyDia || mes !== hoyMes || anio !== hoyAnio;
   }
 

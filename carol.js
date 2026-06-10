@@ -442,8 +442,8 @@ async function verifyPayment(imageBuffer, mimeType, packSelected) {
     : { type: 'image',    source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBuffer.toString('base64') } };
 
   const today = new Date().toLocaleDateString('es-CO', {
-    timeZone: 'America/Bogota', day: '2-digit', month: '2-digit', year: 'numeric'
-  });
+    timeZone: 'America/Bogota', day: 'numeric', month: 'long', year: 'numeric'
+  }); // ej: "10 de junio de 2026" — formato sin ambiguedad MM/DD vs DD/MM
 
   const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -491,7 +491,7 @@ Extrae:
 1. Monto pagado. Formato colombiano: $5.000 o $5.000,00 = 5000. $10.000 = 10000. $15.000 = 15000. Ignora puntos de miles y comas decimales. El valor debe ser 5000, 10000 o 15000.
 2. Numero destinatario (debe ser 3058989359 o 3217239198) — leelo digito por digito
 3. Nombre destinatario — incluyendo nombres enmascarados con asteriscos
-4. Fecha de la transaccion — dia, mes y año exactos
+4. Fecha de la transaccion — escrita en español como "10 de junio de 2026". Si ves formato ingles como "JUN 10 2026" o "06/10/2026", conviertelo a ese formato español escrito
 5. Estado de la transaccion
 6. Nombre exacto de la app/banco usada para pagar
 
@@ -513,7 +513,7 @@ FECHA: Si no es legible o no aparece → no rechaces por fecha, pero si no hay n
 valido = true SOLO si: monto correcto + al menos NUMERO + (NOMBRE o FECHA) + transaccion exitosa.
 
 VALIDACION DE FECHA:
-- La fecha de hoy es ${today} (formato DD/MM/AAAA, hora Colombia).
+- La fecha de hoy es ${today} (hora Colombia).
 - Si la fecha del comprobante ES visible y legible: compara dia, mes Y año con la fecha de hoy.
 - Si el DIA, MES o AÑO del comprobante es diferente a hoy → valido = false, razon_rechazo = "fecha_incorrecta"
 - Ejemplos: hoy es ${today}. "23 de abril de 2026" → RECHAZAR (mes diferente). "25 de mayo de 2026" → RECHAZAR (dia diferente). Mismo dia/mes/año → ACEPTAR.
