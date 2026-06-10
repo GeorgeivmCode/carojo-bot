@@ -394,7 +394,7 @@ app.post('/webhook', verifySignature, async (req, res) => {
         }
         afterProcess(phone, beforeState);
       });
-    }, 1500);
+    }, 3000);
 
   } else {
     // Imagen, audio, video, documento — procesar inmediatamente en cola
