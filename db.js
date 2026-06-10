@@ -57,6 +57,7 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN email TEXT DEFAULT ''`); } catch 
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_wamid ON messages(wamid)`); } catch (_) {}
 try { db.exec(`ALTER TABLE messages ADD COLUMN reply_to TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE messages ADD COLUMN golden INTEGER DEFAULT 0`); } catch (_) {}
 
 // Settings table for VAPID keys and push subscriptions
 db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
@@ -157,6 +158,24 @@ function getRecentMessages(phone, limit = 10) {
   `).all(phone, limit);
 }
 
+// Golden examples
+function markGolden(id) {
+  db.prepare(`UPDATE messages SET golden = 1 - golden WHERE id = ?`).run(id);
+}
+
+function getGoldenExamples(limit = 8) {
+  return db.prepare(`
+    SELECT m.id, m.content as bot_msg,
+      (SELECT content FROM messages
+       WHERE phone = m.phone AND direction = 'in' AND id < m.id
+       ORDER BY id DESC LIMIT 1) as user_msg
+    FROM messages m
+    WHERE m.golden = 1 AND m.direction = 'out'
+    ORDER BY m.id DESC
+    LIMIT ?
+  `).all(limit);
+}
+
 // Remarketing queries
 function getContactsForR1() {
   const cutoff = new Date(Date.now() - 35 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
@@ -211,5 +230,6 @@ module.exports = {
   searchContacts, getContactsByTag, getUnreadContacts,
   saveMessage, getMessages, getRecentMessages, getLastInboundWamid, updateMessageStatus,
   getContactsForR1, getContactsForR2,
-  getStats, getSetting, setSetting, now
+  getStats, getSetting, setSetting, now,
+  markGolden, getGoldenExamples
 };

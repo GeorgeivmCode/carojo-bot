@@ -699,6 +699,13 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/messages/:id/mark-golden', adminAuth, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'id invalido' });
+  db.markGolden(id);
+  res.json({ ok: true });
+});
+
 app.post('/api/contacts/:phone/mark-fraud', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const phone = req.params.phone;

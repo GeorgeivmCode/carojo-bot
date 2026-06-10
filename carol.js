@@ -437,7 +437,7 @@ async function withRetry(fn, label = 'API') {
   }
 }
 
-async function carolRespond(history, userMessage) {
+async function carolRespond(history, userMessage, goldenExamples = []) {
   const messages = history
     .filter(m => m.type === 'text' || !m.type)
     .map(m => ({
@@ -456,10 +456,34 @@ async function carolRespond(history, userMessage) {
     messages.push({ role: 'user', content: userMessage });
   }
 
+  // Construir system prompt con ejemplos dorados si hay
+  let systemText = SYSTEM_PROMPT;
+  if (goldenExamples.length > 0) {
+    const ejemplos = goldenExamples
+      .filter(e => e.user_msg && e.bot_msg)
+      .map(e => {
+        const botMsg = (() => {
+          try {
+            const p = JSON.parse(e.bot_msg);
+            return p.buffer ? '[imagen]' : e.bot_msg;
+          } catch { return e.bot_msg; }
+        })();
+        return `Cliente: "${e.user_msg}"\nCarol: "${botMsg}"`;
+      })
+      .join('\n---\n');
+    if (ejemplos) {
+      systemText += `\n\n═══════════════════════════════════════════
+EXPERIENCIA REAL — RESPUESTAS TUYAS QUE HAN FUNCIONADO CON CLIENTES COLOMBIANOS:
+${ejemplos}
+Usa estas como referencia de tono, extension y argumentos que resonaron con clientes reales. No las copies literalmente — adaptalas a cada conversacion.
+═══════════════════════════════════════════`;
+    }
+  }
+
   const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1000,
-    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+    system: [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral' } }],
     messages
   }), 'carol');
 

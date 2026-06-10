@@ -16,7 +16,8 @@ function generateAccessToken(phone, pack) {
 }
 
 async function carol(history, text) {
-  const raw = await carolRespond(history, text);
+  const golden = db.getGoldenExamples(6);
+  const raw = await carolRespond(history, text, golden);
   const parts = raw.split('---SPLIT---').map(p => p.trim()).filter(Boolean);
   return parts.length > 1 ? parts : raw;
 }

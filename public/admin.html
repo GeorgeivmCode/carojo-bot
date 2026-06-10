@@ -362,6 +362,10 @@
   .msg-status.read     { color: var(--blue); text-shadow: 0 0 6px var(--blue); }
   .msg-status.failed   { color: var(--red); }
   .bubble-img { max-width: 220px; border-radius: 6px; cursor: pointer; }
+  .star-btn { position:absolute; left:-22px; top:4px; background:none; border:none; cursor:pointer; font-size:16px; color:rgba(255,255,255,.25); line-height:1; padding:0; transition:color .2s; }
+  .star-btn:hover { color:#f5c518; }
+  .star-btn.golden { color:#f5c518; text-shadow:0 0 8px #f5c518; }
+  .bubble-wrap.out { position:relative; }
   .date-divider { text-align: center; color: var(--sub); font-size: 11px; padding: 8px 0; font-family: 'Share Tech Mono', monospace; letter-spacing: .08em; }
 
   .chat-footer {
@@ -1243,7 +1247,7 @@ async function loadMessages(phone) {
       el.insertAdjacentHTML('beforeend', `<div class="date-divider">${formatDate(raw)}</div>`);
       lastDate = d;
     }
-    appendBubble(m.direction, m.type, m.content, m.created_at, false, m.wamid || '', m.status || '', m.reply_to || '', msgs);
+    appendBubble(m.direction, m.type, m.content, m.created_at, false, m.wamid || '', m.status || '', m.reply_to || '', msgs, m.id, m.golden);
   }
   scrollBottom();
 }
@@ -1257,7 +1261,7 @@ function statusIcon(status) {
   return '';
 }
 
-function appendBubble(direction, type, content, ts, scroll = true, wamid = '', status = '', reply_to = '', allMsgs = []) {
+function appendBubble(direction, type, content, ts, scroll = true, wamid = '', status = '', reply_to = '', allMsgs = [], msgId = 0, golden = 0) {
   const el = document.getElementById('chatMessages');
   const dir = direction === 'out' ? 'out' : 'in';
   const time = ts ? new Date(ts.replace(' ','T')+'Z').toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',timeZone:'America/Bogota'}) : '';
@@ -1293,9 +1297,13 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
 
   const statusHtml = dir === 'out' ? statusIcon(status) : '';
   const wamidAttr  = wamid ? ` data-wamid="${escHtml(wamid)}"` : '';
+  const starBtn = (dir === 'out' && msgId)
+    ? `<button class="star-btn${golden ? ' golden' : ''}" onclick="toggleGolden(${msgId},this)" title="Marcar como ejemplo dorado">★</button>`
+    : '';
 
   el.insertAdjacentHTML('beforeend', `
     <div class="bubble-wrap ${dir}"${wamidAttr}>
+      ${starBtn}
       <div class="bubble">${replyHtml}${body}<div class="bubble-time"><span>${time}</span>${statusHtml}</div></div>
     </div>`);
   if (scroll) scrollBottom();
@@ -1856,6 +1864,13 @@ if (splashEl) {
   <img id="lightbox-img" src="" style="max-width:95vw;max-height:95vh;border-radius:8px;box-shadow:0 0 40px rgba(0,229,160,.3);">
 </div>
 <script>
+async function toggleGolden(id, btn) {
+  const res = await apiFetch(`/api/messages/${id}/mark-golden`, { method: 'POST' });
+  if (!res) return;
+  btn.classList.toggle('golden');
+  showToast(btn.classList.contains('golden') ? '⭐ Ejemplo dorado guardado' : 'Ejemplo removido', 'success');
+}
+
 function openLightbox(src) {
   const lb = document.getElementById('lightbox');
   document.getElementById('lightbox-img').src = src;
