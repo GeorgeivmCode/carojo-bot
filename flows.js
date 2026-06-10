@@ -437,7 +437,8 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // y el mostrario se agrega como complemento despues de la respuesta de Carol
   let sendMostrarioAfter = false;
   let sendTestimoniosAfter = false;
-  if (msgType === 'text') {
+  const stateBlocksGallery = ['delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client'];
+  if (msgType === 'text' && !stateBlocksGallery.includes(contact.state)) {
     const tl = text.toLowerCase();
     if (MOSTRARIO_TRIGGERS.some(t => tl.includes(t))) {
       sendMostrarioAfter = true;
