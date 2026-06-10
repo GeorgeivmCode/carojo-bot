@@ -405,6 +405,16 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     return;
   }
 
+  // Cliente que vuelve desde un anuncio nuevo — reiniciar flujo en cualquier estado
+  // excepto si ya está en medio de un pago activo (awaiting_comprobante, awaiting_email)
+  if (msgType === 'text' && text === 'quiero el curso de timoteo' &&
+      !['awaiting_comprobante', 'awaiting_email', 'awaiting_upgrade_comprobante'].includes(contact.state)) {
+    db.updateContact(phone, { state: 'new', bot_active: 1, r1_sent: 0, r2_sent: 0, pack_selected: null, upgrade_target: null, upsell_sent: 0 });
+    contact = db.getContact(phone);
+    await handleNew(contact, text);
+    return;
+  }
+
   // Deteccion automatica de mostrario y testimonios
   // IMPORTANTE: solo disparar antes del switch si la peticion es CLARAMENTE visual
   // Para preguntas conceptuales (que incluye, metodologia, bonos) Carol responde primero
@@ -456,6 +466,20 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
           );
           break;
         }
+      }
+      // Pregunta de confirmacion — va a Carol para respuesta natural
+      const isConfirmationQ = text.includes('?') ||
+        ['verdad', 'cierto', 'es correcto', 'es así', 'es asi', 'no es asi', 'seguro'].some(w => text.includes(w));
+      if (isConfirmationQ) {
+        const history = db.getRecentMessages(phone, 8);
+        const packLabel = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE ($15.000)' :
+                          contact.pack_selected === 'oro' ? 'SUPERPACK ORO ($10.000)' :
+                          contact.pack_selected === 'basico' ? 'PACK BÁSICO ($5.000)' : null;
+        const carolText = packLabel
+          ? `[CONTEXTO INTERNO: La clienta tiene seleccionado el ${packLabel} y solo necesita confirmar/pagar.]\n\n${text}`
+          : text;
+        await sendAndSave(phone, await carol(history, carolText));
+        break;
       }
       // Cambio de pack en medio del flujo — directo al pago, sin upsell
       const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega') ||
@@ -618,7 +642,8 @@ const NO_WORDS  = ['no', 'nop', 'nope', 'negativo', 'paso'];
 
 async function handleOfferedDiamante(contact, text) {
   const phone = contact.phone;
-  if (text === '1' || text.includes('diamante') || hasWord(text, YES_WORDS)) {
+  const isShortYes = text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS);
+  if (text === '1' || text.includes('diamante') || isShortYes) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else {
@@ -629,10 +654,12 @@ async function handleOfferedDiamante(contact, text) {
 
 async function handleOfferedOro(contact, text) {
   const phone = contact.phone;
-  if (text === '1' || text.includes('diamante') || hasWord(text, YES_WORDS)) {
+  const isShortYes = text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS);
+  const isShortNo  = text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS);
+  if (text === '1' || text.includes('diamante') || isShortYes) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro') || hasWord(text, NO_WORDS)) {
+  } else if (text === '2' || text.includes('oro') || isShortNo) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else {
@@ -672,10 +699,10 @@ async function handleOfferedBasico(contact, text) {
     if (rechazaUpsell) await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖');
     await sendAndSave(phone, BASICO_DETAILS);
     await sendAndSave(phone, 'Ah, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
-  } else if (mentionsOro || hasWord(text, YES_WORDS)) {
+  } else if (mentionsOro || (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS))) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
-  } else if (hasWord(text, NO_WORDS)) {
+  } else if (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS)) {
     // Dice "no" al upsell sin especificar pack → confirma básico (ya lo eligió antes)
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖');

@@ -293,7 +293,10 @@ Dale una oportunidad a tu lado creativo. Escribe el numero de tu pack:
 
 const MOSTRARIO_TRIGGERS = [
   'muéstrame', 'muestrame', 'quiero ver', 'puedo ver',
-  'foto', 'fotos', 'preview', 'muéstralo', 'muestralo',
+  'foto', 'fotos', 'imagen', 'imágenes', 'imagenes',
+  'tienes imagen', 'tienes imágenes', 'tienes imagenes',
+  'hay imágenes', 'hay imagenes', 'hay fotos',
+  'preview', 'muéstralo', 'muestralo',
   'ver el contenido', 'ver los cursos', 'como se ve', 'cómo se ve'
 ];
 
