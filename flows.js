@@ -851,6 +851,15 @@ async function handleEmail(contact, emailText) {
     const CLOSING_EMAIL = ['listo', 'ok', 'gracias', 'perfecto', 'entendido', 'dale', 'claro'];
     if (CLOSING_EMAIL.some(w => rawText === w)) return; // ignorar silenciosamente
 
+    // Tiene correo no-Gmail (hotmail, outlook, yahoo, etc.)
+    const noGmailProviders = ['hotmail', 'outlook', 'yahoo', 'icloud', 'live.com', 'proton', 'aol'];
+    if (noGmailProviders.some(p => rawText.includes(p))) {
+      await sendAndSave(phone,
+        'El acceso funciona con Google Drive, que solo acepta Gmail 📧\n\nSi no tienes uno puedes crear tu Gmail gratis en gmail.com — tarda menos de 2 minutos. Cuando lo tengas me escribes el correo y te activo el acceso al instante! 💛'
+      );
+      return;
+    }
+
     // Dice explícitamente que no tiene Gmail o que está lleno
     const sinGmail = ['no tengo gmail', 'no tengo correo', 'no tengo email', 'no hay espacio',
       'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
