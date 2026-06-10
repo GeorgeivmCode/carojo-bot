@@ -226,11 +226,10 @@ const PAYMENT_NOT_SUCCESSFUL = `Veo que la transaccion no aparece como exitosa. 
 
 Verifica que el pago quede *aprobado* en tu app y luego enviame el comprobante. 📸`;
 
-const INVALID_EMAIL_MSG = `Ese correo no sirve para el acceso. Solo aceptamos Gmail.
+const INVALID_EMAIL_MSG = `El material vive en Google Drive y solo funciona con Gmail para darte acceso 📧
 
-Si tienes Hotmail, Outlook, Yahoo u otro correo, no te va a llegar la notificacion del material.
+Si no tienes uno puedes crear tu Gmail gratis en gmail.com, tarda menos de 2 minutos. Cuando lo tengas me escribes el correo y te activo el acceso al instante! 💛
 
-Escribe tu correo de Gmail completo asi:
 tunombre@gmail.com 📩`;
 
 const SEND_COMPROBANTE_MSG = `Para confirmar tu pago necesito ver el comprobante. 📸
