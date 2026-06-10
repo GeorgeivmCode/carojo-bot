@@ -536,6 +536,10 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         }
         break;
       }
+      // Frases de cortesia/confirmacion simples — ignorar silenciosamente, ya se mandaron los datos
+      const isPolite = /^(por favor|porfa|porfavor|dale|ok|listo|gracias|si|sí|claro|perfecto|entendido|bueno|okey|oka|okay)[\s.!]*$/i.test(text);
+      if (isPolite) break;
+
       // Cliente vuelve después de un rato queriendo pagar — re-enviar datos del pack ya seleccionado
       const wantsToPay = ['enviar la plata', 'enviar de una', 'de una la plata', 'mandar la plata',
         'mandarte la plata', 'hacer el pago', 'ya voy a pagar', 'voy a enviar', 'voy a mandar',
