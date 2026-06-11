@@ -476,6 +476,11 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       await handleOfferedBasico(contact, text);
       break;
     case 'awaiting_comprobante': {
+      // Cliente escribe "comprobante" como texto (sin imagen) — pedir imagen directamente
+      if (text.includes('comprobante') && !text.includes('?') && !text.includes('¿')) {
+        await sendAndSave(phone, SEND_COMPROBANTE_MSG);
+        break;
+      }
       if (isPagoSinComprobante(text)) {
         await sendAndSave(phone, SEND_COMPROBANTE_MSG);
         break;
@@ -597,6 +602,11 @@ async function handleNew(contact, text) {
     db.updateContact(phone, { state: 'awaiting_choice' });
     contact = db.getContact(phone);
     await handleChoice(contact, text);
+  } else if (contact.pack_selected) {
+    // Pack ya elegido pero estado se perdio — recuperar flujo sin mostrar WELCOME_MESSAGE
+    console.warn(`[handleNew] Recuperando flujo: phone=${phone} pack=${contact.pack_selected} estado_perdido=${contact.state}`);
+    db.updateContact(phone, { state: 'awaiting_comprobante' });
+    await sendAndSave(phone, SEND_COMPROBANTE_MSG);
   } else {
     await sendAndSave(phone, WELCOME_MESSAGE);
     db.updateContact(phone, { state: 'awaiting_choice' });
@@ -605,6 +615,13 @@ async function handleNew(contact, text) {
 
 async function handleChoice(contact, text) {
   const phone = contact.phone;
+
+  // Pack ya elegido pero estado retrocedió — cliente escribe "comprobante" texto sin imagen
+  if (text.includes('comprobante') && !text.includes('?') && !text.includes('¿') && contact.pack_selected) {
+    db.updateContact(phone, { state: 'awaiting_comprobante' });
+    await sendAndSave(phone, SEND_COMPROBANTE_MSG);
+    return;
+  }
 
   // Cliente perdido preguntando como funciona → guiar directo a elegir
   const isLost = ['que debo hacer', 'qué debo hacer', 'como lo compro', 'cómo lo compro',
