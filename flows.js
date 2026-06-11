@@ -397,10 +397,17 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
       return;
     }
-    // Estado new o awaiting_choice: no hay pack seleccionado, no procesar como comprobante
+    // Estado new o awaiting_choice: si tiene pack seleccionado (ya habia avanzado) → recuperar y procesar comprobante
+    // Si no tiene pack → pedir que elija primero
     if (contact.state === 'new' || contact.state === 'awaiting_choice') {
-      await sendAndSave(phone, WELCOME_MESSAGE);
-      db.updateContact(phone, { state: 'awaiting_choice' });
+      if (contact.pack_selected) {
+        db.updateContact(phone, { state: 'awaiting_comprobante' });
+        contact = db.getContact(phone);
+        await handleComprobante(contact, content);
+      } else {
+        await sendAndSave(phone, 'Para procesar tu pago primero elige tu pack. Escribe 1 para Diamante ($15.000), 2 para Oro ($10.000) o 3 para Basico ($5.000). 😊');
+        db.updateContact(phone, { state: 'awaiting_choice' });
+      }
       return;
     }
     if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'awaiting_upgrade_comprobante') {
@@ -437,8 +444,9 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // y el mostrario se agrega como complemento despues de la respuesta de Carol
   let sendMostrarioAfter = false;
   let sendTestimoniosAfter = false;
-  const stateBlocksGallery = ['delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client'];
-  if (msgType === 'text' && !stateBlocksGallery.includes(contact.state)) {
+  const stateBlocksGallery = ['delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client', 'awaiting_comprobante'];
+  const galleryBlocked = stateBlocksGallery.includes(contact.state) || (contact.pack_selected && ACTIVE_PAYMENT_STATES.has(contact.state));
+  if (msgType === 'text' && !galleryBlocked) {
     const tl = text.toLowerCase();
     if (MOSTRARIO_TRIGGERS.some(t => tl.includes(t))) {
       sendMostrarioAfter = true;
