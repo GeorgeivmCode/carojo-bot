@@ -366,8 +366,12 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     // Cualquier otro mensaje = intención de compra o retomar — reiniciar flujo
     db.updateContact(phone, { state: 'new', r1_sent: 0, r2_sent: 0 });
     contact = db.getContact(phone);
-    await handleNew(contact, text);
-    return;
+    if (msgType === 'image' || msgType === 'document') {
+      // Imagen desde stopped: reiniciar estado y dejar caer al bloque de imagen abajo
+    } else {
+      await handleNew(contact, text);
+      return;
+    }
   }
 
   // Imagen o PDF/documento = posible comprobante
