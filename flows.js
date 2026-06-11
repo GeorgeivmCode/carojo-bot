@@ -632,6 +632,10 @@ async function handleChoice(contact, text) {
   const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico' ||
     ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)));
 
+  // "Si/dale/listo" sin keyword de pack → inferir del historial reciente cual pack discutia Carol
+  const isShortYes = !isDiamante && !isOro && !isBasico &&
+    text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS);
+
   if (isDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     // Skip resending details only if DIAMANTE_DETAILS part 3 ya fue enviada
@@ -649,6 +653,24 @@ async function handleChoice(contact, text) {
   } else if (isBasico) {
     db.updateContact(phone, { state: 'offered_basico', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_UPSELL);
+  } else if (isShortYes) {
+    // Inferir pack del historial — Carol pudo haber estado hablando de un pack especifico
+    const recent = db.getRecentMessages(phone, 12);
+    const hist = recent.map(m => m.content).join(' ').toLowerCase();
+    if (hist.includes('diamante') || hist.includes('15.000') || hist.includes('quince mil')) {
+      db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
+      await sendAndSave(phone, DIAMANTE_DETAILS);
+    } else if (hist.includes('superpack oro') || hist.includes('10.000') || hist.includes('diez mil')) {
+      db.updateContact(phone, { state: 'offered_oro', pack_selected: 'oro' });
+      await sendAndSave(phone, ORO_UPSELL);
+    } else if (hist.includes('pack básico') || hist.includes('pack basico') || hist.includes('5.000') || hist.includes('cinco mil')) {
+      db.updateContact(phone, { state: 'offered_basico', pack_selected: 'basico' });
+      await sendAndSave(phone, BASICO_UPSELL);
+    } else {
+      // No se puede inferir — Carol pide que aclare
+      const history = db.getRecentMessages(phone, 8);
+      await sendAndSave(phone, await carol(history, text));
+    }
   } else {
     const history = db.getRecentMessages(phone, 8);
     const reply = await carol(history, text);
