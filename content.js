@@ -114,9 +114,7 @@ Ademas del curso de Lettering que ya elegiste, sumarias:
 
 Es el triple de cursos por solo $5.000 mas.
 
-O si prefieres el pack completo desde el principio, el 💎 MEGA PACK DIAMANTE te da 5 cursos + 11 bonos por $15.000 en total.
-
-Te animas con el ORO ($10.000) o prefieres el DIAMANTE completo ($15.000)? 💬`
+Te animas? 💬`
 ];
 
 const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con el PACK BASICO. El total a pagar es solo $5.000. Puedes enviar tu pago a nuestras cuentas autorizadas:

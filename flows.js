@@ -645,6 +645,14 @@ async function handleChoice(contact, text) {
     await sendAndSave(phone, await carol(history, text));
     return;
   }
+  // Indecision entre varios packs (ej: "1, y 3", "el 2 o el 3") → Carol sin cambiar estado
+  const packNumCount = [/\b1\b/.test(text), /\b2\b/.test(text), /\b3\b/.test(text)].filter(Boolean).length;
+  if (packNumCount > 1) {
+    const history = db.getRecentMessages(phone, 8);
+    await sendAndSave(phone, await carol(history, text));
+    return;
+  }
+
   // Seleccion por numero o keywords de pack (logica original)
   const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante') ||
     ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p));
