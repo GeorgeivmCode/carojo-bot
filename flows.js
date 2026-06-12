@@ -875,6 +875,20 @@ async function handleComprobante(contact, mediaContent) {
     return;
   }
 
+  // Capa de seguridad: verificar destinatario en codigo independientemente del modelo
+  const NUMEROS_VALIDOS = ['3058989359', '3217239198'];
+  const NOMBRES_VALIDOS  = ['jorge vanegas', 'carol apolinar'];
+  const destinoOk = NUMEROS_VALIDOS.some(n => (result.destino || '').replace(/\D/g, '').includes(n));
+  const nombreOk  = NOMBRES_VALIDOS.some(n => (result.nombre_destinatario || '').toLowerCase().includes(n));
+  if (!destinoOk && !nombreOk) {
+    await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
+    db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
+    await notifyJorge(contact,
+      `ALERTA: Comprobante destinatario incorrecto (modelo lo aprobo, codigo lo rechazo)\nDestinatario: ${result.destino || 'no detectado'} / ${result.nombre_destinatario || 'no detectado'}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+    );
+    return;
+  }
+
   // Capa de seguridad: verificar fecha en codigo independientemente del modelo
   // El modelo Haiku puede fallar en rechazar comprobantes de dias anteriores
   if (result.fecha && isFechaAnterior(result.fecha)) {
