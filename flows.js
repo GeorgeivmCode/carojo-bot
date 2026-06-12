@@ -669,8 +669,17 @@ async function handleChoice(contact, text) {
       await sendAndSave(phone, DIAMANTE_DETAILS);
     }
   } else if (isOro) {
-    db.updateContact(phone, { state: 'offered_oro', pack_selected: 'oro' });
-    await sendAndSave(phone, ORO_UPSELL);
+    // Si la clienta ya pasó por el ciclo básico→oro (vio el BASICO_UPSELL), ir directo a pago
+    // sin hacer otro upsell a DIAMANTE — ya fue intentado una vez
+    const recentHist = db.getRecentMessages(phone, 15);
+    const yaVioBasicoUpsell = recentHist.some(m => m.direction === 'out' && m.content.includes('SUPERPACK ORO') && m.content.includes('PERO ANTES DE CONFIRMAR'));
+    if (yaVioBasicoUpsell) {
+      db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
+      await sendAndSave(phone, ORO_DETAILS);
+    } else {
+      db.updateContact(phone, { state: 'offered_oro', pack_selected: 'oro' });
+      await sendAndSave(phone, ORO_UPSELL);
+    }
   } else if (isBasico) {
     db.updateContact(phone, { state: 'offered_basico', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_UPSELL);
