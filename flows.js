@@ -191,9 +191,21 @@ async function sendGallery(phone, plantilla) {
   db.saveMessage(phone, 'out', 'text', text, wamid);
 }
 
+const TELEGRAM_TOKEN    = process.env.TELEGRAM_TOKEN;
+const TELEGRAM_CHAT_IDS = [8039105555, 1360753733]; // Jorge, Carol
+
+async function notifyTelegram(text) {
+  if (!TELEGRAM_TOKEN) return;
+  await Promise.allSettled(TELEGRAM_CHAT_IDS.map(chat_id =>
+    axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { chat_id, text }, { timeout: 8000 })
+  ));
+}
+
 async function notifyJorge(contact, text) {
-  if (!JORGE_PHONE) return;
-  try { await sendText(JORGE_PHONE, text); } catch (e) { console.error('Jorge notify error:', e.message); }
+  await Promise.allSettled([
+    JORGE_PHONE ? sendText(JORGE_PHONE, text).catch(e => console.error('WA notify error:', e.message)) : Promise.resolve(),
+    notifyTelegram(text).catch(e => console.error('Telegram notify error:', e.message))
+  ]);
 }
 
 async function fireCapi(contact, pack) {
