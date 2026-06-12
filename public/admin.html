@@ -1267,6 +1267,7 @@ function renderRightPanel(c) {
   document.getElementById('infoR2').textContent = c.r2_sent ? (c.r2_sent_at || 'Si') : 'No';
   const sel = document.getElementById('stateSelect');
   sel.value = c.state || 'new';
+  sel.dataset.prev = c.state || 'new';
   loadStats();
 }
 
@@ -1424,11 +1425,18 @@ async function headerToggleBot() {
 
 async function updateState(state) {
   if (!currentPhone) return;
+  const sel = document.getElementById('stateSelect');
+  const prev = sel.dataset.prev || 'new';
+  if (!confirm(`Cambiar estado a "${state}"?`)) {
+    sel.value = prev;
+    return;
+  }
   await apiFetch(`/api/contacts/${currentPhone}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ state })
   });
+  sel.dataset.prev = state;
   showToast(`Estado cambiado a: ${state}`);
   await loadContacts();
 }
