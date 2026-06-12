@@ -1030,13 +1030,18 @@
   </div>
 
   <div class="info-section">
-    <h4>Etiqueta</h4>
-    <select class="tag-select" id="tagSelect" onchange="updateTag(this.value)">
-      <option value="Sin etiqueta">Sin etiqueta</option>
-      <option value="Potencial">Potencial</option>
-      <option value="Cliente">Cliente</option>
-      <option value="Inactivo">Inactivo</option>
-      <option value="Soporte">Soporte</option>
+    <h4>Estado del chat</h4>
+    <select class="tag-select" id="stateSelect" onchange="updateState(this.value)">
+      <option value="new">new — nuevo</option>
+      <option value="awaiting_choice">awaiting_choice — eligiendo pack</option>
+      <option value="offered_diamante">offered_diamante — oferta diamante</option>
+      <option value="offered_oro">offered_oro — oferta oro</option>
+      <option value="offered_basico">offered_basico — oferta basico</option>
+      <option value="awaiting_comprobante">awaiting_comprobante — esperando pago</option>
+      <option value="awaiting_email">awaiting_email — esperando Gmail</option>
+      <option value="delivered">delivered — entregado</option>
+      <option value="awaiting_upgrade_comprobante">awaiting_upgrade_comprobante — upgrade</option>
+      <option value="old_client">old_client — cliente antigua</option>
     </select>
   </div>
 
@@ -1260,8 +1265,8 @@ function renderRightPanel(c) {
   document.getElementById('infoCreated').textContent = c.created_at ? c.created_at.substring(0, 10) : '-';
   document.getElementById('infoR1').textContent = c.r1_sent ? (c.r1_sent_at || 'Si') : 'No';
   document.getElementById('infoR2').textContent = c.r2_sent ? (c.r2_sent_at || 'Si') : 'No';
-  const sel = document.getElementById('tagSelect');
-  sel.value = c.tag || 'Sin etiqueta';
+  const sel = document.getElementById('stateSelect');
+  sel.value = c.state || 'new';
   loadStats();
 }
 
@@ -1417,13 +1422,14 @@ async function headerToggleBot() {
   await toggleBot(newVal === 1);
 }
 
-async function updateTag(tag) {
+async function updateState(state) {
   if (!currentPhone) return;
   await apiFetch(`/api/contacts/${currentPhone}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tag })
+    body: JSON.stringify({ state })
   });
+  showToast(`Estado cambiado a: ${state}`);
   await loadContacts();
 }
 
