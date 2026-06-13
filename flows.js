@@ -678,6 +678,13 @@ async function handleChoice(contact, text) {
     db.updateContact(phone, { state: 'offered_basico', pack_selected: 'basico' });
     await sendAndSave(phone, BASICO_UPSELL);
   } else if (isShortYes) {
+    // Si el mensaje habla de modalidad/formato → no es seleccion de pack → Carol
+    const isModalidadQuery = ['presencial', 'fisico', 'físico', 'en vivo', 'a domicilio', 'domicilio', 'en persona', 'virtual'].some(w => text.includes(w));
+    if (isModalidadQuery) {
+      const history = db.getRecentMessages(phone, 8);
+      await sendAndSave(phone, await carol(history, text));
+      return;
+    }
     // Inferir pack del historial — Carol pudo haber estado hablando de un pack especifico
     const recent = db.getRecentMessages(phone, 12);
     const hist = recent.map(m => m.content).join(' ').toLowerCase();
