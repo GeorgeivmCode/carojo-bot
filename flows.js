@@ -513,38 +513,6 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
           break;
         }
       }
-      // Pregunta de confirmacion — va a Carol para respuesta natural
-      const isConfirmationQ = text.includes('?') ||
-        ['verdad', 'cierto', 'es correcto', 'es así', 'es asi', 'no es asi', 'seguro'].some(w => text.includes(w));
-      if (isConfirmationQ) {
-        const history = db.getRecentMessages(phone, 8);
-        const packLabel = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE ($15.000)' :
-                          contact.pack_selected === 'oro' ? 'SUPERPACK ORO ($10.000)' :
-                          contact.pack_selected === 'basico' ? 'PACK BÁSICO ($5.000)' : null;
-        const carolText = packLabel
-          ? `[CONTEXTO INTERNO: La clienta tiene seleccionado el ${packLabel} y solo necesita confirmar/pagar.]\n\n${text}`
-          : text;
-        await sendAndSave(phone, await carol(history, carolText));
-        break;
-      }
-      // Aplazamiento: cliente explica que pagará luego (esperando a alguien, mañana, etc.)
-      // Debe ir ANTES de wantsDiamante/wantsToPay para evitar falsos positivos en audios largos
-      // Ejemplo real: "para que ella me ayude para poderle mandar la plata" → wantsToPay disparaba
-      const isDelaying = text.split(/\s+/).filter(Boolean).length > 10 &&
-        ['esperando', 'cuando llegue', 'cuando venga', 'cuando salga',
-         'mas tarde', 'más tarde', 'mañana', 'esta noche', 'más rato', 'mas rato',
-         'que llegue', 'que venga', 'ahorita llega'].some(p => text.includes(p));
-      if (isDelaying) {
-        const history = db.getRecentMessages(phone, 8);
-        const packLabel = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE ($15.000)' :
-                          contact.pack_selected === 'oro' ? 'SUPERPACK ORO ($10.000)' :
-                          contact.pack_selected === 'basico' ? 'PACK BÁSICO ($5.000)' : null;
-        const carolText = packLabel
-          ? `[CONTEXTO INTERNO: La clienta YA eligió el ${packLabel}. Está aplazando el pago — espera a alguien o lo hará más tarde. NO reenvíes datos de pago ni preguntes qué pack quiere. Responde con empatía y crea urgencia sutil manteniendo el entusiasmo. El estado del chat permanece igual — solo esperamos su comprobante.]\n\n${text}`
-          : text;
-        await sendAndSave(phone, await carol(history, carolText));
-        break;
-      }
       // Cambio de pack en medio del flujo — directo al pago, sin upsell
       const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega') ||
         ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p));
@@ -582,18 +550,6 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         } else {
           await sendAndSave(phone, 'Perfecto! Ya tienes seleccionado el PACK BASICO 📖 Solo me falta tu comprobante de $5.000 para activarte el acceso. 📲');
         }
-        break;
-      }
-      // Cliente vuelve después de un rato queriendo pagar — re-enviar datos del pack ya seleccionado
-      const wantsToPay = ['enviar la plata', 'enviar de una', 'de una la plata', 'mandar la plata',
-        'mandarte la plata', 'hacer el pago', 'ya voy a pagar', 'voy a enviar', 'voy a mandar',
-        'quiero pagar ya', 'ya puedo pagar', 'ya tengo para', 'ahorita le envio', 'ahorita le envío',
-        'ahora le envio', 'ahora le envío', 'ya le mando', 'voy a transferir', 'ya transferi',
-        'ya transferí', 'enviar ahora', 'pagar ahora', 'ya voy'].some(p => text.includes(p));
-      if (wantsToPay && contact.pack_selected) {
-        const packMsg = contact.pack_selected === 'diamante' ? DIAMANTE_DETAILS :
-                        contact.pack_selected === 'oro' ? ORO_DETAILS : BASICO_DETAILS;
-        await sendAndSave(phone, packMsg);
         break;
       }
       const history = db.getRecentMessages(phone, 8);
