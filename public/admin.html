@@ -1609,8 +1609,8 @@ async function approvePayment() {
 async function changeEmail() {
   if (!currentPhone) return;
   const c = allContacts.find(x => x.phone === currentPhone);
-  if (!c || c.state !== 'delivered') {
-    showToast('Solo clientes con entrega activa', 'error');
+  if (!c?.pack_selected) {
+    showToast('El cliente no tiene pack registrado', 'error');
     return;
   }
   const current = c.email ? `\nActual: ${c.email}` : '';
@@ -1690,7 +1690,8 @@ async function revokeAccess() {
   const res = await apiFetch(`/api/contacts/${currentPhone}/revoke-access`, { method: 'POST' });
   if (!res) return;
   const data = await res.json();
-  if (data.ok) showToast('Acceso Drive revocado.', 'success');
+  if (data.ok && data.warning) showToast('Estado revocado pero Drive falló: ' + data.warning, 'error');
+  else if (data.ok) showToast('Acceso Drive revocado.', 'success');
   else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 

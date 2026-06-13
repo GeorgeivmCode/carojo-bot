@@ -549,9 +549,9 @@ app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
   if (!newEmail) return res.status(400).json({ error: 'newEmail requerido' });
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
-  if (c.state !== 'delivered') return res.status(400).json({ error: 'El contacto no tiene entrega activa' });
+  if (!c.pack_selected) return res.status(400).json({ error: 'El contacto no tiene pack registrado' });
 
-  const pack = c.pack_selected || 'basico';
+  const pack = c.pack_selected;
   const oldEmail = c.email || '';
   const { grantDriveAccess, revokeAccess, getFolderUrl } = require('./drive');
 
@@ -637,13 +637,19 @@ app.post('/api/contacts/:phone/revoke-access', adminAuth, async (req, res) => {
   if (!c) return res.status(404).json({ error: 'not found' });
   if (!c.email || !c.pack_selected) return res.status(400).json({ error: 'sin email o pack registrado' });
   const { revokeAccess } = require('./drive');
+  let driveError = null;
   try { await revokeAccess(c.email, c.pack_selected); } catch (e) {
-    return res.status(500).json({ error: 'Error revocando Drive: ' + e.message });
+    driveError = e.message;
+    console.error('revokeAccess Drive error:', e.message);
   }
   db.updateContact(phone, { state: 'awaiting_comprobante', tag: 'Acceso revocado' });
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
-  res.json({ ok: true });
+  if (driveError) {
+    res.json({ ok: true, warning: 'Estado actualizado pero Drive no respondió: ' + driveError });
+  } else {
+    res.json({ ok: true });
+  }
 });
 
 app.post('/api/contacts/:phone/unblock-access', adminAuth, async (req, res) => {
