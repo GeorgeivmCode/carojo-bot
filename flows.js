@@ -346,6 +346,9 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // Normalizar "opcion 1/2/3" / "opción 1/2/3" → solo el numero para deteccion en handlers
   const opcionMatch = text.match(/opci[oó]n\s*([123])/);
   if (opcionMatch) text = opcionMatch[1];
+  // Normalizar "el 1/2/3" / "la 1/2/3" → numero (ej: "el 1" → "1")
+  const elNumMatch = text.match(/^(?:el|la)\s+([123])\s*$/);
+  if (elNumMatch) text = elNumMatch[1];
 
   // Cliente antiguo sin acceso — en cualquier estado que NO sea compra comprometida
   // awaiting_email se excluye: ya pagó, solo está dando su correo; "no me llega" aquí es por Gmail lleno
