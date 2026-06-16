@@ -636,6 +636,7 @@ Si el NUMERO aparece pero ni FECHA ni NOMBRE son verificables → destinatario_i
 
 NUMERO: Lee digito por digito. 3058989359 = 3-0-5-8-9-8-9-3-5-9. Un solo digito diferente = invalido.
 NOMBRE enmascarado: JO**E V****AS o JOR** VAN***S = Jorge Vanegas = VALIDO. Solo rechaza si tiene CORCHETES [].
+NOMBRE legible sin asteriscos: si el apellido es completamente visible, debe ser EXACTAMENTE "Vanegas" (V-A-N-E-G-A-S). "Venegas" (V-E-N-E-G-A-S) u otra variacion diferente → destinatario_invalido. El apellido correcto tiene A en la segunda letra, no E.
 FECHA: Si no es legible o no aparece → no rechaces por fecha, pero si no hay nombre tampoco → invalido.
 
 valido = true SOLO si: monto correcto + al menos NUMERO + (NOMBRE o FECHA) + transaccion exitosa.
