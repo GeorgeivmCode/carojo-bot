@@ -561,8 +561,14 @@ app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
     return res.status(500).json({ error: 'Error al dar acceso: ' + e.message });
   }
 
+  let revokeOk = true;
   if (oldEmail && oldEmail !== newEmail) {
-    try { await revokeAccess(oldEmail, pack); } catch (e) { console.error('Revoke error:', e.message); }
+    try {
+      await revokeAccess(oldEmail, pack);
+    } catch (e) {
+      console.error('Revoke error:', e.message);
+      revokeOk = false;
+    }
   }
 
   db.updateContact(phone, { email: newEmail });
@@ -570,13 +576,15 @@ app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
   await sendAndSave(phone,
     `Tu acceso fue actualizado!\n\nEnlace al pack ${pack}:\n${folderUrl}\n\nAbrelo con el correo ${newEmail}. Cualquier problema me avisas!`
   );
+
+  const revokeNote = revokeOk ? '' : `\n\nALERTA: No se pudo revocar el correo anterior (${oldEmail}). Revocalo manualmente desde el panel.`;
   await notifyJorge(c,
-    `CAMBIO DE CORREO:\nTel: ${phone}\nNombre: ${c.name || '-'}\nPack: ${pack}\nAnterior: ${oldEmail || 'sin correo'}\nNuevo: ${newEmail}`
+    `CAMBIO DE CORREO:\nTel: ${phone}\nNombre: ${c.name || '-'}\nPack: ${pack}\nAnterior: ${oldEmail || 'sin correo'}\nNuevo: ${newEmail}${revokeNote}`
   );
 
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
-  res.json({ ok: true });
+  res.json({ ok: true, revokeOk, oldEmail: revokeOk ? undefined : oldEmail });
 });
 
 app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {

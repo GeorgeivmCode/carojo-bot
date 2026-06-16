@@ -1627,8 +1627,12 @@ async function changeEmail() {
   });
   if (!res) return;
   const data = await res.json();
-  if (data.ok) showToast('Correo cambiado y acceso actualizado!', 'success');
-  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+  if (data.ok) {
+    showToast('Acceso dado al nuevo correo!', 'success');
+    if (data.revokeOk === false) {
+      showToast(`No se pudo revocar ${data.oldEmail} - usa "Revocar acceso" si lo necesitas`, 'error');
+    }
+  } else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 
 async function resetToNew() {
