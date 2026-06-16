@@ -1726,8 +1726,12 @@ async function changePack() {
   });
   if (!res) return;
   const data = await res.json();
-  if (data.ok) showToast(`Pack cambiado a ${packClean.toUpperCase()} y acceso entregado.`, 'success');
-  else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+  if (data.ok) {
+    showToast(`Pack cambiado a ${packClean.toUpperCase()} y acceso entregado.`, 'success');
+    if (data.revokeOk === false) {
+      showToast(`No se pudo revocar el acceso al pack anterior (${data.oldPack}) - usa "Revocar acceso" si lo necesitas`, 'error');
+    }
+  } else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 
 async function markFraud() {

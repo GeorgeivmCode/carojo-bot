@@ -691,13 +691,20 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   const email = c.email;
   if (!email) return res.status(400).json({ error: 'el cliente no tiene Gmail registrado' });
   const { grantDriveAccess, revokeAccess } = require('./drive');
-  // Revocar pack anterior si es diferente
-  if (c.pack_selected && c.pack_selected !== pack) {
-    try { await revokeAccess(email, c.pack_selected); } catch (e) { console.error('Revoke change-pack:', e.message); }
-  }
-  // Dar acceso al pack nuevo
+  // Dar acceso al pack nuevo primero
   try { await grantDriveAccess(email, pack); } catch (e) {
     return res.status(500).json({ error: 'Error dando acceso Drive: ' + e.message });
+  }
+  // Revocar pack anterior si es diferente
+  let revokeOk = true;
+  const oldPack = c.pack_selected;
+  if (oldPack && oldPack !== pack) {
+    try {
+      await revokeAccess(email, oldPack);
+    } catch (e) {
+      console.error('Revoke change-pack:', e.message);
+      revokeOk = false;
+    }
   }
   db.updateContact(phone, { pack_selected: pack, state: 'delivered', tag: 'Facturado' });
   // Reenviar mensaje de entrega con nuevo pack
@@ -708,9 +715,14 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   try {
     await sendAndSave(phone, deliveryMessage(pack, accessUrl));
   } catch (e) { console.error('Send change-pack delivery:', e.message); }
+  if (!revokeOk) {
+    await notifyJorge(c,
+      `ALERTA CAMBIO PACK:\nTel: ${phone}\nNombre: ${c.name || '-'}\nPack anterior: ${oldPack}\nPack nuevo: ${pack}\nNo se pudo revocar el acceso al pack anterior. Revocalo manualmente.`
+    ).catch(() => {});
+  }
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
-  res.json({ ok: true });
+  res.json({ ok: true, revokeOk, oldPack: revokeOk ? undefined : oldPack });
 });
 
 app.post('/api/messages/:id/mark-golden', adminAuth, (req, res) => {
