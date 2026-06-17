@@ -343,8 +343,8 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   if (!contact.bot_active) return;
 
   let text = (msgType === 'text' ? content : '').trim().toLowerCase();
-  // Normalizar "opcion 1/2/3" / "opción 1/2/3" → solo el numero para deteccion en handlers
-  const opcionMatch = text.match(/opci[oó]n\s*([123])/);
+  // Normalizar "opcion 1/2/3" / "opción 1/2/3" / "pocion 1/2/3" → solo el numero para deteccion en handlers
+  const opcionMatch = text.match(/(?:opci[oó]n|poci[oó]n)\s*([123])/);
   if (opcionMatch) text = opcionMatch[1];
   // Normalizar "el 1/2/3" / "la 1/2/3" → numero (ej: "el 1" → "1")
   const elNumMatch = text.match(/^(?:el|la)\s+([123])\s*$/);
@@ -688,9 +688,11 @@ async function handleChoice(contact, text) {
       await sendAndSave(phone, await carol(history, text));
       return;
     }
-    // Inferir pack del historial — Carol pudo haber estado hablando de un pack especifico
+    // Inferir pack del historial RECIENTE — solo ultimos 3 mensajes del bot
+    // Evita que "si si" en contexto de chitchat dispare detalles de pack por mensajes viejos
     const recent = db.getRecentMessages(phone, 12);
-    const hist = recent.map(m => m.content).join(' ').toLowerCase();
+    const recentBotMsgs = recent.filter(m => m.direction === 'out').slice(-3);
+    const hist = recentBotMsgs.map(m => m.content).join(' ').toLowerCase();
     if (hist.includes('diamante') || hist.includes('15.000') || hist.includes('quince mil')) {
       db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
       await sendAndSave(phone, DIAMANTE_DETAILS);
