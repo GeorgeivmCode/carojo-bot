@@ -46,8 +46,11 @@ const PAGO_SIN_COMPROBANTE = [
   'ya pague', 'ya pagué', 'ya transferi', 'ya transferí', 'ya mande', 'ya mandé',
   'ya deposite', 'ya deposité', 'ya hice el pago', 'ya realice', 'ya realicé',
   'acabo de pagar', 'acabe de pagar', 'ya lo pague', 'ya lo pagué',
+  'ya lo mande', 'ya lo mandé', 'ya lo envie', 'ya lo envié',
+  'ya lo transferi', 'ya lo transferí', 'ya lo deposite', 'ya lo deposité',
   'ya envie', 'ya envié', 'ya hice la transferencia', 'te pague', 'te pagué',
-  'ya hice el deposito', 'ya deposité', 'ya realice el pago'
+  'ya hice el deposito', 'ya deposité', 'ya realice el pago',
+  'lo mande', 'lo mandé', 'lo envie', 'lo envié', 'lo transferi', 'lo transferí'
 ];
 
 function isPagoSinComprobante(text) {
