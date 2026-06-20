@@ -411,8 +411,13 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       // Si el upsell ya fue enviado y el pack no es diamante → posible comprobante de upgrade
       if (contact.upsell_sent && contact.pack_selected !== 'diamante') {
         const upgradeTarget = contact.upgrade_target ||
-          (contact.pack_selected === 'oro' ? 'diamante' :
-           contact.pack_selected === 'basico' ? 'diamante' : null);
+          (contact.pack_selected === 'oro' ? 'diamante' : null);
+        if (!upgradeTarget && contact.pack_selected === 'basico') {
+          await sendAndSave(phone,
+            'Perfecto! Solo dime: ¿vas al *SUPERPACK ORO* ($5.000 adicionales) o al *MEGA PACK DIAMANTE* ($10.000 adicionales)?\n\nEscribeme ORO o DIAMANTE y me reenvias el comprobante 💛'
+          );
+          return;
+        }
         if (upgradeTarget) {
           db.updateContact(phone, { state: 'awaiting_upgrade_comprobante', upgrade_target: upgradeTarget, tag: 'Upgrade' });
           contact = db.getContact(phone);
@@ -1046,9 +1051,8 @@ async function handlePostDelivery(contact, text) {
   if (contact.upsell_sent && !contact.upgrade_target && contact.pack_selected !== 'diamante') {
 
     // Si ya se envio la semilla de duda y vuelve a rechazar → despedida amable
-    const recentMsgs = db.getRecentMessages(phone, 4);
-    const lastBot = recentMsgs.filter(m => m.direction === 'out')[0];
-    const yaSemilla = lastBot && lastBot.content.includes('Cuando quieras puedes completarlo al MEGA PACK DIAMANTE');
+    const recentMsgs = db.getRecentMessages(phone, 8);
+    const yaSemilla = recentMsgs.some(m => m.direction === 'out' && m.content.includes('Cuando quieras puedes completarlo al MEGA PACK DIAMANTE'));
 
     // Despedida o cierre cortés — no re-activar upsell (ej: "Listo", "Ok, adios", "Gracias", "Chao")
     const isFarewell = ['adios', 'adiós', 'chao', 'bye', 'hasta luego', 'nos vemos'].some(w => text.includes(w));
@@ -1070,8 +1074,7 @@ async function handlePostDelivery(contact, text) {
     // Dudoso: quiere pero aplaza — urgencia con regalo si va al Diamante
     const isDelaying = ['después', 'despues', 'luego', 'mas tarde', 'más tarde', 'mañana', 'manana',
       'ahorita', 'pensarlo', 'le aviso', 'aviso', 'otro dia', 'otro día',
-      'por el momento', 'por ahora', 'de momento', 'asi estoy bien', 'así estoy bien',
-      'estoy bien asi', 'estoy bien así'].some(w => text.includes(w));
+      'por el momento', 'por ahora', 'de momento'].some(w => text.includes(w));
     if (isDelaying) {
       if (contact.pack_selected === 'basico') {
         await sendAndSave(phone,
