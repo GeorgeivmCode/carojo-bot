@@ -363,7 +363,13 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   }
 
   // Cliente en estado old_client que vuelve a escribir — no responder automaticamente
-  if (contact.state === 'old_client') return;
+  // Si manda imagen, loguear para diagnostico (puede ser comprobante de pago que llego tarde)
+  if (contact.state === 'old_client') {
+    if (msgType === 'image' || msgType === 'document') {
+      console.log(`[IMG-IGNORADA-OLD_CLIENT] phone=${phone} — imagen llegó cuando estado=old_client`);
+    }
+    return;
+  }
 
   // Salir — detiene remarketing pero deja el bot activo por si vuelve
   if (text === 'salir') {
@@ -427,7 +433,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         contact = db.getContact(phone);
         await handleComprobante(contact, content);
       } else {
-        await sendAndSave(phone, 'Para procesar tu pago primero elige tu pack. Escribe 1 para Diamante ($15.000), 2 para Oro ($10.000) o 3 para Basico ($5.000). 😊');
+        await sendAndSave(phone, 'Para procesar tu pago primero elige tu pack. Escribe 1 para Diamante ($15.000), 2 para Oro ($10.000) o 3 para Basico ($5.000). 😊\n\nUna vez que elijas, vuelve a enviarme la foto del comprobante 📸');
         db.updateContact(phone, { state: 'awaiting_choice' });
       }
       return;
