@@ -739,6 +739,7 @@ async function handleOfferedDiamante(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else {
+    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     const history = db.getRecentMessages(phone, 8);
     await sendAndSave(phone, await carol(history, text));
   }
@@ -755,6 +756,7 @@ async function handleOfferedOro(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else {
+    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     const history = db.getRecentMessages(phone, 8);
     await sendAndSave(phone, await carol(history, text));
   }
@@ -801,6 +803,7 @@ async function handleOfferedBasico(contact, text) {
     await sendAndSave(phone, BASICO_DETAILS);
     await sendAndSave(phone, 'Ah, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
   } else {
+    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     const history = db.getRecentMessages(phone, 8);
     await sendAndSave(phone, await carol(history, text));
   }
