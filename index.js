@@ -936,7 +936,10 @@ app.get('/acceso/:token', async (req, res) => {
   const info = verifyAccessToken(req.params.token);
   if (!info) return res.redirect(DRIVE_URLS_PIXEL.basico);
   const { phone, pack, amount } = info;
-  const driveUrl = DRIVE_URLS_PIXEL[pack] || DRIVE_URLS_PIXEL.basico;
+  const contact = initialized ? db.getContact(phone) : null;
+  const driveUrl = contact?.folder_id
+    ? `https://drive.google.com/drive/folders/${contact.folder_id}`
+    : (DRIVE_URLS_PIXEL[pack] || DRIVE_URLS_PIXEL.basico);
   const packName = PACK_NAMES_PIXEL[pack] || 'Pack';
 
   const html = `<!DOCTYPE html>
