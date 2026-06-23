@@ -52,6 +52,7 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN upgrade_target TEXT DEFAULT ''`);
 try { db.exec(`ALTER TABLE contacts ADD COLUMN upsell_sent INTEGER DEFAULT 0`); } catch (_) {}
 
 try { db.exec(`ALTER TABLE contacts ADD COLUMN email TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN folder_id TEXT DEFAULT ''`); } catch (_) {}
 
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
@@ -121,6 +122,14 @@ function getContactsByTag(tag) {
 function getUnreadContacts() {
   return db.prepare(`
     SELECT * FROM contacts WHERE unread_count > 0 ORDER BY last_message_at DESC
+  `).all();
+}
+
+function getContactsToday() {
+  return db.prepare(`
+    SELECT * FROM contacts
+    WHERE date(last_message_at, '-5 hours') = date('now', '-5 hours')
+    ORDER BY last_message_at DESC
   `).all();
 }
 
@@ -227,7 +236,7 @@ function setSetting(key, value) {
 
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
-  searchContacts, getContactsByTag, getUnreadContacts,
+  searchContacts, getContactsByTag, getUnreadContacts, getContactsToday,
   saveMessage, getMessages, getRecentMessages, getLastInboundWamid, updateMessageStatus,
   getContactsForR1, getContactsForR2,
   getStats, getSetting, setSetting, now,

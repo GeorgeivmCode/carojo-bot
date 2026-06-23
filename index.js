@@ -480,6 +480,7 @@ app.get('/api/contacts', adminAuth, (req, res) => {
   if (q)                    return res.json(db.searchContacts(q));
   if (tag)                  return res.json(db.getContactsByTag(tag));
   if (filter === 'unread')  return res.json(db.getUnreadContacts());
+  if (filter === 'today')   return res.json(db.getContactsToday());
   res.json(db.getAllContacts());
 });
 
@@ -511,7 +512,8 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   const { deliveryMessage } = require('./content');
 
   // 1. Dar acceso Drive
-  try { await grantDriveAccess(email, pack); } catch (e) { console.error('Drive error register-sale:', e.message); }
+  let regFolderId = '';
+  try { const dr = await grantDriveAccess(email, pack); regFolderId = dr.folderId || ''; } catch (e) { console.error('Drive error register-sale:', e.message); }
   // 2. Enviar mensaje de entrega con pixel URL
   try {
     const token = generateAccessToken(phone, pack);
@@ -519,7 +521,7 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
     await sendAndSave(phone, deliveryMessage(pack, accessUrl));
   } catch (e) { console.error('Delivery msg error:', e.message); }
   // 3. Actualizar DB
-  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now(), email });
+  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now(), email, folder_id: regFolderId });
   const updated = db.getContact(phone);
   try { await fireCapi(updated, pack); } catch (e) { console.error('CAPI error:', e.message); }
   try { await logSaleToSheets(updated, pack, email); } catch (e) { console.error('Sheets error:', e.message); }
@@ -555,8 +557,10 @@ app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
   const oldEmail = c.email || '';
   const { grantDriveAccess, revokeAccess, getFolderUrl } = require('./drive');
 
+  let chEmailFolderId = '';
   try {
-    await grantDriveAccess(newEmail, pack);
+    const dr = await grantDriveAccess(newEmail, pack);
+    chEmailFolderId = dr.folderId || '';
   } catch (e) {
     return res.status(500).json({ error: 'Error al dar acceso: ' + e.message });
   }
@@ -564,15 +568,15 @@ app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
   let revokeOk = true;
   if (oldEmail && oldEmail !== newEmail) {
     try {
-      await revokeAccess(oldEmail, pack);
+      await revokeAccess(oldEmail, pack, c.folder_id || null);
     } catch (e) {
       console.error('Revoke error:', e.message);
       revokeOk = false;
     }
   }
 
-  db.updateContact(phone, { email: newEmail });
-  const folderUrl = getFolderUrl(pack);
+  db.updateContact(phone, { email: newEmail, folder_id: chEmailFolderId });
+  const folderUrl = getFolderUrl(pack, chEmailFolderId);
   await sendAndSave(phone,
     `Tu acceso fue actualizado!\n\nEnlace al pack ${pack}:\n${folderUrl}\n\nAbrelo con el correo ${newEmail}. Cualquier problema me avisas!`
   );
@@ -598,15 +602,17 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   if (!c) return res.status(404).json({ error: 'not found' });
   const { grantDriveAccess } = require('./drive');
   const { deliveryMessage } = require('./content');
+  let restoreFolderId = '';
   try {
-    await grantDriveAccess(email, pack);
+    const dr = await grantDriveAccess(email, pack);
+    restoreFolderId = dr.folderId || '';
   } catch (e) {
     return res.status(500).json({ error: 'Error al dar acceso Drive: ' + e.message });
   }
   await sendAndSave(phone, deliveryMessage(pack));
   // NO se setea delivered_at para que no sume en el contador de ventas de hoy
   // NO usa pixel URL — no es venta nueva, no debe disparar Purchase en Meta
-  db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, email });
+  db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, email, folder_id: restoreFolderId });
   await notifyJorge(c, `ACCESO RESTAURADO (cliente antiguo)\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${c.name || '-'}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
@@ -646,7 +652,7 @@ app.post('/api/contacts/:phone/revoke-access', adminAuth, async (req, res) => {
   if (!c.email || !c.pack_selected) return res.status(400).json({ error: 'sin email o pack registrado' });
   const { revokeAccess } = require('./drive');
   let driveError = null;
-  try { await revokeAccess(c.email, c.pack_selected); } catch (e) {
+  try { await revokeAccess(c.email, c.pack_selected, c.folder_id || null); } catch (e) {
     driveError = e.message;
     console.error('revokeAccess Drive error:', e.message);
   }
@@ -666,16 +672,20 @@ app.post('/api/contacts/:phone/unblock-access', adminAuth, async (req, res) => {
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
   // Si tiene email y pack, restaurar Drive tambien
+  let unblockFolderId = c.folder_id || '';
   if (c.email && c.pack_selected) {
     const { grantDriveAccess } = require('./drive');
-    try { await grantDriveAccess(c.email, c.pack_selected); } catch (e) {
+    try {
+      const dr = await grantDriveAccess(c.email, c.pack_selected);
+      unblockFolderId = dr.folderId || unblockFolderId;
+    } catch (e) {
       console.error('Unblock Drive error:', e.message);
     }
   }
   // Determinar estado correcto segun si ya habia comprado o no
   const newState = c.delivered_at ? 'delivered' : 'awaiting_comprobante';
   const newTag   = c.delivered_at ? 'Facturado' : 'Sin etiqueta';
-  db.updateContact(phone, { state: newState, tag: newTag, bot_active: 1 });
+  db.updateContact(phone, { state: newState, tag: newTag, bot_active: 1, folder_id: unblockFolderId });
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   res.json({ ok: true });
@@ -692,7 +702,11 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   if (!email) return res.status(400).json({ error: 'el cliente no tiene Gmail registrado' });
   const { grantDriveAccess, revokeAccess } = require('./drive');
   // Dar acceso al pack nuevo primero
-  try { await grantDriveAccess(email, pack); } catch (e) {
+  let chPackFolderId = '';
+  try {
+    const dr = await grantDriveAccess(email, pack);
+    chPackFolderId = dr.folderId || '';
+  } catch (e) {
     return res.status(500).json({ error: 'Error dando acceso Drive: ' + e.message });
   }
   // Revocar pack anterior si es diferente
@@ -700,13 +714,13 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   const oldPack = c.pack_selected;
   if (oldPack && oldPack !== pack) {
     try {
-      await revokeAccess(email, oldPack);
+      await revokeAccess(email, oldPack, c.folder_id || null);
     } catch (e) {
       console.error('Revoke change-pack:', e.message);
       revokeOk = false;
     }
   }
-  db.updateContact(phone, { pack_selected: pack, state: 'delivered', tag: 'Facturado' });
+  db.updateContact(phone, { pack_selected: pack, state: 'delivered', tag: 'Facturado', folder_id: chPackFolderId });
   // Reenviar mensaje de entrega con nuevo pack
   const { generateAccessToken } = require('./flows');
   const { deliveryMessage } = require('./content');
@@ -741,7 +755,7 @@ app.post('/api/contacts/:phone/mark-fraud', adminAuth, async (req, res) => {
   const { sendText } = require('./whatsapp');
   // Revocar Drive si tiene email y pack
   if (c.email && c.pack_selected) {
-    try { await revokeAccess(c.email, c.pack_selected); } catch (e) { console.error('Revoke Drive fraud:', e.message); }
+    try { await revokeAccess(c.email, c.pack_selected, c.folder_id || null); } catch (e) { console.error('Revoke Drive fraud:', e.message); }
   }
   // Bloquear contacto
   db.updateContact(phone, { bot_active: 0, state: 'fraud', tag: 'Fraude' });

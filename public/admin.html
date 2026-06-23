@@ -890,7 +890,8 @@
     <h2>Conversaciones</h2>
     <input class="search-box" id="searchInput" type="text" placeholder="Buscar por nombre o numero...">
     <div class="filter-row">
-      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn active" data-filter="today">Hoy</button>
+      <button class="filter-btn" data-filter="all">Todos</button>
       <button class="filter-btn" data-filter="unread">No leidos</button>
       <button class="filter-btn" data-filter="tag-Facturado">Facturados</button>
     </div>
@@ -1897,7 +1898,7 @@ async function handlePushClick() {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 function initApp() {
-  loadContacts('all');
+  loadContacts('today');
   startSSE();
   setInterval(() => loadContacts(), 30000);
   initPush();

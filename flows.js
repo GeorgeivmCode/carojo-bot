@@ -985,8 +985,10 @@ async function handleEmail(contact, emailText) {
 
   const pack = contact.pack_selected || 'basico';
 
+  let driveFolderId = '';
   try {
-    await grantDriveAccess(email, pack);
+    const dr = await grantDriveAccess(email, pack);
+    driveFolderId = dr.folderId || '';
   } catch (e) {
     console.error('Drive access error:', e.message);
     await sendAndSave(phone, 'Hubo un problema al darte acceso. Ya le avise a nuestro equipo y lo resuelven en minutos!');
@@ -997,7 +999,7 @@ async function handleEmail(contact, emailText) {
   const accessToken = generateAccessToken(phone, pack);
   const accessUrl = `${BOT_URL}/acceso/${accessToken}`;
   await sendAndSave(phone, deliveryMessage(pack, accessUrl));
-  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email });
+  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email, folder_id: driveFolderId });
   const updatedContact = db.getContact(phone);
 
   await fireCapi(updatedContact, pack);
@@ -1288,10 +1290,12 @@ async function handleUpgradeComprobante(contact, msgType, content) {
   // Pago valido — revocar pack anterior, dar acceso al nuevo
   const { revokeAccess } = require('./drive');
   if (contact.email && currentPack) {
-    try { await revokeAccess(contact.email, currentPack); } catch (e) { console.error('Revoke upgrade:', e.message); }
+    try { await revokeAccess(contact.email, currentPack, contact.folder_id || null); } catch (e) { console.error('Revoke upgrade:', e.message); }
   }
+  let upgradeFolderId = '';
   try {
-    await grantDriveAccess(contact.email, upgradeTarget);
+    const dr = await grantDriveAccess(contact.email, upgradeTarget);
+    upgradeFolderId = dr.folderId || '';
   } catch (e) {
     console.error('Grant upgrade:', e.message);
     await notifyJorge(contact, `ERROR Drive upgrade:\nDe: ${currentPack}\nA: ${upgradeTarget}\nEmail: ${contact.email}\nError: ${e.message}`);
@@ -1301,7 +1305,7 @@ async function handleUpgradeComprobante(contact, msgType, content) {
   const accessUrl   = `${BOT_URL}/acceso/${accessToken}`;
   await sendAndSave(phone, deliveryMessage(upgradeTarget, accessUrl));
 
-  db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado' });
+  db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado', folder_id: upgradeFolderId });
 
   // Si el upgrade fue a Diamante, ofrecer regalo igual que en entrega normal
   if (upgradeTarget === 'diamante') {
