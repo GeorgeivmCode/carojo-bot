@@ -491,7 +491,7 @@ app.get('/api/contacts/:phone/messages', adminAuth, (req, res) => {
 
 app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
-  const allowed = ['bot_active', 'tag', 'name', 'state', 'unread_count'];
+  const allowed = ['bot_active', 'tag', 'name', 'state', 'unread_count', 'folder_id'];
   const fields = {};
   for (const k of allowed) if (req.body[k] !== undefined) fields[k] = req.body[k];
   db.updateContact(req.params.phone, fields);
