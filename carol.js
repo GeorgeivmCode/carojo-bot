@@ -595,6 +595,7 @@ APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
 8. Banco de Bogota: fondo blanco, logo "Banco de Bogota", "Valor de la transferencia" en caja verde, "Enviaste a:", "Entidad: NEQUI".
 9. Corresponsal Wompi/Bancolombia (tirilla papel): logo "W Wompi / Corresponsal Bancolombia", "TRANSACCION EXITOSA", "Monto:", "Numero Nequi:", "Titular:".
 10. Corresponsal Redeban (tirilla papel): logo "Redeban", "CORRESPONSAL BANCOLOMBIA", "RECARGA NEQU", "VALOR $X", "Producto: [numero]", "TITULAR: [nombre]".
+11. BCS / Banco Caja Social: fondo gris claro, ilustracion de telefono/mano en la parte superior, titulo "¡Envío exitoso!". Campos: "Cuenta origen", "Destino" (nombre del destinatario enmascarado), "Llave" (AQUI esta el numero de celular destinatario), "Valor", "Concepto", "Costo de la transaccion", "ID Transaccion", "Numero de transaccion", "Numero de confirmacion". El numero destinatario esta en el campo "Llave", NO en el campo "Destino".
 
 COMPROBANTES FALSOS — rechazar con "comprobante_falso":
 - Marca "NEKI" (logo NEKI visible, color turquesa/azul cielo) → app falsa conocida, siempre FALSO

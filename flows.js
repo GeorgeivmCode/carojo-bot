@@ -881,7 +881,9 @@ async function handleComprobante(contact, mediaContent) {
   // Capa de seguridad: verificar destinatario en codigo independientemente del modelo
   const NUMEROS_VALIDOS = ['3058989359', '3217239198'];
   const NOMBRES_VALIDOS  = ['jorge vanegas', 'carol apolinar'];
-  const destinoOk = NUMEROS_VALIDOS.some(n => (result.destino || '').replace(/\D/g, '').includes(n));
+  // Buscar el numero en cualquier campo del resultado (algunos bancos ponen numero en campo distinto a "destino")
+  const allResultText = Object.values(result).filter(v => typeof v === 'string').join(' ').replace(/\D/g, '');
+  const destinoOk = NUMEROS_VALIDOS.some(n => allResultText.includes(n));
   const nombreOk  = NOMBRES_VALIDOS.some(n => (result.nombre_destinatario || '').toLowerCase().includes(n));
   if (!destinoOk && !nombreOk) {
     await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
