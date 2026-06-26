@@ -297,6 +297,19 @@ function adminAuth(req, res, next) {
   next();
 }
 
+function adminAuthMedia(req, res, next) {
+  // Acepta Basic header (apiFetch) o ?token=base64(user:pass) (para <video src>)
+  let user, pass;
+  const auth = req.headers['authorization'] || '';
+  if (auth.startsWith('Basic ')) {
+    try { [user, pass] = Buffer.from(auth.slice(6), 'base64').toString().split(':'); } catch {}
+  } else if (req.query.token) {
+    try { [user, pass] = Buffer.from(req.query.token, 'base64').toString().split(':'); } catch {}
+  }
+  if (user !== ADMIN_USER || pass !== ADMIN_PASSWORD) return res.sendStatus(401);
+  next();
+}
+
 // ── Webhook ────────────────────────────────────────────────────────────────────
 app.get('/webhook', (req, res) => {
   const mode      = req.query['hub.mode'];
@@ -446,7 +459,9 @@ app.post('/webhook', verifySignature, async (req, res) => {
             await processMessage(phone, 'document', '[documento]', wamid);
           }
         } else if (msgType === 'video') {
-          await processMessage(phone, 'video', '[video]', wamid);
+          const mediaId = msg.video?.id;
+          const payload = mediaId ? JSON.stringify({ mediaId }) : '[video]';
+          await processMessage(phone, 'video', payload, wamid);
         }
       } catch (err) {
         console.error('Webhook handler error:', err.message);
@@ -476,11 +491,12 @@ app.get('/admin/events', (req, res) => {
 // ── Admin REST API ─────────────────────────────────────────────────────────────
 app.get('/api/contacts', adminAuth, (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
-  const { q, tag, filter } = req.query;
+  const { q, tag, filter, date } = req.query;
   if (q)                    return res.json(db.searchContacts(q));
   if (tag)                  return res.json(db.getContactsByTag(tag));
   if (filter === 'unread')  return res.json(db.getUnreadContacts());
   if (filter === 'today')   return res.json(db.getContactsToday());
+  if (date)                 return res.json(db.getContactsByDate(date));
   res.json(db.getAllContacts());
 });
 
@@ -831,6 +847,25 @@ app.get('/api/stats', adminAuth, (req, res) => {
 
 app.get('/api/vapid-key', (_req, res) => {
   res.json({ key: vapidPublicKey });
+});
+
+app.get('/api/video/:wamid', adminAuthMedia, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const msg = db.getMessageByWamid(req.params.wamid);
+  if (!msg) return res.status(404).json({ error: 'not found' });
+  let parsed;
+  try { parsed = JSON.parse(msg.content); } catch { return res.status(400).json({ error: 'invalid content' }); }
+  if (!parsed.mediaId) return res.status(400).json({ error: 'no mediaId' });
+  try {
+    const mediaUrl = await getMediaUrl(parsed.mediaId);
+    const { buffer, mimeType } = await downloadMedia(mediaUrl);
+    res.set('Content-Type', mimeType || 'video/mp4');
+    res.set('Cache-Control', 'no-store');
+    res.send(buffer);
+  } catch (e) {
+    console.error('Video proxy error:', e.message);
+    res.status(500).json({ error: 'no se pudo obtener el video' });
+  }
 });
 
 app.post('/api/push-subscribe', adminAuth, (req, res) => {

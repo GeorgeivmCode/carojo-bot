@@ -133,6 +133,15 @@ function getContactsToday() {
   `).all();
 }
 
+function getContactsByDate(dateStr) {
+  return db.prepare(`
+    SELECT DISTINCT c.* FROM contacts c
+    INNER JOIN messages m ON m.phone = c.phone
+    WHERE date(m.created_at, '-5 hours') = ?
+    ORDER BY c.last_message_at DESC
+  `).all(dateStr);
+}
+
 // Messages
 function saveMessage(phone, direction, type, content, wamid = '', reply_to = '') {
   db.prepare(`
@@ -145,6 +154,10 @@ function getMessages(phone, limit = 50) {
   return db.prepare(`
     SELECT * FROM messages WHERE phone = ? ORDER BY created_at ASC LIMIT ?
   `).all(phone, limit);
+}
+
+function getMessageByWamid(wamid) {
+  return db.prepare('SELECT * FROM messages WHERE wamid = ? LIMIT 1').get(wamid);
 }
 
 function updateMessageStatus(wamid, status) {
@@ -236,8 +249,8 @@ function setSetting(key, value) {
 
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
-  searchContacts, getContactsByTag, getUnreadContacts, getContactsToday,
-  saveMessage, getMessages, getRecentMessages, getLastInboundWamid, updateMessageStatus,
+  searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
+  saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageStatus,
   getContactsForR1, getContactsForR2,
   getStats, getSetting, setSetting, now,
   markGolden, getGoldenExamples
