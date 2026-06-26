@@ -685,4 +685,28 @@ Responde SOLO en JSON (sin texto adicional):
   }
 }
 
-module.exports = { carolRespond, verifyPayment };
+async function extractEmailFromImage(imageBuffer, mimeType) {
+  const mediaBlock = {
+    type: 'image',
+    source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBuffer.toString('base64') }
+  };
+
+  const res = await withRetry(() => client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 50,
+    messages: [{
+      role: 'user',
+      content: [
+        mediaBlock,
+        { type: 'text', text: 'Extrae el correo electronico de esta imagen. Responde UNICAMENTE con el correo, nada mas. Si no hay correo visible responde: NO_EMAIL' }
+      ]
+    }]
+  }), 'extractEmailFromImage');
+
+  const text = res.content[0].text.trim().toLowerCase();
+  if (text === 'no_email' || !text.includes('@')) return null;
+  const match = text.match(/[\w._%+\-]+@[\w\-]+\.[a-z]{2,}/i);
+  return match ? match[0] : null;
+}
+
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage };

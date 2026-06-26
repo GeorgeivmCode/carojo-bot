@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://carojo-bot.onrender.com';
@@ -452,6 +452,17 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       return;
     }
     if (contact.state === 'awaiting_email') {
+      try {
+        const parsed = JSON.parse(mediaContent);
+        const imgBuf = Buffer.from(parsed.buffer, 'base64');
+        const extractedEmail = await extractEmailFromImage(imgBuf, parsed.mimeType);
+        if (extractedEmail) {
+          await handleEmail(contact, extractedEmail);
+          return;
+        }
+      } catch (e) {
+        console.error('extractEmailFromImage error:', e.message);
+      }
       await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
       return;
     }
