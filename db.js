@@ -160,6 +160,10 @@ function getMessageByWamid(wamid) {
   return db.prepare('SELECT * FROM messages WHERE wamid = ? LIMIT 1').get(wamid);
 }
 
+function updateMessageContent(wamid, content) {
+  db.prepare('UPDATE messages SET content = ? WHERE wamid = ?').run(content, wamid);
+}
+
 function updateMessageStatus(wamid, status) {
   if (!wamid) return;
   db.prepare(`UPDATE messages SET status = ? WHERE wamid = ? AND direction = 'out'`).run(status, wamid);
@@ -250,7 +254,7 @@ function setSetting(key, value) {
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
-  saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageStatus,
+  saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
   getContactsForR1, getContactsForR2,
   getStats, getSetting, setSetting, now,
   markGolden, getGoldenExamples

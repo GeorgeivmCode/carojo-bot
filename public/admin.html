@@ -1340,17 +1340,22 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
       }
     }
   } else if (type === 'video') {
-    try {
-      const parsed = JSON.parse(content);
-      if (parsed.mediaId && wamid) {
-        const pass = localStorage.getItem('adminPass') || '';
-        const tok = encodeURIComponent(btoa('CarojoAdmin:' + pass));
-        const url = `/api/video/${encodeURIComponent(wamid)}?token=${tok}`;
-        body = `<video controls preload="metadata" style="max-width:220px;border-radius:6px;display:block"><source src="${url}" type="video/mp4"></video>`;
-      } else {
-        body = '<span style="color:var(--sub)">[video]</span>';
+    if (wamid) {
+      const pass = localStorage.getItem('adminPass') || '';
+      const tok = encodeURIComponent(btoa('CarojoAdmin:' + pass));
+      let videoSrc;
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed.mediaId) {
+          videoSrc = `/api/video/${encodeURIComponent(wamid)}?token=${tok}`;
+        }
+      } catch {}
+      if (!videoSrc) {
+        // legacy [video]: intentar recuperar mediaId de Meta
+        videoSrc = `/api/video-recover/${encodeURIComponent(wamid)}?token=${tok}`;
       }
-    } catch {
+      body = `<video controls preload="metadata" style="max-width:220px;border-radius:6px;display:block"><source src="${videoSrc}" type="video/mp4"></video>`;
+    } else {
       body = '<span style="color:var(--sub)">[video]</span>';
     }
   } else {

@@ -868,6 +868,48 @@ app.get('/api/video/:wamid', adminAuthMedia, async (req, res) => {
   }
 });
 
+app.get('/api/video-recover/:wamid', adminAuthMedia, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const { wamid } = req.params;
+  const msg = db.getMessageByWamid(wamid);
+  if (!msg) return res.status(404).json({ error: 'mensaje no encontrado' });
+
+  // Si ya tiene mediaId guardado, redirigir al endpoint normal
+  try {
+    const parsed = JSON.parse(msg.content);
+    if (parsed.mediaId) {
+      const mediaUrl = await getMediaUrl(parsed.mediaId);
+      const { buffer, mimeType } = await downloadMedia(mediaUrl);
+      res.set('Content-Type', mimeType || 'video/mp4');
+      res.set('Cache-Control', 'no-store');
+      return res.send(buffer);
+    }
+  } catch {}
+
+  // Intentar recuperar mediaId desde la Graph API usando el wamid
+  try {
+    const axios = require('axios');
+    const apiRes = await axios.get(`https://graph.facebook.com/v21.0/${wamid}`, {
+      headers: { Authorization: `Bearer ${process.env.WA_TOKEN}` },
+      params: { fields: 'id,type,video' }
+    });
+    const mediaId = apiRes.data?.video?.id;
+    if (!mediaId) return res.status(404).json({ error: 'Meta no devolvio mediaId para este video' });
+
+    // Guardar en DB para futuros accesos
+    db.updateMessageContent(wamid, JSON.stringify({ mediaId }));
+
+    const mediaUrl = await getMediaUrl(mediaId);
+    const { buffer, mimeType } = await downloadMedia(mediaUrl);
+    res.set('Content-Type', mimeType || 'video/mp4');
+    res.set('Cache-Control', 'no-store');
+    res.send(buffer);
+  } catch (e) {
+    console.error('Video recover error:', e.response?.data || e.message);
+    res.status(404).json({ error: 'video no disponible' });
+  }
+});
+
 app.post('/api/push-subscribe', adminAuth, (req, res) => {
   const sub = req.body;
   if (!sub?.endpoint) return res.status(400).json({ error: 'invalid subscription' });
