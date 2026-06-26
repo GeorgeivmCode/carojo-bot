@@ -1345,7 +1345,8 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
       if (parsed.mediaId && wamid) {
         const pass = localStorage.getItem('adminPass') || '';
         const tok = encodeURIComponent(btoa('CarojoAdmin:' + pass));
-        body = `<video class="bubble-img" controls preload="none" style="max-width:220px"><source src="/api/video/${encodeURIComponent(wamid)}?token=${tok}" type="video/mp4"></video>`;
+        const url = `/api/video/${encodeURIComponent(wamid)}?token=${tok}`;
+        body = `<a href="${url}" download="video.mp4" style="display:inline-flex;align-items:center;gap:6px;color:var(--blue);font-size:13px;text-decoration:none;border:1px solid var(--blue);border-radius:6px;padding:6px 10px;">⬇ Descargar video</a>`;
       } else {
         body = '<span style="color:var(--sub)">[video]</span>';
       }
