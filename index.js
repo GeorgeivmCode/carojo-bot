@@ -616,7 +616,7 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   if (!email || !email.includes('@gmail.com')) return res.status(400).json({ error: 'email debe ser Gmail' });
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
-  const { grantDriveAccess } = require('./drive');
+  const { grantDriveAccess, getFolderUrl } = require('./drive');
   const { deliveryMessage } = require('./content');
   let restoreFolderId = '';
   try {
@@ -625,7 +625,7 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: 'Error al dar acceso Drive: ' + e.message });
   }
-  await sendAndSave(phone, deliveryMessage(pack));
+  await sendAndSave(phone, deliveryMessage(pack, getFolderUrl(pack, restoreFolderId)));
   // NO se setea delivered_at para que no sume en el contador de ventas de hoy
   // NO usa pixel URL — no es venta nueva, no debe disparar Purchase en Meta
   db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, email, folder_id: restoreFolderId });
