@@ -596,6 +596,7 @@ APPS REALES que debes reconocer (cada una tiene su diseño caracteristico):
 9. Corresponsal Wompi/Bancolombia (tirilla papel): logo "W Wompi / Corresponsal Bancolombia", "TRANSACCION EXITOSA", "Monto:", "Numero Nequi:", "Titular:".
 10. Corresponsal Redeban (tirilla papel): logo "Redeban", "CORRESPONSAL BANCOLOMBIA", "RECARGA NEQU", "VALOR $X", "Producto: [numero]", "TITULAR: [nombre]".
 11. BCS / Banco Caja Social: fondo gris claro, ilustracion de telefono/mano en la parte superior, titulo "¡Envío exitoso!". Campos: "Cuenta origen", "Destino" (nombre del destinatario enmascarado), "Llave" (AQUI esta el numero de celular destinatario), "Valor", "Concepto", "Costo de la transaccion", "ID Transaccion", "Numero de transaccion", "Numero de confirmacion". El numero destinatario esta en el campo "Llave", NO en el campo "Destino".
+12. AV Villas: fondo blanco, logo "AV Villas" rojo en la parte superior con icono de pulgar arriba y check verde. ATENCION: muestra un "No. de autorización" prominente con un numero largo de ~30 digitos — ese numero es un codigo interno de transaccion, NO es el numero destinatario, IGNORARLO completamente para validacion. El NOMBRE y NUMERO del destinatario estan UNICAMENTE en el campo "Enviaste a: [NOMBRE] - Nequi [NUMERO]". Otros campos: "Valor enviado:", "Desde: Ahorros No. **** XXXX", "Costo:", "Fecha:", "IP", "Identificador dispositivo".
 
 COMPROBANTES FALSOS — rechazar con "comprobante_falso":
 - Marca "NEKI" (logo NEKI visible, color turquesa/azul cielo) → app falsa conocida, siempre FALSO
@@ -612,6 +613,13 @@ NO rechaces por:
 - El estilo visual o tema de color: las apps tienen temas claros, oscuros y distintos segun la version.
 
 Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
+
+NUMEROS QUE DEBES IGNORAR — NO SON EL DESTINATARIO:
+Los comprobantes bancarios incluyen numeros largos que NO son el numero del destinatario. NUNCA los uses para validar:
+- "No. de autorización" (AV Villas, otros): 20-35 digitos, es un codigo interno de la transaccion
+- "ID Transaccion", "Numero de referencia", "Comprobante No.": codigos internos del banco
+- Numero de cuenta de origen ("Ahorros No. **** 2960"): es la cuenta del PAGADOR, no del receptor
+El numero destinatario SIEMPRE es un celular colombiano de 10 digitos (empieza por 3). Busca exclusivamente en campos como "Enviaste a:", "Para:", "Numero Nequi:", "Llave que recibe:", "Llave:", "Numero celular:".
 
 LECTURA OBLIGATORIA DIGITO POR DIGITO:
 Antes de cualquier validacion, lee el comprobante completo con maxima atencion. Lee los numeros digito por digito, no asumas. Si un numero parece "3058989359" leelo asi: 3-0-5-8-9-8-9-3-5-9 y verifica cada posicion.
@@ -646,7 +654,8 @@ VALIDACION DE FECHA:
 - La fecha de hoy es ${today} (hora Colombia).
 - Si la fecha del comprobante ES visible y legible: compara dia, mes Y año con la fecha de hoy.
 - Si el DIA, MES o AÑO del comprobante es diferente a hoy → valido = false, razon_rechazo = "fecha_incorrecta"
-- Ejemplos: hoy es ${today}. "23 de abril de 2026" → RECHAZAR (mes diferente). "25 de mayo de 2026" → RECHAZAR (dia diferente). Mismo dia/mes/año → ACEPTAR.
+- EXCEPCION IMPORTANTE: si la fecha del comprobante es el dia INMEDIATAMENTE anterior a hoy Y la hora del comprobante es 6:00 PM o posterior (18:00+), es un pago de anoche hecho antes de medianoche — tratar como valido (no rechazar por fecha). Ejemplo: hoy es 28 de junio de 2026, comprobante dice "27 de junio de 2026" a las "07:16 p.m." → VALIDO (pago de anoche).
+- Ejemplos de rechazo real: hoy es ${today}. Comprobante de hace 2 dias o mas → RECHAZAR. Comprobante de ayer en la mañana o tarde → RECHAZAR. Solo la noche anterior (6PM+) se acepta.
 - Si la fecha NO es legible o no aparece: NO rechaces por fecha (asumir valida)
 
 razon_rechazo:
