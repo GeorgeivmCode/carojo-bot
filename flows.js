@@ -170,6 +170,7 @@ const META_PIXEL_ID      = process.env.META_PIXEL_ID;       // WABA dataset 8916
 const META_WEBSITE_PIXEL = '1045311689986665';              // pixel sitio web (fallback sin ctwa_clid)
 const META_CAPI_TOKEN    = process.env.META_CAPI_TOKEN;
 const GAS_SHEETS_URL  = process.env.GAS_SHEETS_URL;
+const GAS_DRIVE_URL   = process.env.GAS_URL;
 
 // Monto → pack
 const AMOUNT_TO_PACK = { 5000: 'basico', 10000: 'oro', 15000: 'diamante' };
@@ -865,7 +866,11 @@ async function handleComprobante(contact, mediaContent) {
     } else if (razon_rechazo === 'confirmacion_previa') {
       await sendAndSave(phone, 'Si, esos datos estan perfectos! 💛 Ya puedes darle "Enviar". Cuando te aparezca la pantalla de confirmacion del pago me la mandas aqui y listo. 📲');
     } else if (razon_rechazo === 'comprobante_falso') {
-      await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
+      await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
+      db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
+      await notifyJorge(contact,
+        `ALERTA comprobante sospechoso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nRevisa el comprobante en el panel antes de aprobar.`
+      );
     } else if (razon_rechazo === 'fecha_incorrecta') {
       await sendAndSave(phone, PLANTILLA_ACCESO);
       db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
@@ -873,7 +878,41 @@ async function handleComprobante(contact, mediaContent) {
         `CLIENTE ANTIGUO (comprobante con fecha pasada):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha || 'no detectada'}`
       );
     } else if (razon_rechazo === 'destinatario_invalido') {
-      await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
+      // Fallback BRE-B: buscar en Gmail de Nequi antes de escalar a soporte
+      let emailConfirmo = false;
+      const rawMontoFb = result.monto;
+      const normalizedMontoFb = rawMontoFb != null
+        ? parseInt(String(rawMontoFb).replace(/,\d*$/, '').replace(/\./g, ''), 10) || null
+        : null;
+      const montoFb = normalizedMontoFb || (contact.pack_selected ? PACK_PRICES[contact.pack_selected] : null);
+      if (montoFb && GAS_DRIVE_URL) {
+        try {
+          const emailRes = await axios.post(GAS_DRIVE_URL,
+            { action: 'checkPayment', monto: montoFb, minutosAtras: 180 },
+            { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+          );
+          if (emailRes.data?.found) {
+            const packFb = (normalizedMontoFb ? AMOUNT_TO_PACK[normalizedMontoFb] : null) || contact.pack_selected;
+            if (packFb) {
+              emailConfirmo = true;
+              db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb });
+              await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
+              await notifyJorge(contact,
+                `PAGO VERIFICADO POR EMAIL (BRE-B):\nPack: ${packFb}\nMonto: $${montoFb.toLocaleString('es-CO')}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+              );
+            }
+          }
+        } catch (e) {
+          console.error('GAS checkPayment error:', e.message);
+        }
+      }
+      if (!emailConfirmo) {
+        await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
+        db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
+        await notifyJorge(contact,
+          `VERIFICACION MANUAL requerida (destinatario no verificado):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nRevisa el comprobante en el panel.`
+        );
+      }
     } else if (razon_rechazo === 'transaccion_no_exitosa') {
       await sendAndSave(phone, PAYMENT_NOT_SUCCESSFUL);
     } else if (razon_rechazo === 'monto_invalido' || (monto && !AMOUNT_TO_PACK[monto])) {
@@ -895,7 +934,11 @@ async function handleComprobante(contact, mediaContent) {
         );
       }
     } else {
-      await sendAndSave(phone, PAYMENT_REJECTED_MSG(null));
+      await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
+      db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
+      await notifyJorge(contact,
+        `VERIFICACION MANUAL requerida (rechazo sin categoria):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nMotivo: ${razon_rechazo || 'desconocido'}\nRevisa el comprobante en el panel.`
+      );
     }
     return;
   }
@@ -1291,12 +1334,17 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   if (!result.valido) {
     const { razon_rechazo, monto } = result;
-    if (razon_rechazo === 'comprobante_falso')         await sendAndSave(phone, COMPROBANTE_FALSO_MSG);
-    else if (razon_rechazo === 'destinatario_invalido') await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
-    else if (razon_rechazo === 'transaccion_no_exitosa') await sendAndSave(phone, PAYMENT_NOT_SUCCESSFUL);
-    else if (razon_rechazo === 'monto_invalido' || (monto && monto !== diferencial))
+    if (razon_rechazo === 'transaccion_no_exitosa') {
+      await sendAndSave(phone, PAYMENT_NOT_SUCCESSFUL);
+    } else if (razon_rechazo === 'monto_invalido' || (monto && monto !== diferencial)) {
       await sendAndSave(phone, PAYMENT_WRONG_AMOUNT(monto, diferencial));
-    else await sendAndSave(phone, PAYMENT_REJECTED_MSG(null));
+    } else {
+      await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
+      db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
+      await notifyJorge(contact,
+        `VERIFICACION MANUAL upgrade (${razon_rechazo || 'rechazo'}):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nUpgrade a: ${upgradeTarget}\nRevisa el comprobante en el panel.`
+      );
+    }
     return;
   }
 
