@@ -879,6 +879,21 @@ async function handleComprobante(contact, mediaContent) {
     } else if (razon_rechazo === 'monto_invalido' || (monto && !AMOUNT_TO_PACK[monto])) {
       const pack = contact.pack_selected || 'basico';
       await sendAndSave(phone, PAYMENT_WRONG_AMOUNT(monto, PACK_PRICES[pack]));
+    } else if (razon_rechazo === 'imagen_no_legible') {
+      if (contact.pack_selected) {
+        // Entregar el pack y notificar a Jorge para verificacion manual
+        db.updateContact(phone, { state: 'awaiting_email' });
+        await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
+        await notifyJorge(contact,
+          `IMAGEN ILEGIBLE - entrega automatica pendiente verificacion:\nPack: ${contact.pack_selected}\nTel: ${phone}\nNombre: ${contact.name || '-'}\nVerifica manualmente que el pago es real antes de que entre el correo.`
+        );
+      } else {
+        // Sin pack conocido no se puede entregar — pedir imagen mas clara y avisar a Jorge
+        await sendAndSave(phone, 'No pude leer bien tu comprobante. Enviame una foto mas clara donde se vea el monto y el numero al que transferiste. 📸');
+        await notifyJorge(contact,
+          `IMAGEN ILEGIBLE - sin pack, requiere atencion manual:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nRevisa el comprobante y procesa desde el panel.`
+        );
+      }
     } else {
       await sendAndSave(phone, PAYMENT_REJECTED_MSG(null));
     }
