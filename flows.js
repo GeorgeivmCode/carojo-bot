@@ -430,17 +430,13 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
       return;
     }
-    // Estado new o awaiting_choice: si tiene pack seleccionado (ya habia avanzado) → recuperar y procesar comprobante
-    // Si no tiene pack → pedir que elija primero
+    // Estado new o awaiting_choice: procesar comprobante directamente
+    // El pack se determina del monto detectado en la imagen (5000→basico, 10000→oro, 15000→diamante)
+    // Si ya tenia pack_selected, handleComprobante lo respeta; si no, lo infiere del monto
     if (contact.state === 'new' || contact.state === 'awaiting_choice') {
-      if (contact.pack_selected) {
-        db.updateContact(phone, { state: 'awaiting_comprobante' });
-        contact = db.getContact(phone);
-        await handleComprobante(contact, content);
-      } else {
-        await sendAndSave(phone, 'Para procesar tu pago primero elige tu pack. Escribe 1 para Diamante ($15.000), 2 para Oro ($10.000) o 3 para Basico ($5.000). 😊\n\nUna vez que elijas, vuelve a enviarme la foto del comprobante 📸');
-        db.updateContact(phone, { state: 'awaiting_choice' });
-      }
+      db.updateContact(phone, { state: 'awaiting_comprobante' });
+      contact = db.getContact(phone);
+      await handleComprobante(contact, content);
       return;
     }
     if (ACTIVE_PAYMENT_STATES.has(contact.state) || contact.state === 'awaiting_upgrade_comprobante') {
