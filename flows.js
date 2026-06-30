@@ -761,15 +761,13 @@ async function handleOfferedDiamante(contact, text) {
 async function handleOfferedOro(contact, text) {
   const phone = contact.phone;
   const isShortYes = text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS);
-  const isShortNo  = text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS);
   if (text === '1' || text.includes('diamante') || isShortYes) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
-  } else if (text === '2' || text.includes('oro') || isShortNo) {
+  } else if (text === '2' || text.includes('oro')) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else {
-    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     const history = db.getRecentMessages(phone, 8);
     await sendAndSave(phone, await carol(history, text));
   }
