@@ -1064,6 +1064,9 @@
 let currentPhone = null;
 let allContacts = [];
 let currentFilter = 'all';
+let oldestLoadedId = null;
+let noMoreOlder = false;
+let loadingOlder = false;
 
 const QUICK_REPLIES = {
   pedir_gmail: `¡Hola! 👋✨ Hemos actualizado nuestra plataforma para brindarte mayor seguridad. 🔐🎉\n\nAhora el acceso es personal y directo a tu correo *GMAIL* 💌 — sin enlaces públicos. 🙌\n\nPara activarte solo necesito un dato:\n\n📧💛 ¿Cuál es tu correo *GMAIL*?\n\n⚠️✅ Solo funciona con *GMAIL* — escríbelo exacto con el *@gmail.com* 📩\n\nEn cuanto lo reciba, ¡te llega la notificación de *GMAIL* con tu material listo! 🚀🎨✨`
@@ -1280,11 +1283,42 @@ function renderRightPanel(c) {
 
 // ── Messages ───────────────────────────────────────────────────────────────────
 async function loadMessages(phone) {
+  oldestLoadedId = null;
+  noMoreOlder = false;
+  loadingOlder = false;
   const res = await apiFetch(`/api/contacts/${phone}/messages`);
   if (!res) return;
   const msgs = await res.json();
   const el = document.getElementById('chatMessages');
   el.innerHTML = '';
+  renderMessageBatch(msgs, false);
+  if (msgs.length) oldestLoadedId = msgs[0].id;
+  if (msgs.length < 50) noMoreOlder = true;
+  scrollBottom();
+}
+
+// Trae mensajes mas viejos que oldestLoadedId y los agrega arriba sin perder la posicion del scroll
+async function loadOlderMessages() {
+  if (loadingOlder || noMoreOlder || !oldestLoadedId || !currentPhone) return;
+  loadingOlder = true;
+  const el = document.getElementById('chatMessages');
+  const prevHeight = el.scrollHeight;
+  const prevScrollTop = el.scrollTop;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/messages?before=${oldestLoadedId}`);
+  if (!res) { loadingOlder = false; return; }
+  const msgs = await res.json();
+  if (!msgs.length) { noMoreOlder = true; loadingOlder = false; return; }
+  renderMessageBatch(msgs, true);
+  oldestLoadedId = msgs[0].id;
+  if (msgs.length < 50) noMoreOlder = true;
+  el.scrollTop = prevScrollTop + (el.scrollHeight - prevHeight);
+  loadingOlder = false;
+}
+
+// Arma el HTML de un lote de mensajes (con separadores de fecha) y lo agrega al final o al inicio
+function renderMessageBatch(msgs, prepend) {
+  const el = document.getElementById('chatMessages');
+  let html = '';
   let lastDate = '';
   for (const m of msgs) {
     // Convertir a fecha Colombia para agrupar correctamente
@@ -1292,12 +1326,12 @@ async function loadMessages(phone) {
     const dt = new Date(raw.length === 10 ? raw + 'T12:00:00Z' : raw.replace(' ','T')+'Z');
     const d = dt.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year:'numeric', month:'2-digit', day:'2-digit' });
     if (d !== lastDate) {
-      el.insertAdjacentHTML('beforeend', `<div class="date-divider">${formatDate(raw)}</div>`);
+      html += `<div class="date-divider">${formatDate(raw)}</div>`;
       lastDate = d;
     }
-    appendBubble(m.direction, m.type, m.content, m.created_at, false, m.wamid || '', m.status || '', m.reply_to || '', msgs, m.id, m.golden);
+    html += bubbleHtml(m.direction, m.type, m.content, m.created_at, m.wamid || '', m.status || '', m.reply_to || '', msgs, m.id, m.golden);
   }
-  scrollBottom();
+  el.insertAdjacentHTML(prepend ? 'afterbegin' : 'beforeend', html);
 }
 
 function statusIcon(status) {
@@ -1309,8 +1343,7 @@ function statusIcon(status) {
   return '';
 }
 
-function appendBubble(direction, type, content, ts, scroll = true, wamid = '', status = '', reply_to = '', allMsgs = [], msgId = 0, golden = 0) {
-  const el = document.getElementById('chatMessages');
+function bubbleHtml(direction, type, content, ts, wamid = '', status = '', reply_to = '', allMsgs = [], msgId = 0, golden = 0) {
   const dir = direction === 'out' ? 'out' : 'in';
   const time = ts ? new Date(ts.replace(' ','T')+'Z').toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',timeZone:'America/Bogota'}) : '';
   let body = '';
@@ -1331,10 +1364,14 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
     try {
       const parsed = JSON.parse(content);
       const mime = parsed.mimeType || 'image/jpeg';
-      body = `<img class="bubble-img" src="data:${mime};base64,${parsed.buffer}" alt="Comprobante" onclick="openLightbox(this.src)">`;
+      // La miniatura (si existe) es la que se pinta en el chat — liviana y rapida de decodificar.
+      // El zoom (lightbox) siempre abre el buffer original completo, sin perdida de calidad.
+      const fullSrc = `data:${mime};base64,${parsed.buffer}`;
+      const thumbSrc = parsed.thumb ? `data:image/jpeg;base64,${parsed.thumb}` : fullSrc;
+      body = `<img class="bubble-img" loading="lazy" src="${thumbSrc}" alt="Comprobante" onclick="openLightbox('${fullSrc}')">`;
     } catch {
       if (content && (content.startsWith('https://') || content.startsWith('http://'))) {
-        body = `<img class="bubble-img" src="${escHtml(content)}" alt="Imagen" onclick="openLightbox(this.src)">`;
+        body = `<img class="bubble-img" loading="lazy" src="${escHtml(content)}" alt="Imagen" onclick="openLightbox(this.src)">`;
       } else {
         body = '[imagen]';
       }
@@ -1368,11 +1405,16 @@ function appendBubble(direction, type, content, ts, scroll = true, wamid = '', s
     ? `<button class="star-btn${golden ? ' golden' : ''}" onclick="toggleGolden(${msgId},this)" title="Marcar como ejemplo dorado">★</button>`
     : '';
 
-  el.insertAdjacentHTML('beforeend', `
+  return `
     <div class="bubble-wrap ${dir}"${wamidAttr}>
       ${starBtn}
       <div class="bubble">${replyHtml}${body}<div class="bubble-time"><span>${time}</span>${statusHtml}</div></div>
-    </div>`);
+    </div>`;
+}
+
+function appendBubble(direction, type, content, ts, scroll = true, wamid = '', status = '', reply_to = '', allMsgs = [], msgId = 0, golden = 0) {
+  const el = document.getElementById('chatMessages');
+  el.insertAdjacentHTML('beforeend', bubbleHtml(direction, type, content, ts, wamid, status, reply_to, allMsgs, msgId, golden));
   if (scroll) scrollBottom();
 }
 
@@ -1936,6 +1978,13 @@ function initApp() {
   startSSE();
   setInterval(() => loadContacts(), 30000);
   initPush();
+  // Scroll hacia arriba en el chat = cargar mensajes mas viejos (sin perder la posicion)
+  const chatEl = document.getElementById('chatMessages');
+  if (chatEl) {
+    chatEl.addEventListener('scroll', () => {
+      if (chatEl.scrollTop < 80) loadOlderMessages();
+    });
+  }
   if (new URLSearchParams(location.search).has('sale')) {
     history.replaceState(null, '', '/admin.html');
     setTimeout(() => playCashRegister(), 400);

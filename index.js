@@ -7,6 +7,22 @@ const express  = require('express');
 const crypto   = require('crypto');
 const path     = require('path');
 const webpush  = require('web-push');
+const { Jimp, JimpMime } = require('jimp');
+
+// Miniatura liviana para mostrar en el chat del panel (no reemplaza el buffer original,
+// que sigue guardandose completo para Vision y para el zoom/lightbox)
+async function makeThumbnail(buffer, mimeType) {
+  if (!mimeType || !mimeType.startsWith('image/')) return null;
+  try {
+    const img = await Jimp.read(buffer);
+    img.resize({ w: 300 });
+    const out = await img.getBuffer(JimpMime.jpeg, { quality: 55 });
+    return out.toString('base64');
+  } catch (e) {
+    console.error('Thumbnail error:', e.message);
+    return null;
+  }
+}
 
 let vapidPublicKey = '';
 let pushSubscriptions = [];
@@ -419,7 +435,8 @@ app.post('/webhook', verifySignature, async (req, res) => {
           if (mediaId) {
             const mediaUrl = await getMediaUrl(mediaId);
             const { buffer, mimeType } = await downloadMedia(mediaUrl);
-            const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType });
+            const thumb = await makeThumbnail(buffer, mimeType);
+            const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType, thumb });
             await processMessage(phone, 'image', payload, wamid);
           }
         } else if (msgType === 'audio') {
@@ -449,7 +466,9 @@ app.post('/webhook', verifySignature, async (req, res) => {
             try {
               const mediaUrl = await getMediaUrl(mediaId);
               const { buffer, mimeType: resolvedMime } = await downloadMedia(mediaUrl);
-              const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: resolvedMime || mime });
+              const finalMime = resolvedMime || mime;
+              const thumb = await makeThumbnail(buffer, finalMime);
+              const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: finalMime, thumb });
               await processMessage(phone, 'image', payload, wamid);
             } catch (e) {
               console.error('Document download error:', e.message);
@@ -502,7 +521,8 @@ app.get('/api/contacts', adminAuth, (req, res) => {
 
 app.get('/api/contacts/:phone/messages', adminAuth, (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
-  res.json(db.getMessages(req.params.phone, 200));
+  const beforeId = req.query.before ? parseInt(req.query.before, 10) : null;
+  res.json(db.getMessages(req.params.phone, 50, beforeId));
 });
 
 app.patch('/api/contacts/:phone', adminAuth, (req, res) => {

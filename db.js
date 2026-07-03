@@ -150,9 +150,18 @@ function saveMessage(phone, direction, type, content, wamid = '', reply_to = '')
   `).run(phone, direction, type, content, wamid, reply_to || '');
 }
 
-function getMessages(phone, limit = 50) {
+function getMessages(phone, limit = 50, beforeId = null) {
+  if (beforeId) {
+    return db.prepare(`
+      SELECT * FROM (
+        SELECT * FROM messages WHERE phone = ? AND id < ? ORDER BY id DESC LIMIT ?
+      ) ORDER BY id ASC
+    `).all(phone, beforeId, limit);
+  }
   return db.prepare(`
-    SELECT * FROM messages WHERE phone = ? ORDER BY created_at ASC LIMIT ?
+    SELECT * FROM (
+      SELECT * FROM messages WHERE phone = ? ORDER BY id DESC LIMIT ?
+    ) ORDER BY id ASC
   `).all(phone, limit);
 }
 
