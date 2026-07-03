@@ -1171,6 +1171,7 @@ async function loadContacts(filter) {
   const q = document.getElementById('searchInput').value.trim();
   if (q) url += '?q=' + encodeURIComponent(q);
   else if (currentFilter === 'unread') url += '?filter=unread';
+  else if (currentFilter === 'today') url += '?filter=today';
   else if (currentFilter.startsWith('tag-')) url += '?tag=' + encodeURIComponent(currentFilter.slice(4));
   else if (currentFilter.startsWith('date:')) url += '?date=' + currentFilter.slice(5);
 
