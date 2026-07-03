@@ -124,11 +124,11 @@ Quedo atenta a tu comprobante por aqui. 📲`;
 
 const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Pago recibido. 🎉
 
-Para activarte el acceso solo necesito tu correo Gmail. El sistema te manda la notificacion directamente ahi — es la forma mas rapida y segura de entregarte el material.
+Para activarte el acceso solo necesito tu correo Gmail. Te doy acceso a tu carpeta personal y te mando el enlace aqui mismo por WhatsApp.
 
 📧 A que *Gmail* te lo enviamos? (debe terminar en @gmail.com) 💌
 
-Escribenos el Gmail que usas a diario — el acceso queda registrado a ese correo. Y si esta lleno no te preocupes, igual te llega todo 😊`;
+Escribenos el Gmail que usas a diario, el acceso queda registrado a ese correo.`;
 
 const DELIVERY_BASICO = `Hola! 🎉✨
 
@@ -370,12 +370,18 @@ const DRIVE_URLS_FOR_DELIVERY = {
   diamante: 'https://drive.google.com/drive/folders/1t3qNyssHh2UqQ9dIIH4dJl1TlkDDatT4'
 };
 
-function deliveryMessage(pack, accessUrl) {
+function deliveryMessage(pack, accessUrl, email) {
   const msgs = { basico: DELIVERY_BASICO, oro: DELIVERY_ORO, diamante: DELIVERY_DIAMANTE };
   let msg = msgs[pack] || DELIVERY_BASICO;
   if (accessUrl) {
     const driveUrl = DRIVE_URLS_FOR_DELIVERY[pack] || DRIVE_URLS_FOR_DELIVERY.basico;
     msg = msg.replace(driveUrl, accessUrl);
+  }
+  if (email) {
+    msg = msg.replace(
+      '⚠️ Abrelo con el correo que nos diste. El acceso esta registrado a tu nombre.',
+      `⚠️ Importante: en tu celular revisa que la cuenta activa en Gmail o Drive sea *${email}* antes de abrir el enlace. Si tienes otro correo abierto, cambia de cuenta primero (toca tu foto de perfil en la app y selecciona ${email}).`
+    );
   }
   return msg;
 }

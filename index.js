@@ -554,7 +554,7 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   try {
     const token = generateAccessToken(phone, pack);
     const accessUrl = `https://carojo-bot.onrender.com/acceso/${token}`;
-    await sendAndSave(phone, deliveryMessage(pack, accessUrl));
+    await sendAndSave(phone, deliveryMessage(pack, accessUrl, email));
   } catch (e) { console.error('Delivery msg error:', e.message); }
   // 3. Actualizar DB
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now(), email, folder_id: regFolderId });
@@ -645,7 +645,7 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   } catch (e) {
     return res.status(500).json({ error: 'Error al dar acceso Drive: ' + e.message });
   }
-  await sendAndSave(phone, deliveryMessage(pack, getFolderUrl(pack, restoreFolderId)));
+  await sendAndSave(phone, deliveryMessage(pack, getFolderUrl(pack, restoreFolderId), email));
   // NO se setea delivered_at para que no sume en el contador de ventas de hoy
   // NO usa pixel URL — no es venta nueva, no debe disparar Purchase en Meta
   db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, email, folder_id: restoreFolderId });
@@ -763,7 +763,7 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   const accessToken = generateAccessToken(phone, pack);
   const accessUrl = `https://carojo-bot.onrender.com/acceso/${accessToken}`;
   try {
-    await sendAndSave(phone, deliveryMessage(pack, accessUrl));
+    await sendAndSave(phone, deliveryMessage(pack, accessUrl, email));
   } catch (e) { console.error('Send change-pack delivery:', e.message); }
   if (!revokeOk) {
     await notifyJorge(c,

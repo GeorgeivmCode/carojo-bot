@@ -1063,7 +1063,7 @@ async function handleEmail(contact, emailText) {
 
   const accessToken = generateAccessToken(phone, pack);
   const accessUrl = `${BOT_URL}/acceso/${accessToken}`;
-  await sendAndSave(phone, deliveryMessage(pack, accessUrl));
+  await sendAndSave(phone, deliveryMessage(pack, accessUrl, email));
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email, folder_id: driveFolderId });
   const updatedContact = db.getContact(phone);
 
@@ -1373,7 +1373,7 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   const accessToken = generateAccessToken(phone, upgradeTarget);
   const accessUrl   = `${BOT_URL}/acceso/${accessToken}`;
-  await sendAndSave(phone, deliveryMessage(upgradeTarget, accessUrl));
+  await sendAndSave(phone, deliveryMessage(upgradeTarget, accessUrl, contact.email));
 
   db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado', folder_id: upgradeFolderId });
 
