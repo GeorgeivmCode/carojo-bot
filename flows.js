@@ -1287,7 +1287,8 @@ async function handlePostDelivery(contact, text) {
   const packLabelDelivered = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE' :
     contact.pack_selected === 'oro' ? 'SUPERPACK ORO' :
     contact.pack_selected === 'basico' ? 'PACK BASICO' : 'su pack';
-  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo a su ${packLabelDelivered}. NO le pidas que pague ni le des datos de pago de nuevo — su compra esta completa. Ayudala con su duda o solicitud actual.]`;
+  const packPriceDelivered = PACK_AMOUNTS[contact.pack_selected];
+  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. NO le pidas que pague ni le des datos de pago de nuevo — su compra esta completa. Ayudala con su duda o solicitud actual.]`;
   const reply = await carol(history, ctxDelivered + '\n\nMensaje de la clienta: ' + text);
   await sendAndSave(phone, reply);
 }
