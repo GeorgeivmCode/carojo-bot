@@ -1123,6 +1123,20 @@ async function handlePostDelivery(contact, text) {
     return;
   }
 
+  // Cliente pide cambiar su correo — escalar a soporte manual (Jorge decide si esta dentro del tiempo permitido: 2h desde la entrega)
+  const wantsEmailChange = ['cambiar el correo', 'cambiar correo', 'cambiar mi correo', 'cambiar de correo',
+    'cambiar el gmail', 'cambiar mi gmail', 'cambiar de gmail', 'otro correo', 'otro gmail',
+    'correo diferente', 'gmail diferente', 'me equivoque de correo', 'puse mal el correo',
+    'correo equivocado', 'correo esta mal', 'correo está mal', 'cambio de correo'].some(w => text.includes(w));
+  if (wantsEmailChange) {
+    await sendAndSave(phone, 'Claro! Dejame consultar con nuestro equipo para hacer ese cambio con cuidado. En un momento te ayudan por aqui mismo 💛');
+    db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
+    await notifyJorge(contact,
+      `CAMBIO DE CORREO SOLICITADO:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nCorreo actual: ${contact.email || '-'}\nEntregado: ${contact.delivered_at || '-'}\nRevisa el tiempo transcurrido antes de hacer el cambio (limite 2 horas).`
+    );
+    return;
+  }
+
   // Pre-upsell: cierre cortés post-entrega — evitar que Carol responda varias veces a "Gracias"
   if (!contact.upsell_sent && contact.pack_selected !== 'diamante') {
     const DELIVERY_CLOSINGS = ['gracias', 'ok', 'listo', 'perfecto', 'de nada', 'dale', 'bien', 'bueno', 'entendido', 'claro'];
@@ -1270,7 +1284,11 @@ async function handlePostDelivery(contact, text) {
   }
 
   const history = db.getRecentMessages(phone, 8);
-  const reply = await carol(history, text);
+  const packLabelDelivered = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE' :
+    contact.pack_selected === 'oro' ? 'SUPERPACK ORO' :
+    contact.pack_selected === 'basico' ? 'PACK BASICO' : 'su pack';
+  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo a su ${packLabelDelivered}. NO le pidas que pague ni le des datos de pago de nuevo — su compra esta completa. Ayudala con su duda o solicitud actual.]`;
+  const reply = await carol(history, ctxDelivered + '\n\nMensaje de la clienta: ' + text);
   await sendAndSave(phone, reply);
 }
 
