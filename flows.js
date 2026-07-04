@@ -450,7 +450,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     }
     if (contact.state === 'awaiting_email') {
       try {
-        const parsed = JSON.parse(mediaContent);
+        const parsed = JSON.parse(content);
         const imgBuf = Buffer.from(parsed.buffer, 'base64');
         const extractedEmail = await extractEmailFromImage(imgBuf, parsed.mimeType);
         if (extractedEmail) {
