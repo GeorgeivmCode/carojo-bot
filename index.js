@@ -806,6 +806,19 @@ app.post('/api/contacts/:phone/mark-fraud', adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/contacts/:phone/mark-test-sale', adminAuth, (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  // Toggle: si ya esta marcada como Prueba, revertir a Facturado (vuelve a contar)
+  const newTag = c.tag === 'Prueba' ? 'Facturado' : 'Prueba';
+  db.updateContact(phone, { tag: newTag });
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true, tag: newTag });
+});
+
 app.post('/api/contacts/:phone/send', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const { text } = req.body;

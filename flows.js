@@ -32,8 +32,23 @@ const {
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
   MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS, deliveryMessage,
-  UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS
+  UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
+  NEQUI_DOWN_TRIGGERS
 } = require('./content');
+
+async function checkNequiStatus() {
+  try {
+    const res = await axios.get('https://status.nequi.com.co/api/v2/status.json', { timeout: 5000 });
+    const { indicator, description } = res.data.status;
+    if (indicator === 'none') {
+      return 'Revise el estado oficial de Nequi y no reporta fallas en este momento ✅\n\nEl problema puede ser de tu conexion o de la app. Intenta cerrar Nequi por completo y abrirla de nuevo, o revisa tu internet.\n\nSi prefieres, tambien puedes pagar por Daviplata: 3217239198 (Titular: Carol Apolinar) 💛';
+    }
+    return `Confirmado, Nequi si esta reportando fallas ahora mismo: "${description}" 😕\n\nNo es nada que puedas hacer tu, dale unos minutos y vuelve a intentar. Si prefieres no esperar, puedes pagar por Daviplata: 3217239198 (Titular: Carol Apolinar) 💛`;
+  } catch (e) {
+    console.error('checkNequiStatus error:', e.message);
+    return 'No pude confirmar el estado de Nequi en este momento. Puedes revisarlo tu misma aqui: https://www.nequi.com.co/personas/ayuda/status 👀\n\nMientras tanto, tambien puedes pagar por Daviplata: 3217239198 (Titular: Carol Apolinar) 💛';
+  }
+}
 
 // Estados donde el cliente ya comprometió un pack o está enviando comprobante
 // NOTA: awaiting_choice NO está aquí — en ese estado aún se debe detectar clientes antiguos
@@ -468,6 +483,16 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     contact = db.getContact(phone);
     await handleNew(contact, text);
     return;
+  }
+
+  // Nequi caido/con fallas — verificar estado real antes de responder (solo en pago activo)
+  if (msgType === 'text' && ACTIVE_PAYMENT_STATES.has(contact.state)) {
+    const tlNequi = text.toLowerCase();
+    if (NEQUI_DOWN_TRIGGERS.some(t => tlNequi.includes(t))) {
+      const diagnostico = await checkNequiStatus();
+      await sendAndSave(phone, diagnostico);
+      return;
+    }
   }
 
   // Deteccion automatica de mostrario y testimonios

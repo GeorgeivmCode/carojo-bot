@@ -39,6 +39,7 @@
     --silver:   #94a3b8;
     --coral:    #ff6b6b;
     --indigo:   #818cf8;
+    --fuchsia:  #d946ef;
     --glow-g:   0 0 8px rgba(0,229,160,.4);
     --glow-b:   0 0 8px rgba(56,189,248,.4);
     --glow-r:   0 0 8px rgba(255,77,106,.4);
@@ -530,6 +531,12 @@
     border-color: var(--indigo); border-bottom-color: var(--indigo);
     box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(129,140,248,.35), inset 0 1px 0 rgba(129,140,248,.2);
   }
+  .qr-btn.fuchsia { color: var(--fuchsia); }
+  .qr-btn.fuchsia:hover {
+    background: linear-gradient(180deg, rgba(217,70,239,.18) 0%, rgba(217,70,239,.06) 100%);
+    border-color: var(--fuchsia); border-bottom-color: var(--fuchsia);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(217,70,239,.35), inset 0 1px 0 rgba(217,70,239,.2);
+  }
   /* old flex fallback */
   .quick-replies { display: flex; gap: 6px; flex-wrap: wrap; }
   .input-row { display: flex; gap: 8px; align-items: flex-end; }
@@ -953,6 +960,7 @@
             <button class="qr-btn teal" onclick="unblockAccess()">🔓 Desbloquear</button>
             <button class="qr-btn lime" onclick="resetToNew()">🔄 Nueva compra</button>
             <button class="qr-btn red" onclick="markFraud()">🚫 Fraude</button>
+            <button class="qr-btn fuchsia" onclick="markTestSale()">➖ Prueba/Fake</button>
           </div>
         </div>
         <div class="cmd-group">
@@ -1821,6 +1829,22 @@ async function markFraud() {
   const data = await res.json();
   if (data.ok) showToast('Marcado como fraude. Drive revocado y bot bloqueado.', 'error', 5000);
   else showToast('Error: ' + (data.error || 'desconocido'), 'error');
+}
+
+async function markTestSale() {
+  if (!currentPhone) return;
+  const c = allContacts.find(x => x.phone === currentPhone);
+  const yaEsPrueba = c?.tag === 'Prueba';
+  const msg = yaEsPrueba
+    ? `Volver a contar la venta de ${c?.name || currentPhone}?\n\nSe revierte a Facturado y vuelve a sumar en el contador de ventas.`
+    : `Marcar como venta de PRUEBA/FAKE a ${c?.name || currentPhone}?\n\nSe resta del contador de ventas (hoy y total). No toca Drive ni bloquea el bot.`;
+  if (!confirm(msg)) return;
+  const res = await apiFetch(`/api/contacts/${currentPhone}/mark-test-sale`, { method: 'POST' });
+  if (!res) return;
+  const data = await res.json();
+  if (data.ok) {
+    showToast(data.tag === 'Prueba' ? 'Marcada como prueba, restada del contador.' : 'Revertida, vuelve a contar como venta.', 'success', 4000);
+  } else showToast('Error: ' + (data.error || 'desconocido'), 'error');
 }
 
 async function sendGalleryFromPanel(type) {

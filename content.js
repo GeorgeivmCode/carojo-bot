@@ -311,6 +311,16 @@ const TESTIMONIOS_TRIGGERS = [
   'es real', 'es fake', 'no mandan', 'despues de pagar', 'después de pagar'
 ];
 
+// Triggers de Nequi caido/con fallas — dispara verificacion real del estado
+const NEQUI_DOWN_TRIGGERS = [
+  'nequi esta caido', 'nequi está caído', 'nequi caido', 'nequi caído',
+  'nequi no funciona', 'nequi no sirve', 'nequi fallando', 'nequi con fallas',
+  'nequi con falla', 'se cayo nequi', 'se cayó nequi', 'nequi no carga',
+  'nequi no abre', 'error en nequi', 'nequi tiene un error', 'nequi da error',
+  'nequi no responde', 'esta caido nequi', 'está caído nequi', 'nequi esta fallando',
+  'nequi está fallando'
+];
+
 const STOPPED_MSG = `Entendido! 🌸 Acabo de pausar los mensajes para no interrumpirte mas.
 
 Te agradezco mucho por tu tiempo y tu interes en nuestros cursos. Si en algun momento del futuro quieres retomar tu lado creativo, aqui dejaremos las puertas abiertas para ti.
@@ -432,7 +442,7 @@ module.exports = {
   INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
-  STOPPED_MSG, OLD_CLIENT_TRIGGERS,
+  STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
   MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
   deliveryMessage
