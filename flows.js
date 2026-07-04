@@ -4,7 +4,7 @@ const { sendText, sendImage } = require('./whatsapp');
 const { carolRespond, verifyPayment, extractEmailFromImage } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
-const BOT_URL = 'https://carojo-bot.onrender.com';
+const BOT_URL = 'https://bot.carojo.uk';
 
 function generateAccessToken(phone, pack) {
   const ts = Math.floor(Date.now() / 1000);

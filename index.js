@@ -553,7 +553,7 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   // 2. Enviar mensaje de entrega con pixel URL
   try {
     const token = generateAccessToken(phone, pack);
-    const accessUrl = `https://carojo-bot.onrender.com/acceso/${token}`;
+    const accessUrl = `https://bot.carojo.uk/acceso/${token}`;
     await sendAndSave(phone, deliveryMessage(pack, accessUrl, email));
   } catch (e) { console.error('Delivery msg error:', e.message); }
   // 3. Actualizar DB
@@ -761,7 +761,7 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   const { generateAccessToken } = require('./flows');
   const { deliveryMessage } = require('./content');
   const accessToken = generateAccessToken(phone, pack);
-  const accessUrl = `https://carojo-bot.onrender.com/acceso/${accessToken}`;
+  const accessUrl = `https://bot.carojo.uk/acceso/${accessToken}`;
   try {
     await sendAndSave(phone, deliveryMessage(pack, accessUrl, email));
   } catch (e) { console.error('Send change-pack delivery:', e.message); }
