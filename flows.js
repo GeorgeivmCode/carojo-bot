@@ -409,22 +409,13 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       return;
     }
     if (contact.state === 'delivered') {
-      // Si el upsell ya fue enviado y el pack no es diamante → posible comprobante de upgrade
-      if (contact.upsell_sent && contact.pack_selected !== 'diamante') {
-        const upgradeTarget = contact.upgrade_target ||
-          (contact.pack_selected === 'oro' ? 'diamante' : null);
-        if (!upgradeTarget && contact.pack_selected === 'basico') {
-          await sendAndSave(phone,
-            'Perfecto! Solo dime: ¿vas al *SUPERPACK ORO* ($5.000 adicionales) o al *MEGA PACK DIAMANTE* ($10.000 adicionales)?\n\nEscribeme ORO o DIAMANTE y me reenvias el comprobante 💛'
-          );
-          return;
-        }
-        if (upgradeTarget) {
-          db.updateContact(phone, { state: 'awaiting_upgrade_comprobante', upgrade_target: upgradeTarget, tag: 'Upgrade' });
-          contact = db.getContact(phone);
-          await handleUpgradeComprobante(contact, msgType, content);
-          return;
-        }
+      // Solo tratar como comprobante de upgrade si el cliente YA confirmo por texto que quiere subir de pack
+      // (upgrade_target explicito). Sin esa confirmacion, no asumir intencion — puede ser soporte post-venta.
+      if (contact.upsell_sent && contact.pack_selected !== 'diamante' && contact.upgrade_target) {
+        db.updateContact(phone, { state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
+        contact = db.getContact(phone);
+        await handleUpgradeComprobante(contact, msgType, content);
+        return;
       }
       await sendAndSave(phone, 'Ya recibí tu mensaje. Un momento que te ayudo con eso. 🙏');
       db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
@@ -1007,6 +998,14 @@ async function handleEmail(contact, emailText) {
   // Extraer gmail de texto combinado (ej. "mira el pago\njuanita@gmail.com")
   const gmailMatch = rawText.match(/[\w._%+\-]+@gmail\.com/i);
   const email = gmailMatch ? gmailMatch[0].toLowerCase() : rawText;
+
+  // Typo de duplicacion (ej: "nq8291741gmail.com@gmail.com") — el usuario antes de la @ no deberia contener gmail.com
+  if (gmailMatch && email.split('@')[0].includes('gmail.com')) {
+    await sendAndSave(phone,
+      'Ese correo se ve con un error de escritura. Por favor escribelo de nuevo, solo tu usuario seguido de @gmail.com (ejemplo: tunombre@gmail.com) 📧'
+    );
+    return;
+  }
 
   if (!gmailMatch) {
     // Cierre/confirmacion — cliente acaba de recibir la solicitud de email, aun no lo da
