@@ -1332,7 +1332,10 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   if (!result.valido) {
     const { razon_rechazo, monto } = result;
-    if (razon_rechazo === 'transaccion_no_exitosa') {
+    if (razon_rechazo === 'no_es_comprobante') {
+      await sendAndSave(phone, 'Esa imagen no parece ser un comprobante de transferencia bancaria. Si tienes un problema con el contenido o el acceso a tu pack, cuéntame qué pasa y te ayudo. Si es para completar tu upgrade, necesito la captura de tu pago por Nequi, Daviplata u otra app. 📸');
+      return;
+    } else if (razon_rechazo === 'transaccion_no_exitosa') {
       await sendAndSave(phone, PAYMENT_NOT_SUCCESSFUL);
     } else if (razon_rechazo === 'monto_invalido' || (monto && monto !== diferencial)) {
       await sendAndSave(phone, PAYMENT_WRONG_AMOUNT(monto, diferencial));
