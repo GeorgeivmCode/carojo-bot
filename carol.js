@@ -826,4 +826,34 @@ Responde UNICAMENTE con JSON: {"desconfia": true} o {"desconfia": false}`;
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent };
+// Red de seguridad ADICIONAL para OLD_CLIENT_TRIGGERS — nunca reemplaza la lista de frases
+// (probada en produccion durante meses), solo suma cobertura cuando ninguna coincide.
+// Diseñada para ser conservadora: ante duda responde false, un falso positivo aqui
+// apagaria el bot a un prospecto real que SI esta comprando ahora.
+async function detectOldClientIntent(text) {
+  const prompt = `Mensaje de un chat de ventas de cursos digitales por WhatsApp:
+
+"${text}"
+
+Este mensaje dice CLARA Y EXPLICITAMENTE que la persona ya compro o pago ANTES (en el pasado, no ahora) y hoy no tiene o perdio el acceso a lo que compro?
+
+Responde false si es: una pregunta o duda sobre un pack que esta por comprar ahora, una queja sobre el contenido de los cursos, un mensaje ambiguo o generico, o cualquier cosa que no sea una afirmacion clara de compra previa perdida.
+
+Responde UNICAMENTE con JSON: {"cliente_antiguo": true} o {"cliente_antiguo": false}`;
+
+  const res = await withRetry(() => client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 20,
+    messages: [{ role: 'user', content: prompt }]
+  }), 'detectOldClientIntent');
+
+  try {
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    return parsed.cliente_antiguo === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent };

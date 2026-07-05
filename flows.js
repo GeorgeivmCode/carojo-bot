@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -371,11 +371,19 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
 
   // Cliente antiguo sin acceso — en cualquier estado que NO sea compra comprometida
   // awaiting_email se excluye: ya pagó, solo está dando su correo; "no me llega" aquí es por Gmail lleno
-  if (msgType === 'text' && isOldClientTrigger(text) && !ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'old_client' && contact.state !== 'delivered' && contact.state !== 'awaiting_email') {
-    await sendAndSave(phone, PLANTILLA_ACCESO);
-    db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
-    await notifyJorge(contact, `CLIENTE ANTIGUO sin acceso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nMensaje: "${content.substring(0, 100)}"`);
-    return;
+  if (msgType === 'text' && !ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'old_client' && contact.state !== 'delivered' && contact.state !== 'awaiting_email') {
+    // OLD_CLIENT_TRIGGERS sigue siendo el detector principal (probado en produccion durante meses).
+    // Si ninguna frase coincide y el mensaje es sustancial, Carol es una red de seguridad adicional
+    // para casos nuevos no anticipados — nunca reemplaza la lista, solo suma cobertura.
+    const oldClientByKeyword = isOldClientTrigger(text);
+    const oldClientByCarol = !oldClientByKeyword && text.split(/\s+/).filter(Boolean).length >= 3 &&
+      await detectOldClientIntent(text);
+    if (oldClientByKeyword || oldClientByCarol) {
+      await sendAndSave(phone, PLANTILLA_ACCESO);
+      db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
+      await notifyJorge(contact, `CLIENTE ANTIGUO sin acceso${oldClientByCarol ? ' (detectado por Carol)' : ''}:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nMensaje: "${content.substring(0, 100)}"`);
+      return;
+    }
   }
 
   // Cliente en estado old_client que vuelve a escribir — no responder automaticamente
@@ -1179,7 +1187,10 @@ async function handlePostDelivery(contact, text) {
       return;
     }
     // Dudoso: quiere pero aplaza — urgencia con regalo si va al Diamante
-    const isDelaying = ['después', 'despues', 'luego', 'mas tarde', 'más tarde', 'mañana', 'manana',
+    // Guarda de longitud: evita que "mañana" o "luego" mencionados dentro de un mensaje largo
+    // sobre otro tema (ej: "Mañana empiezo a practicar, gracias!") se lean como aplazamiento
+    const isDelaying = text.split(/\s+/).filter(Boolean).length <= 6 &&
+      ['después', 'despues', 'luego', 'mas tarde', 'más tarde', 'mañana', 'manana',
       'ahorita', 'pensarlo', 'le aviso', 'aviso', 'otro dia', 'otro día',
       'por el momento', 'por ahora', 'de momento'].some(w => text.includes(w));
     if (isDelaying) {
@@ -1208,7 +1219,10 @@ async function handlePostDelivery(contact, text) {
       await sendAndSave(phone, await carol(history, text));
       return;
     }
-    const rejectsUpgrade = hasWord(text, NO_WORDS) || ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
+    // NO_WORDS (token suelto "no") solo cuenta en mensajes cortos — evita que "no tengo ninguna
+    // duda, me encanta todo" se lea como rechazo por tener el token "no" en medio de la frase
+    const rejectsUpgrade = (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS)) ||
+      ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
     if (rejectsUpgrade) {
       if (yaSemilla) {
         await sendAndSave(phone, 'Perfecto! 💛 Que disfrutes mucho tu pack. Aqui estaremos cuando lo necesites. Hasta pronto! 🌸');
@@ -1323,8 +1337,10 @@ async function handleUpgradeComprobante(contact, msgType, content) {
       return;
     }
 
-    const isNo = hasWord(text, NO_WORDS) || text.includes('no quiero') || text.includes('mejor no');
-    const isDelaying = ['despues', 'después', 'luego', 'mas tarde', 'más tarde',
+    const isNo = (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS)) ||
+      text.includes('no quiero') || text.includes('mejor no');
+    const isDelaying = text.split(/\s+/).filter(Boolean).length <= 6 &&
+      ['despues', 'después', 'luego', 'mas tarde', 'más tarde',
       'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'pensarlo'].some(w => text.includes(w));
 
     if (isNo) {
