@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -31,7 +31,7 @@ const {
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
-  MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS, deliveryMessage,
+  MOSTRARIO_TRIGGERS, deliveryMessage,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
   NEQUI_DOWN_TRIGGERS
 } = require('./content');
@@ -508,7 +508,9 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     if (MOSTRARIO_TRIGGERS.some(t => tl.includes(t))) {
       sendMostrarioAfter = true;
     }
-    if (TESTIMONIOS_TRIGGERS.some(t => tl.includes(t))) {
+    // Desconfianza/miedo a estafa se detecta leyendo el contexto real, no con lista de frases —
+    // "ya me lo hicieron y perdi mi plata" no coincidia con ninguna keyword y se quedaba sin testimonios
+    if (await detectDistrustIntent(db.getRecentMessages(phone, 6), text)) {
       sendTestimoniosAfter = true;
     }
   }

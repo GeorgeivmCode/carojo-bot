@@ -277,14 +277,13 @@ Si quieres arrancar hoy escribe el numero de tu pack:
 };
 
 const TESTIMONIOS = {
-  text: `Mira lo que dicen nuestras estudiantes! 💬💛
+  text: `Te entiendo, con tanta gente por internet da miedo confiar. Por eso te muestro esto y no solo te lo digo yo 👇
 
-Ellas tambien dudaron al principio... y hoy nos escriben para contarnos sus logros. Tu historia puede ser la proxima! 🌟
+Estas son alumnas reales que tambien dudaron al principio, como tu ahora, y hoy nos escriben contandonos que ya estan vendiendo con lo que aprendieron 💛
 
-Dale una oportunidad a tu lado creativo. Escribe el numero de tu pack:
-1️⃣ Diamante $15.000
-2️⃣ Oro $10.000
-3️⃣ Basico $5.000`,
+Llevamos cientos de alumnas atendidas y seguimos aqui, respondiendo cada mensaje personalmente, no somos una pagina fantasma.
+
+Con esto sientes mas tranquilidad para dar el paso, o todavia te queda alguna duda? Cuentame y te ayudo 🌟`,
   images: [`${BASE_URL}/testimonio1.png`, `${BASE_URL}/testimonio2.png`]
 };
 
@@ -295,20 +294,6 @@ const MOSTRARIO_TRIGGERS = [
   'hay imágenes', 'hay imagenes', 'hay fotos',
   'preview', 'muéstralo', 'muestralo',
   'ver el contenido', 'ver los cursos', 'como se ve', 'cómo se ve'
-];
-
-const TESTIMONIOS_TRIGGERS = [
-  'es confiable', 'es serio', 'es estafa', 'estafa', 'no confio', 'no confío',
-  'desconfio', 'desconfío', 'prueba', 'pruebas', 'testimonio', 'testimonios',
-  'resultado', 'resultados', 'funciona', 'de verdad', 'en serio',
-  'es seguro', 'seguro', 'confianza', 'me da miedo', 'me da desconfianza',
-  'engañando', 'engaño', 'engañar', 'me estan engañando', 'me van a engañar',
-  'es mentira', 'es verdad', 'me van a robar', 'me roban', 'robo',
-  'no creo', 'no me creo', 'dudas', 'no confio', 'sera verdad', 'será verdad',
-  'no envian', 'no envían', 'no me envian', 'no me envían', 'no llega', 'no me llega',
-  'y si pago', 'si pago', 'pago y no', 'y si no', 'que garantia', 'qué garantía',
-  'como se que', 'cómo sé que', 'como sé que', 'me van a dar', 'van a dar',
-  'es real', 'es fake', 'no mandan', 'despues de pagar', 'después de pagar'
 ];
 
 // Triggers de Nequi caido/con fallas — dispara verificacion real del estado
@@ -443,7 +428,7 @@ module.exports = {
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
-  MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS, TESTIMONIOS_TRIGGERS,
+  MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
   deliveryMessage
 };

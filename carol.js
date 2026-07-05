@@ -797,4 +797,33 @@ Responde UNICAMENTE con JSON: {"acepta": true} o {"acepta": false}`;
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent };
+async function detectDistrustIntent(history, text) {
+  const historyText = history.slice(-6).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+
+  const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
+
+${historyText}
+Cliente: ${text}
+
+Ese ultimo mensaje del cliente, expresa duda, miedo a ser estafada, desconfianza sobre si el producto es real o legitimo, o una mala experiencia previa (con nosotros o con otro sitio) relacionada con pagar y no recibir nada?
+
+NO cuenta si el cliente solo pregunta por el contenido de los cursos, el precio, o esta eligiendo un pack, sin mencionar miedo a perder su dinero o desconfianza en que le llegue.
+
+Responde UNICAMENTE con JSON: {"desconfia": true} o {"desconfia": false}`;
+
+  const res = await withRetry(() => client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 30,
+    messages: [{ role: 'user', content: prompt }]
+  }), 'detectDistrustIntent');
+
+  try {
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    return parsed.desconfia === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent };
