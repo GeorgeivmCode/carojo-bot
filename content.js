@@ -141,8 +141,6 @@ https://drive.google.com/drive/folders/11REC3PBrfb35NaGpShELpo5X0mekJLuw
 
 ⚠️ Abrelo con el correo que nos diste. El acceso esta registrado a tu nombre.
 
-📧 Si te equivocaste de correo, tienes 2 horas desde este mensaje para pedirnos el cambio aqui mismo. Despues de ese tiempo, escribenos y lo revisamos manualmente.
-
 Gracias por confiar en nosotros 💛 Este es solo el comienzo de tu historia con el lettering. Disfruta cada trazo y recuerda que aqui siempre estamos para ti!
 
 — Carojo Aprende y Emprende 🌟`;
@@ -158,8 +156,6 @@ https://drive.google.com/drive/folders/1c41mpvOdASqG3am1uZ5eSQbZuc4gS2LX
 
 ⚠️ Abrelo con el correo que nos diste. El acceso esta registrado a tu nombre.
 
-📧 Si te equivocaste de correo, tienes 2 horas desde este mensaje para pedirnos el cambio aqui mismo. Despues de ese tiempo, escribenos y lo revisamos manualmente.
-
 Gracias por confiar en nosotros 💛 Este es solo el comienzo de tu historia con el lettering. Disfruta cada trazo y recuerda que aqui siempre estamos para ti!
 
 — Carojo Aprende y Emprende 🌟`;
@@ -174,8 +170,6 @@ Aqui tienes tu acceso exclusivo 👇
 https://drive.google.com/drive/folders/1t3qNyssHh2UqQ9dIIH4dJl1TlkDDatT4
 
 ⚠️ Abrelo con el correo que nos diste. El acceso esta registrado a tu nombre.
-
-📧 Si te equivocaste de correo, tienes 2 horas desde este mensaje para pedirnos el cambio aqui mismo. Despues de ese tiempo, escribenos y lo revisamos manualmente.
 
 Gracias por confiar en nosotros 💛 Este es solo el comienzo de tu historia con el lettering. Disfruta cada trazo y recuerda que aqui siempre estamos para ti!
 

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -1192,7 +1192,7 @@ async function handlePostDelivery(contact, text) {
       }
       return;
     }
-    const wantsUpgrade = hasWord(text, YES_WORDS) || ['quiero', 'completar', 'agregar', 'mas cursos',
+    const explicitWantsUpgrade = ['quiero', 'completar', 'agregar', 'mas cursos',
       'me interesa', 'cuanto', 'cuánto', 'si quiero', 'sí quiero',
       'comprobante', 'ya pague', 'ya pagué', 'te mando', 'ahi va', 'ahí va',
       'voy a pagar', 'como pago', 'cómo pago', 'datos de pago', 'numero de cuenta',
@@ -1218,6 +1218,14 @@ async function handlePostDelivery(contact, text) {
         await sendAndSave(phone, 'Entendido! 💛 Disfruta tu SUPERPACK ORO. Cuando quieras puedes completarlo al MEGA PACK DIAMANTE — 4 cursos adicionales + un curso de regalo GRATIS a tu eleccion. Solo escríbeme y lo activamos 💎');
       }
       return;
+    }
+    // Palabras sueltas ambiguas ("si", "ok", "listo", "dale", "claro") no confirman por si solas —
+    // Carol lee el contexto real (puede ser un cierre de otro tema, no una aceptacion del upgrade)
+    let wantsUpgrade = explicitWantsUpgrade;
+    if (!wantsUpgrade && hasWord(text, YES_WORDS)) {
+      const packLabelOffer = contact.pack_selected === 'oro' ? 'MEGA PACK DIAMANTE' : 'un pack superior (Oro o Diamante)';
+      const montoOffer = contact.pack_selected === 'oro' ? 5000 : null;
+      wantsUpgrade = await detectUpgradeIntent(recentMsgs, text, packLabelOffer, montoOffer);
     }
     if (wantsUpgrade) {
       if (contact.pack_selected === 'basico') {

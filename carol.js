@@ -759,4 +759,42 @@ async function extractEmailFromImage(imageBuffer, mimeType) {
   return match ? match[0] : null;
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage };
+async function detectUpgradeIntent(history, text, packLabel, montoAdicional) {
+  const historyText = history.slice(-8).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+
+  const ofertaText = montoAdicional
+    ? `Le ofrecimos a esta clienta subir a ${packLabel} pagando $${montoAdicional.toLocaleString('es-CO')} adicionales.`
+    : `Le ofrecimos a esta clienta subir a ${packLabel}.`;
+
+  const prompt = `${ofertaText} Aqui esta la conversacion reciente:
+
+${historyText}
+Cliente: ${text}
+
+Ese ultimo mensaje del cliente, es una aceptacion de subir de pack ahorita mismo?
+
+Cuenta como ACEPTA (true):
+- Una afirmacion corta ("si", "dale", "listo", "va", "hagale") cuando el mensaje inmediatamente anterior del bot fue la oferta de subir de pack, y el cliente no esta hablando de otro tema.
+
+NO cuenta como aceptacion (false):
+- Un cierre de conversacion, despedida, agradecimiento o confirmacion sobre OTRO tema distinto a la oferta (ej: agradecer una ayuda de soporte, despedirse, confirmar un dato que no es la oferta), aunque el mensaje contenga palabras como "si", "ok", "listo" o "dale".
+- Cualquier duda, aplazamiento o mensaje ambiguo que no confirme el pago ahorita.
+
+Responde UNICAMENTE con JSON: {"acepta": true} o {"acepta": false}`;
+
+  const res = await withRetry(() => client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 30,
+    messages: [{ role: 'user', content: prompt }]
+  }), 'detectUpgradeIntent');
+
+  try {
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    return parsed.acepta === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent };
