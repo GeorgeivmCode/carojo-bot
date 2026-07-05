@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGiftIntent } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -158,27 +158,6 @@ Con este curso vas a aprender bordados a mano con flores, hojas y texturas — p
 
 Aqui esta tu acceso:`
 };
-
-function detectGiftChoice(text) {
-  const t = text.toLowerCase();
-
-  // Si hay palabras de pregunta el cliente esta consultando, no eligiendo
-  const esPreg = ['como', 'cómo', 'que es', 'qué es', 'de que', 'de qué', 'cuéntame', 'cuentame',
-    'me cuentas', 'informacion', 'información', 'explica', 'trata', 'tiene', '?'].some(p => t.includes(p));
-  if (esPreg) return null;
-
-  const eResina  = t.includes('resina') || t.includes('epoxi');
-  const eGlobo   = t.includes('globo') || t.includes('decoracion') || t.includes('decoración');
-  const eBordado = t.includes('bordado') || t.includes('floral');
-
-  // Si menciona mas de uno esta preguntando por ambos, no eligiendo
-  if ([eResina, eGlobo, eBordado].filter(Boolean).length > 1) return null;
-
-  if (eResina)  return 'resina';
-  if (eGlobo)   return 'globoflexia';
-  if (eBordado) return 'bordados';
-  return null;
-}
 
 const JORGE_PHONE     = process.env.JORGE_PHONE;
 const META_PIXEL_ID      = process.env.META_PIXEL_ID;       // WABA dataset 891673903214904
@@ -521,6 +500,30 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     if (await detectDistrustIntent(db.getRecentMessages(phone, 6), text)) {
       sendTestimoniosAfter = true;
     }
+  }
+
+  // Curso de regalo — SOLO aplica si vino de remarketing R1 (donde se ofrece) o de un upgrade a
+  // Diamante (donde tambien se ofrece). Quien compra Diamante directo desde el inicio nunca lo ve
+  // mencionado, asi que fuera de estos 2 casos este bloque no hace nada (Carol responde normal, sin
+  // contexto de regalo, si alguien pregunta por uno que nunca se le prometio).
+  if (msgType === 'text' && (contact.r1_sent || contact.gift_eligible) && !contact.gift_sent && !contact.gift_choice && isAskingForGift(text)) {
+    const giftIntent = await detectGiftIntent(db.getRecentMessages(phone, 15), text);
+    if (giftIntent.intencion === 'elige' && giftIntent.curso) {
+      if (contact.state === 'delivered') {
+        const gMsg = GIFT_MSGS[giftIntent.curso];
+        const gUrl = GIFT_URLS[giftIntent.curso];
+        await sendAndSave(phone, `${gMsg}\n\n${gUrl}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
+        db.updateContact(phone, { gift_sent: 1 });
+        return;
+      }
+      // Todavia no paga — solo se guarda la eleccion, el mensaje sigue su curso normal
+      // (puede tambien contener otra peticion, ej. pedir el Nequi)
+      db.updateContact(phone, { gift_choice: giftIntent.curso });
+    } else if (giftIntent.intencion === 'ver_opciones' && contact.state === 'delivered') {
+      await sendAndSave(phone, GIFT_OFFER_MSG);
+      return;
+    }
+    // "pregunta" o "ninguna" → no se responde aqui, sigue el flujo normal (Carol contesta con contexto)
   }
 
   switch (contact.state) {
@@ -1107,6 +1110,15 @@ async function handleEmail(contact, emailText) {
     `ENTREGA completada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
   );
 
+  // Si ya habia elegido su regalo antes de pagar (respondiendo al Bono Relampago de R1), entregarlo
+  // de una vez junto con el acceso — no hace falta que vuelva a preguntar por el
+  if (pack === 'diamante' && updatedContact.gift_choice && !updatedContact.gift_sent) {
+    const gMsg = GIFT_MSGS[updatedContact.gift_choice];
+    const gUrl = GIFT_URLS[updatedContact.gift_choice];
+    await sendAndSave(phone, `${gMsg}\n\n${gUrl}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
+    db.updateContact(phone, { gift_sent: 1 });
+  }
+
   // Upsell post-entrega — solo para basico y oro, 2 minutos despues
   if (pack !== 'diamante') {
     setTimeout(async () => {
@@ -1247,7 +1259,7 @@ async function handlePostDelivery(contact, text) {
       if (contact.pack_selected === 'basico') {
         // Si ya menciona un pack especifico, ir directo
         if (text.includes('diamante') || text === '1') {
-          db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
+          db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade', gift_eligible: 1 });
           await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(10000, 'MEGA PACK DIAMANTE'));
         } else if (text.includes('oro') || text === '2') {
           db.updateContact(phone, { upgrade_target: 'oro', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
@@ -1257,7 +1269,7 @@ async function handlePostDelivery(contact, text) {
         }
         return;
       } else if (contact.pack_selected === 'oro') {
-        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
+        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade', gift_eligible: 1 });
         await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(5000, 'MEGA PACK DIAMANTE'));
         return;
       }
@@ -1265,7 +1277,7 @@ async function handlePostDelivery(contact, text) {
     // Despues del UPGRADE_CHOICE_BASICO, cliente elige pack
     if (contact.pack_selected === 'basico' && !contact.upgrade_target) {
       if (text.includes('diamante') || text === '1') {
-        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade' });
+        db.updateContact(phone, { upgrade_target: 'diamante', state: 'awaiting_upgrade_comprobante', tag: 'Upgrade', gift_eligible: 1 });
         await sendAndSave(phone, UPGRADE_PAYMENT_DETAILS(10000, 'MEGA PACK DIAMANTE'));
         return;
       }
@@ -1277,33 +1289,18 @@ async function handlePostDelivery(contact, text) {
     }
   }
 
-  if (contact.pack_selected === 'diamante') {
-    if (!contact.gift_sent) {
-      // Cliente elige su regalo → entregar con mensaje coherente
-      const giftKey = detectGiftChoice(text);
-      if (giftKey) {
-        const msg = GIFT_MSGS[giftKey];
-        const url = GIFT_URLS[giftKey];
-        await sendAndSave(phone, `${msg}\n\n${url}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
-        db.updateContact(phone, { gift_sent: 1 });
-        return;
-      }
-      // Cliente pregunta por el regalo en general → ofrecer opciones
-      if (isAskingForGift(text)) {
-        await sendAndSave(phone, GIFT_OFFER_MSG);
-        return;
-      }
-    } else {
-      // Cliente ya tiene su regalo — solo si pide EXPLICITAMENTE otro, informar que cuesta $10.000
-      // NO activar por mencionar "resina", "bordado" etc. (pueden estar hablando del contenido del pack)
-      const wantsAnother = ['otro regalo', 'quiero otro', 'puedo tener otro', 'comprar otro',
-        'me das otro', 'y el otro', 'los otros dos', 'otro curso de regalo'].some(w => text.includes(w));
-      if (wantsAnother) {
-        await sendAndSave(phone,
-          'Ya tienes tu curso de regalo activado! 🎁\n\nSi quieres los otros dos, cada uno tiene un costo adicional de $10.000. Son:\n\n🌸 Bordados Florales\n✨ Arte en Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nCual te interesa? Te explico como adquirirlo 💬'
-        );
-        return;
-      }
+  // El hook centralizado en processMessage ya resuelve "elige" y "ver_opciones" para clientas
+  // elegibles (r1_sent o gift_eligible) antes de llegar aqui. Solo queda el caso de quien YA
+  // tiene su regalo y pide explicitamente otro.
+  if (contact.pack_selected === 'diamante' && contact.gift_sent) {
+    // NO activar por mencionar "resina", "bordado" etc. (pueden estar hablando del contenido del pack)
+    const wantsAnother = ['otro regalo', 'quiero otro', 'puedo tener otro', 'comprar otro',
+      'me das otro', 'y el otro', 'los otros dos', 'otro curso de regalo'].some(w => text.includes(w));
+    if (wantsAnother) {
+      await sendAndSave(phone,
+        'Ya tienes tu curso de regalo activado! 🎁\n\nSi quieres los otros dos, cada uno tiene un costo adicional de $10.000. Son:\n\n🌸 Bordados Florales\n✨ Arte en Resina Epoxica\n🎈 Globoflexia y Decoracion\n\nCual te interesa? Te explico como adquirirlo 💬'
+      );
+      return;
     }
   }
 
@@ -1450,12 +1447,20 @@ async function handleUpgradeComprobante(contact, msgType, content) {
   db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado', folder_id: upgradeFolderId });
 
   // Si el upgrade fue a Diamante, ofrecer regalo igual que en entrega normal
+  // (o entregarlo directo si ya lo habia elegido mientras chateaba antes de que pasaran los 30s)
   if (upgradeTarget === 'diamante') {
     setTimeout(async () => {
       try {
         const fresh = db.getContact(phone);
         if (fresh && fresh.state === 'delivered' && !fresh.gift_sent) {
-          await sendAndSave(phone, GIFT_OFFER_MSG);
+          if (fresh.gift_choice) {
+            const gMsg = GIFT_MSGS[fresh.gift_choice];
+            const gUrl = GIFT_URLS[fresh.gift_choice];
+            await sendAndSave(phone, `${gMsg}\n\n${gUrl}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
+            db.updateContact(phone, { gift_sent: 1 });
+          } else {
+            await sendAndSave(phone, GIFT_OFFER_MSG);
+          }
         }
       } catch (e) { console.error('Gift upgrade error:', e.message); }
     }, 30 * 1000); // 30 segundos después de la entrega

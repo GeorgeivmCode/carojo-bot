@@ -856,4 +856,43 @@ Responde UNICAMENTE con JSON: {"cliente_antiguo": true} o {"cliente_antiguo": fa
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent };
+// Curso de regalo (Bordados/Resina/Globoflexia) — solo aplica a clientas elegibles (ver flows.js).
+// Lee contexto real en vez de substrings: soluciona el caso donde "?" hacia que cualquier
+// mensaje se tratara como consulta generica aunque nombrara un solo regalo sin ambiguedad.
+async function detectGiftIntent(history, text) {
+  const historyText = history.slice(-15).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+
+  const prompt = `Conversacion de ventas de cursos digitales de lettering por WhatsApp. Esta clienta tiene derecho a un curso de regalo gratis a elegir entre 3 opciones: Bordados Florales, Arte en Resina Epoxica, Globoflexia y Decoracion.
+
+${historyText}
+Cliente: ${text}
+
+Sobre ese curso de REGALO (no los cursos del pack pagado), clasifica el ULTIMO mensaje del cliente en una sola categoria:
+
+- "elige": esta escogiendo, confirmando o reclamando CUAL de los 3 cursos de regalo quiere. Cuenta aunque tenga errores de escritura o termine en signo de pregunta, incluso si ya lo habia mencionado antes en la conversacion (ej: "y el de globoflexia?" despues de haberlo pedido antes SI cuenta como elige, no como pregunta).
+- "pregunta": pregunta algo especifico sobre el contenido del regalo (que trae, para quien es, como se usa) sin decidir cual quiere.
+- "ver_opciones": quiere que le recuerden o le muestren cuales son las 3 opciones.
+- "ninguna": el mensaje no tiene relacion con el regalo.
+
+Si la categoria es "elige", indica tambien cual curso: "resina", "globoflexia" o "bordados".
+
+Responde UNICAMENTE con JSON: {"intencion": "elige"|"pregunta"|"ver_opciones"|"ninguna", "curso": "resina"|"globoflexia"|"bordados"|null}`;
+
+  const res = await withRetry(() => client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 40,
+    messages: [{ role: 'user', content: prompt }]
+  }), 'detectGiftIntent');
+
+  try {
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    const intencion = ['elige', 'pregunta', 'ver_opciones', 'ninguna'].includes(parsed.intencion) ? parsed.intencion : 'ninguna';
+    const cursoValido = ['resina', 'globoflexia', 'bordados'].includes(parsed.curso) ? parsed.curso : null;
+    return { intencion, curso: intencion === 'elige' ? cursoValido : null };
+  } catch (e) {
+    return { intencion: 'ninguna', curso: null };
+  }
+}
+
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGiftIntent };

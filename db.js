@@ -54,6 +54,11 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN upsell_sent INTEGER DEFAULT 0`); 
 try { db.exec(`ALTER TABLE contacts ADD COLUMN email TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN folder_id TEXT DEFAULT ''`); } catch (_) {}
 
+// Curso de regalo: gift_choice guarda cual eligio (aunque lo diga antes de pagar);
+// gift_eligible marca si vino de un upgrade a Diamante, unico lugar (ademas de R1) donde se ofrece
+try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_choice TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_eligible INTEGER DEFAULT 0`); } catch (_) {}
+
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_wamid ON messages(wamid)`); } catch (_) {}
