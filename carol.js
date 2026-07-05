@@ -564,10 +564,18 @@ async function carolRespond(history, userMessage, goldenExamples = []) {
   // Asegurar que el array no empiece con 'assistant' (requisito de Anthropic)
   while (messages.length && messages[0].role === 'assistant') messages.shift();
 
-  // Evitar mensaje duplicado: el historial ya incluye el mensaje actual (guardado antes de llamar carol)
+  // Evitar mensaje duplicado: el historial ya incluye el mensaje actual (guardado antes de llamar carol).
+  // Si userMessage viene enriquecido con contexto interno (ctx + texto crudo), el texto crudo ya
+  // esta en el historial como ultimo mensaje — hay que REEMPLAZARLO, no descartar el contexto en silencio.
   const lastMsg = messages[messages.length - 1];
   if (!lastMsg || lastMsg.role !== 'user') {
     messages.push({ role: 'user', content: userMessage });
+  } else if (lastMsg.content !== userMessage) {
+    if (typeof userMessage === 'string' && typeof lastMsg.content === 'string' && userMessage.includes(lastMsg.content)) {
+      lastMsg.content = userMessage;
+    } else {
+      messages.push({ role: 'user', content: userMessage });
+    }
   }
 
   // Construir system prompt con ejemplos dorados si hay
