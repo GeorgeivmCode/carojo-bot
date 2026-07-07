@@ -185,8 +185,9 @@ async function sendGallery(phone, plantilla) {
     await sendImage(phone, url);
     db.saveMessage(phone, 'out', 'image', url, '');
   }
-  const wamid = await sendText(phone, text);
-  db.saveMessage(phone, 'out', 'text', text, wamid);
+  const finalText = Array.isArray(text) ? text[Math.floor(Math.random() * text.length)] : text;
+  const wamid = await sendText(phone, finalText);
+  db.saveMessage(phone, 'out', 'text', finalText, wamid);
 }
 
 const TELEGRAM_TOKEN    = process.env.TELEGRAM_TOKEN;
@@ -356,7 +357,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     // para casos nuevos no anticipados — nunca reemplaza la lista, solo suma cobertura.
     const oldClientByKeyword = isOldClientTrigger(text);
     const oldClientByCarol = !oldClientByKeyword && text.split(/\s+/).filter(Boolean).length >= 3 &&
-      await detectOldClientIntent(text);
+      await detectOldClientIntent(db.getRecentMessages(phone, 8), text);
     if (oldClientByKeyword || oldClientByCarol) {
       await sendAndSave(phone, PLANTILLA_ACCESO);
       db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });

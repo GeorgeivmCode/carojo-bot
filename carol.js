@@ -838,12 +838,15 @@ Responde UNICAMENTE con JSON: {"desconfia": true} o {"desconfia": false}`;
 // (probada en produccion durante meses), solo suma cobertura cuando ninguna coincide.
 // Diseñada para ser conservadora: ante duda responde false, un falso positivo aqui
 // apagaria el bot a un prospecto real que SI esta comprando ahora.
-async function detectOldClientIntent(text) {
-  const prompt = `Mensaje de un chat de ventas de cursos digitales por WhatsApp:
+async function detectOldClientIntent(history, text) {
+  const historyText = history.slice(-8).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
 
-"${text}"
+  const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
 
-Este mensaje dice CLARA Y EXPLICITAMENTE que la persona ya compro o pago ANTES (en el pasado, no ahora) y hoy no tiene o perdio el acceso a lo que compro?
+${historyText}
+Cliente: ${text}
+
+Ese ultimo mensaje del cliente dice CLARA Y EXPLICITAMENTE que la persona ya compro o pago ANTES (en el pasado, no ahora) y hoy no tiene o perdio el acceso a lo que compro?
 
 Responde false si es: una pregunta o duda sobre un pack que esta por comprar ahora, una queja sobre el contenido de los cursos, un mensaje ambiguo o generico, o cualquier cosa que no sea una afirmacion clara de compra previa perdida.
 

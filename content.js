@@ -265,14 +265,29 @@ Por favor envia el monto exacto y enviame el comprobante de ese pago. 📸`;
 const BASE_URL = 'https://carojo-bot.onrender.com/media';
 
 const MOSTRARIO = {
-  text: `Mira lo que te llevas! 👀✨
+  text: [
+    `Mira lo que te llevas! 👀✨
 
-Esto es solo una probadita de todo el contenido que viene dentro de los packs. Imaginate aprender esto desde tu casa, a tu ritmo y de por vida! 🖊️💛
+Esto es solo una probadita de todo lo que hay adentro de los packs, hay muchisimo mas esperandote.
 
-Si quieres arrancar hoy escribe el numero de tu pack:
-1️⃣ Diamante $15.000
-2️⃣ Oro $10.000
-3️⃣ Basico $5.000`,
+Imaginate teniendo todo esto contigo para practicar cuando quieras, a tu ritmo y para siempre 🖊️💛
+
+Te animas a empezar tu propio pack hoy? 💌`,
+    `Mira lo que te llevas! 👀✨
+
+Esto es solo una probadita, dentro de los packs hay muchisimo mas contenido esperandote.
+
+Imaginate aprendiendo esto desde tu casa, a tu ritmo y para toda la vida 🖊️💛
+
+Hoy tenemos precio especial en los 3 packs, te cuento cual te conviene mas? 🌸`,
+    `Mira lo que te llevas! 👀✨
+
+Esto es solo una probadita de todo el contenido que viene dentro de los packs.
+
+Muchas alumnas empezaron viendo justo esto y hoy ya estan vendiendo sus propios disenos 💛
+
+Quieres que te cuente cual pack te conviene mas? 🌟`
+  ],
   images: [`${BASE_URL}/mostrario1.jpeg`, `${BASE_URL}/mostrario2.jpg`]
 };
 
@@ -293,7 +308,8 @@ const MOSTRARIO_TRIGGERS = [
   'tienes imagen', 'tienes imágenes', 'tienes imagenes',
   'hay imágenes', 'hay imagenes', 'hay fotos',
   'preview', 'muéstralo', 'muestralo',
-  'ver el contenido', 'ver los cursos', 'como se ve', 'cómo se ve'
+  'ver el contenido', 'ver los cursos', 'como se ve', 'cómo se ve',
+  'muestra', 'una muestra'
 ];
 
 // Triggers de Nequi caido/con fallas — dispara verificacion real del estado
