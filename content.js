@@ -302,16 +302,6 @@ Con esto sientes mas tranquilidad para dar el paso, o todavia te queda alguna du
   images: [`${BASE_URL}/testimonio1.png`, `${BASE_URL}/testimonio2.png`]
 };
 
-const MOSTRARIO_TRIGGERS = [
-  'muéstrame', 'muestrame', 'quiero ver', 'puedo ver',
-  'foto', 'fotos', 'imagen', 'imágenes', 'imagenes',
-  'tienes imagen', 'tienes imágenes', 'tienes imagenes',
-  'hay imágenes', 'hay imagenes', 'hay fotos',
-  'preview', 'muéstralo', 'muestralo',
-  'ver el contenido', 'ver los cursos', 'como se ve', 'cómo se ve',
-  'muestra', 'una muestra'
-];
-
 // Triggers de Nequi caido/con fallas — dispara verificacion real del estado
 const NEQUI_DOWN_TRIGGERS = [
   'nequi esta caido', 'nequi está caído', 'nequi caido', 'nequi caído',
@@ -444,7 +434,7 @@ module.exports = {
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
-  MOSTRARIO, TESTIMONIOS, MOSTRARIO_TRIGGERS,
+  MOSTRARIO, TESTIMONIOS,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
   deliveryMessage
 };

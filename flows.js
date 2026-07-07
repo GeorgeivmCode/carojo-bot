@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGiftIntent } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGiftIntent } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -31,7 +31,7 @@ const {
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
-  MOSTRARIO_TRIGGERS, deliveryMessage,
+  deliveryMessage,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
   NEQUI_DOWN_TRIGGERS
 } = require('./content');
@@ -492,15 +492,19 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   const stateBlocksGallery = ['delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client', 'awaiting_comprobante'];
   const galleryBlocked = stateBlocksGallery.includes(contact.state) || (contact.pack_selected && ACTIVE_PAYMENT_STATES.has(contact.state));
   if (msgType === 'text' && !galleryBlocked) {
-    const tl = text.toLowerCase();
-    if (MOSTRARIO_TRIGGERS.some(t => tl.includes(t))) {
-      sendMostrarioAfter = true;
-    }
+    // Mostrario: ya no es lista de frases — Carol lee el contexto real (reemplaza MOSTRARIO_TRIGGERS,
+    // que se quedaba corta con frases nuevas como "quiero ver una muestra del material")
     // Desconfianza/miedo a estafa se detecta leyendo el contexto real, no con lista de frases —
     // "ya me lo hicieron y perdi mi plata" no coincidia con ninguna keyword y se quedaba sin testimonios
-    if (await detectDistrustIntent(db.getRecentMessages(phone, 6), text)) {
-      sendTestimoniosAfter = true;
-    }
+    // Las dos consultas van en paralelo (no una despues de la otra) para no sumar latencia de mas,
+    // y cada una ya devuelve false sola si falla la llamada a la IA, en vez de tumbar todo el mensaje.
+    const recentForIntent = db.getRecentMessages(phone, 6);
+    const [wantsGallery, isDistrustful] = await Promise.all([
+      detectGalleryIntent(recentForIntent, text),
+      detectDistrustIntent(recentForIntent, text)
+    ]);
+    if (wantsGallery) sendMostrarioAfter = true;
+    if (isDistrustful) sendTestimoniosAfter = true;
   }
 
   // Curso de regalo — SOLO aplica si vino de remarketing R1 (donde se ofrece) o de un upgrade a

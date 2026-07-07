@@ -819,13 +819,12 @@ NO cuenta si el cliente solo pregunta por el contenido de los cursos, el precio,
 
 Responde UNICAMENTE con JSON: {"desconfia": true} o {"desconfia": false}`;
 
-  const res = await withRetry(() => client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 30,
-    messages: [{ role: 'user', content: prompt }]
-  }), 'detectDistrustIntent');
-
   try {
+    const res = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 30,
+      messages: [{ role: 'user', content: prompt }]
+    }), 'detectDistrustIntent');
     const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(raw);
     return parsed.desconfia === true;
@@ -862,6 +861,36 @@ Responde UNICAMENTE con JSON: {"cliente_antiguo": true} o {"cliente_antiguo": fa
     const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(raw);
     return parsed.cliente_antiguo === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Reemplaza MOSTRARIO_TRIGGERS (lista de ~20 frases) — mismo patron que detectDistrustIntent/detectUpgradeIntent.
+// Riesgo bajo y asimetrico: un falso positivo aqui solo manda fotos de mas, nunca apaga el bot ni bloquea una venta.
+async function detectGalleryIntent(history, text) {
+  const historyText = history.slice(-6).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+
+  const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
+
+${historyText}
+Cliente: ${text}
+
+Ese ultimo mensaje del cliente esta pidiendo ver fotos, imagenes, una muestra o preview del contenido de los cursos?
+
+Responde false si es una pregunta conceptual (que incluye el curso, metodologia, bonos, duracion, modalidad) sin pedir ver algo visual, o cualquier otra cosa que no sea un pedido claro de ver material visual.
+
+Responde UNICAMENTE con JSON: {"pide_ver": true} o {"pide_ver": false}`;
+
+  try {
+    const res = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 20,
+      messages: [{ role: 'user', content: prompt }]
+    }), 'detectGalleryIntent');
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    return parsed.pide_ver === true;
   } catch (e) {
     return false;
   }
@@ -906,4 +935,4 @@ Responde UNICAMENTE con JSON: {"intencion": "elige"|"pregunta"|"ver_opciones"|"n
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGiftIntent };
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGiftIntent };
