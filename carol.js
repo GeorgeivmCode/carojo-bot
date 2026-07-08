@@ -677,7 +677,15 @@ Extrae:
 1. Monto pagado. Formato colombiano: $5.000 o $5.000,00 = 5000. $10.000 = 10000. $15.000 = 15000. Ignora puntos de miles y comas decimales. El valor debe ser 5000, 10000 o 15000.
 2. Numero destinatario (debe ser 3058989359 o 3217239198) — leelo digito por digito
 3. Nombre destinatario — incluyendo nombres enmascarados con asteriscos
-4. Fecha de la transaccion — escrita en español como "10 de junio de 2026". Si ves formato ingles como "JUN 10 2026" o "06/10/2026", conviertelo a ese formato español escrito
+4. Fecha de la transaccion — escrita en español como "10 de junio de 2026".
+
+LECTURA DE FECHAS — TODOS LOS FORMATOS POSIBLES (MUY IMPORTANTE, lee con cuidado antes de convertir):
+- Fecha ya escrita en palabras (ej: "10 de junio de 2026", "10 junio 2026"): usala directo.
+- Fecha con mes en letras abreviado (ej: "JUN 10 2026", "10 JUN 2026", "10-Jun-2026"): el mes en letras nunca es ambiguo, conviertelo directo (JUN=junio, JUL=julio, etc.), sin importar si el dia va antes o despues.
+- Fecha TODO EN NUMEROS con /, - o . (ej: "08/07/2026", "08-07-2026", "08.07.2026", o con año de 2 digitos "08/07/26"): estas son las que mas se prestan a error. Los comprobantes bancarios COLOMBIANOS casi siempre escriben la fecha como DIA/MES/AÑO (al reves que en Estados Unidos, que es mes/dia/año). Ejemplo: "08/07/2026" en un comprobante colombiano significa dia 8, mes 7 (julio) = "8 de julio de 2026". NUNCA lo leas como "mes 08 (agosto), dia 07". Solo interpreta el primer numero como MES en vez de DIA si el segundo numero es imposible como dia (mayor a 31) o si por contexto es claramente una app internacional no colombiana.
+- Si el primer numero es mayor a 12 (ej: "25/03/2026"), automaticamente ese es el DIA sin importar el formato (no puede haber mes 25).
+- Verifica el resultado: el dia, mes y año que reportes deben coincidir con la hora/fecha de "ahora" que tiene sentido para una transaccion reciente, no con una fecha rara o futura.
+- Antes de responder, vuelve a leer los numeros de la fecha uno por uno para confirmar que no invertiste dia y mes.
 5. Estado de la transaccion
 6. Nombre exacto de la app/banco usada para pagar
 
@@ -703,7 +711,7 @@ VALIDACION DE FECHA:
 - La fecha de hoy es ${today} (hora Colombia).
 - Si la fecha del comprobante ES visible y legible: compara dia, mes Y año con la fecha de hoy.
 - Si el DIA, MES o AÑO del comprobante es diferente a hoy → valido = false, razon_rechazo = "fecha_incorrecta"
-- EXCEPCION IMPORTANTE: si la fecha del comprobante es el dia INMEDIATAMENTE anterior a hoy Y la hora del comprobante es 6:00 PM o posterior (18:00+), es un pago de anoche hecho antes de medianoche — tratar como valido (no rechazar por fecha). Ejemplo: hoy es 28 de junio de 2026, comprobante dice "27 de junio de 2026" a las "07:16 p.m." → VALIDO (pago de anoche).
+- EXCEPCION IMPORTANTE: si la fecha del comprobante es el dia INMEDIATAMENTE anterior a hoy Y la hora del comprobante es 6:00 PM o posterior (18:00+), es un pago de anoche hecho antes de medianoche — tratar como valido (no rechazar por fecha). La hora puede aparecer en formato 12 horas ("07:16 p.m.", "7:16 PM") o 24 horas ("19:16") — son lo mismo, cualquiera de los dos que sea 18:00 o mas tarde aplica la excepcion. Ejemplo: hoy es 28 de junio de 2026, comprobante dice "27 de junio de 2026" a las "07:16 p.m." (=19:16) → VALIDO (pago de anoche).
 - Ejemplos de rechazo real: hoy es ${today}. Comprobante de hace 2 dias o mas → RECHAZAR. Comprobante de ayer en la mañana o tarde → RECHAZAR. Solo la noche anterior (6PM+) se acepta.
 - Si la fecha NO es legible o no aparece: NO rechaces por fecha (asumir valida)
 

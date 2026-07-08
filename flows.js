@@ -854,6 +854,39 @@ async function handleOfferedBasico(contact, text) {
   }
 }
 
+// Respaldo: busca en el correo de Nequi si el pago realmente llego, antes de escalar a soporte manual.
+// Se usa cuando Vision rechaza el comprobante (fecha mal leida o destinatario no verificado)
+// pero el pago pudo ser real. Devuelve true si confirmo el pago y ya dejo todo listo (pidio el Gmail).
+async function tryEmailFallback(contact, result) {
+  const phone = contact.phone;
+  const rawMontoFb = result.monto;
+  const normalizedMontoFb = rawMontoFb != null
+    ? parseInt(String(rawMontoFb).replace(/,\d*$/, '').replace(/\./g, ''), 10) || null
+    : null;
+  const montoFb = normalizedMontoFb || (contact.pack_selected ? PACK_PRICES[contact.pack_selected] : null);
+  if (!montoFb || !GAS_DRIVE_URL) return false;
+  try {
+    const emailRes = await axios.post(GAS_DRIVE_URL,
+      { action: 'checkPayment', monto: montoFb, minutosAtras: 180 },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+    );
+    if (emailRes.data?.found) {
+      const packFb = (normalizedMontoFb ? AMOUNT_TO_PACK[normalizedMontoFb] : null) || contact.pack_selected;
+      if (packFb) {
+        db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb });
+        await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
+        await notifyJorge(contact,
+          `PAGO VERIFICADO POR EMAIL:\nPack: ${packFb}\nMonto: $${montoFb.toLocaleString('es-CO')}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+        );
+        return true;
+      }
+    }
+  } catch (e) {
+    console.error('GAS checkPayment error:', e.message);
+  }
+  return false;
+}
+
 async function handleComprobante(contact, mediaContent) {
   const phone = contact.phone;
 
@@ -904,40 +937,16 @@ async function handleComprobante(contact, mediaContent) {
         `ALERTA comprobante sospechoso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nRevisa el comprobante en el panel antes de aprobar.`
       );
     } else if (razon_rechazo === 'fecha_incorrecta') {
-      await sendAndSave(phone, PLANTILLA_ACCESO);
-      db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
-      await notifyJorge(contact,
-        `CLIENTE ANTIGUO (comprobante con fecha pasada):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha || 'no detectada'}`
-      );
-    } else if (razon_rechazo === 'destinatario_invalido') {
-      // Fallback BRE-B: buscar en Gmail de Nequi antes de escalar a soporte
-      let emailConfirmo = false;
-      const rawMontoFb = result.monto;
-      const normalizedMontoFb = rawMontoFb != null
-        ? parseInt(String(rawMontoFb).replace(/,\d*$/, '').replace(/\./g, ''), 10) || null
-        : null;
-      const montoFb = normalizedMontoFb || (contact.pack_selected ? PACK_PRICES[contact.pack_selected] : null);
-      if (montoFb && GAS_DRIVE_URL) {
-        try {
-          const emailRes = await axios.post(GAS_DRIVE_URL,
-            { action: 'checkPayment', monto: montoFb, minutosAtras: 180 },
-            { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
-          );
-          if (emailRes.data?.found) {
-            const packFb = (normalizedMontoFb ? AMOUNT_TO_PACK[normalizedMontoFb] : null) || contact.pack_selected;
-            if (packFb) {
-              emailConfirmo = true;
-              db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb });
-              await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
-              await notifyJorge(contact,
-                `PAGO VERIFICADO POR EMAIL (BRE-B):\nPack: ${packFb}\nMonto: $${montoFb.toLocaleString('es-CO')}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
-              );
-            }
-          }
-        } catch (e) {
-          console.error('GAS checkPayment error:', e.message);
-        }
+      const emailConfirmo = await tryEmailFallback(contact, result);
+      if (!emailConfirmo) {
+        await sendAndSave(phone, PLANTILLA_ACCESO);
+        db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
+        await notifyJorge(contact,
+          `CLIENTE ANTIGUO (comprobante con fecha pasada):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha || 'no detectada'}`
+        );
       }
+    } else if (razon_rechazo === 'destinatario_invalido') {
+      const emailConfirmo = await tryEmailFallback(contact, result);
       if (!emailConfirmo) {
         await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
         db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
