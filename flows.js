@@ -841,8 +841,8 @@ async function handleOfferedBasico(contact, text) {
   } else if (mentionsOro || (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS))) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
-  } else if (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS)) {
-    // Dice "no" al upsell sin especificar pack → confirma básico (ya lo eligió antes)
+  } else if (['no gracias', 'no, gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w))) {
+    // Rechazo CLARO e inequivoco del upsell (frase completa, no solo el token suelto "no") → confirma básico (ya lo eligió antes)
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
     await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖');
     await sendAndSave(phone, BASICO_DETAILS);
