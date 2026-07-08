@@ -254,6 +254,14 @@
     box-shadow: 3px 0 14px rgba(0,0,0,.5), 0 0 20px rgba(56,189,248,.4), inset 1px 0 0 rgba(56,189,248,.25), inset 0 1px 0 rgba(56,189,248,.15);
     text-shadow: 0 0 10px var(--blue), 0 0 22px rgba(56,189,248,.8), 0 0 40px rgba(56,189,248,.4);
   }
+  #nav-hotmart { color: rgba(249,115,22,.5); }
+  #nav-hotmart:hover, #nav-hotmart.active {
+    color: var(--orange);
+    background: linear-gradient(270deg, rgba(249,115,22,.22) 0%, rgba(249,115,22,.06) 60%, rgba(0,0,0,.05) 100%);
+    border-color: rgba(249,115,22,.4); border-right-color: var(--orange);
+    box-shadow: 3px 0 14px rgba(0,0,0,.5), 0 0 20px rgba(249,115,22,.4), inset 1px 0 0 rgba(249,115,22,.25), inset 0 1px 0 rgba(249,115,22,.15);
+    text-shadow: 0 0 10px var(--orange), 0 0 22px rgba(249,115,22,.8), 0 0 40px rgba(249,115,22,.4);
+  }
   .nav-spacer { flex: 1; }
 
   /* ── Contact List ── */
@@ -293,6 +301,8 @@
   .tag-pill.potencial { background: rgba(245,197,24,.1); color: var(--yellow); border: 1px solid rgba(245,197,24,.3); }
   #sheetPanel { flex: 1; display: none; flex-direction: column; background: var(--bg); }
   #sheetPanel iframe { flex: 1; border: none; width: 100%; height: 100%; }
+  #hotmartPanel { flex: 1; display: none; flex-direction: column; background: var(--bg); }
+  #hotmartPanel iframe { flex: 1; border: none; width: 100%; height: 100%; }
 
   /* ── Chat ── */
   .chat-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); position: relative; }
@@ -861,6 +871,7 @@
 <nav class="sidenav">
   <div class="nav-tab active" id="nav-chats" onclick="showTab('chats')">CHATS</div>
   <div class="nav-tab" id="nav-ventas" onclick="showTab('ventas')">SHEET</div>
+  <div class="nav-tab" id="nav-hotmart" onclick="showTab('hotmart')">HOTMART</div>
   <div class="nav-spacer"></div>
 
   <!-- Stats mini — solo visible en mobile -->
@@ -914,6 +925,11 @@
 <!-- Sheet Panel -->
 <section id="sheetPanel">
   <iframe src="https://docs.google.com/spreadsheets/d/1IT2q5Km6bkXqw7bDbi_Mgy_QeW4qg0ZiMaJ3QxiRbcA/edit?gid=0&rm=minimal" allowfullscreen></iframe>
+</section>
+
+<!-- Hotmart Panel -->
+<section id="hotmartPanel">
+  <iframe src="https://docs.google.com/spreadsheets/d/1gpEY_z0q5g9CnBMMglbxvJqd3eV_AXnJZWhXxGDDBFA/edit?gid=1103208753&rm=minimal" allowfullscreen></iframe>
 </section>
 
 <!-- Chat Panel -->
@@ -1601,12 +1617,14 @@ function stateLabel(state) {
 // ── Tab navigation ─────────────────────────────────────────────────────────────
 function showTab(tab) {
   const isChats = tab === 'chats';
-  document.getElementById('chatPanel').style.display   = isChats ? '' : 'none';
-  document.getElementById('sheetPanel').style.display  = isChats ? 'none' : 'flex';
+  document.getElementById('chatPanel').style.display     = isChats ? '' : 'none';
+  document.getElementById('sheetPanel').style.display    = tab === 'ventas' ? 'flex' : 'none';
+  document.getElementById('hotmartPanel').style.display  = tab === 'hotmart' ? 'flex' : 'none';
   document.getElementById('rightPanel').style.display  = isChats ? '' : 'none';
   document.querySelector('.contact-list').style.display = isChats ? '' : 'none';
   document.getElementById('nav-chats').classList.toggle('active', isChats);
-  document.getElementById('nav-ventas').classList.toggle('active', !isChats);
+  document.getElementById('nav-ventas').classList.toggle('active', tab === 'ventas');
+  document.getElementById('nav-hotmart').classList.toggle('active', tab === 'hotmart');
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
