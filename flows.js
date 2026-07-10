@@ -489,12 +489,15 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // y el mostrario se agrega como complemento despues de la respuesta de Carol
   let sendMostrarioAfter = false;
   let sendTestimoniosAfter = false;
+  let mostrarioAlreadySentNote = false;
+  let testimoniosAlreadySentNote = false;
   // 'new' bloqueado a proposito: la plantilla de bienvenida (mensaje + 3 packs) es la secuencia
   // de entrada y no debe ir acompañada de nada mas en el primerisimo contacto con la clienta.
-  const stateBlocksGallery = ['new', 'delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client', 'awaiting_comprobante'];
-  const galleryBlocked = stateBlocksGallery.includes(contact.state) || (contact.pack_selected && ACTIVE_PAYMENT_STATES.has(contact.state));
-  // Si ya se le mandaron los testimonios en este chat, no se vuelven a mandar aunque el
-  // clasificador vuelva a decir que si — evita el spam de repetirlos varias veces por chat.
+  // 'awaiting_comprobante' SI puede disparar mostrario/testimonios (a diferencia de antes) —
+  // es justo el momento donde surge la duda real antes de pagar, para eso existen las fotos.
+  const stateBlocksGallery = ['new', 'delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client'];
+  const galleryBlocked = stateBlocksGallery.includes(contact.state) ||
+    (contact.pack_selected && ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'awaiting_comprobante');
   if (msgType === 'text' && !galleryBlocked) {
     // Mostrario: ya no es lista de frases — Carol lee el contexto real (reemplaza MOSTRARIO_TRIGGERS,
     // que se quedaba corta con frases nuevas como "quiero ver una muestra del material")
@@ -502,12 +505,21 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     // "ya me lo hicieron y perdi mi plata" no coincidia con ninguna keyword y se quedaba sin testimonios
     // Las dos consultas van en paralelo (no una despues de la otra) para no sumar latencia de mas,
     // y cada una ya devuelve false sola si falla la llamada a la IA, en vez de tumbar todo el mensaje.
+    // Se corren igual aunque ya se hayan mandado antes en este chat: hace falta saber si esta
+    // pidiendolo de NUEVO para avisarle donde ya estan, en vez de quedarse callado.
     const recentForIntent = db.getRecentMessages(phone, 6);
-    const checks = [detectGalleryIntent(recentForIntent, text)];
-    checks.push(contact.testimonios_sent ? Promise.resolve(false) : detectDistrustIntent(recentForIntent, text));
-    const [wantsGallery, isDistrustful] = await Promise.all(checks);
-    if (wantsGallery) sendMostrarioAfter = true;
-    if (isDistrustful) sendTestimoniosAfter = true;
+    const [wantsGallery, isDistrustful] = await Promise.all([
+      detectGalleryIntent(recentForIntent, text),
+      detectDistrustIntent(recentForIntent, text)
+    ]);
+    if (wantsGallery) {
+      if (contact.mostrario_sent) mostrarioAlreadySentNote = true;
+      else sendMostrarioAfter = true;
+    }
+    if (isDistrustful) {
+      if (contact.testimonios_sent) testimoniosAlreadySentNote = true;
+      else sendTestimoniosAfter = true;
+    }
   }
 
   // Curso de regalo — SOLO aplica si vino de remarketing R1 (donde se ofrece) o de un upgrade a
@@ -641,13 +653,24 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // Complemento visual: se envia DESPUES de que Carol o el handler respondio
   // Solo si la pregunta fue claramente visual (no para preguntas conceptuales)
   if (sendMostrarioAfter) {
-    try { await sendGallery(phone, MOSTRARIO); } catch (e) { console.error('Error mostrario:', e.message); }
+    try {
+      await sendGallery(phone, MOSTRARIO);
+      db.updateContact(phone, { mostrario_sent: 1 });
+    } catch (e) { console.error('Error mostrario:', e.message); }
+  } else if (mostrarioAlreadySentNote) {
+    try {
+      await sendAndSave(phone, 'Ay, esas fotos ya te las mande hace un ratico, mira mas arriba en el chat que ahi las tienes! 📸 Si tienes otra dudita con los packs cuentame 💛');
+    } catch (e) { console.error('Error nota mostrario:', e.message); }
   }
   if (sendTestimoniosAfter) {
     try {
       await sendGallery(phone, TESTIMONIOS);
       db.updateContact(phone, { testimonios_sent: 1 });
     } catch (e) { console.error('Error testimonios:', e.message); }
+  } else if (testimoniosAlreadySentNote) {
+    try {
+      await sendAndSave(phone, 'Ya te compartí los testimonios de nuestras alumnas mas arriba, dales un vistazo cuando quieras 💛 Cualquier otra duda aquí estoy!');
+    } catch (e) { console.error('Error nota testimonios:', e.message); }
   }
 }
 

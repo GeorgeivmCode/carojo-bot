@@ -854,7 +854,7 @@ app.post('/api/contacts/:phone/gallery', adminAuth, async (req, res) => {
   const phone = req.params.phone;
   try {
     await sendGallery(phone, plantilla);
-    if (type !== 'mostrario') db.updateContact(phone, { testimonios_sent: 1 });
+    db.updateContact(phone, type === 'mostrario' ? { mostrario_sent: 1 } : { testimonios_sent: 1 });
     const updated = db.getContact(phone);
     broadcast('refresh', { phone, contact: updated });
     res.json({ ok: true });

@@ -62,6 +62,9 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN gift_eligible INTEGER DEFAULT 0`)
 // Candado para no repetir el envio de testimonios en el mismo chat
 try { db.exec(`ALTER TABLE contacts ADD COLUMN testimonios_sent INTEGER DEFAULT 0`); } catch (_) {}
 
+// Candado para no repetir el envio del mostrario en el mismo chat
+try { db.exec(`ALTER TABLE contacts ADD COLUMN mostrario_sent INTEGER DEFAULT 0`); } catch (_) {}
+
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_wamid ON messages(wamid)`); } catch (_) {}
