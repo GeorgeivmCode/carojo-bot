@@ -1551,8 +1551,10 @@ function sanitizeOutboundText(text) {
   for (const [pattern, replacement] of BANNED_PHRASE_REPLACEMENTS) {
     clean = clean.replace(pattern, replacement);
   }
-  // Limpiar espacios/comas duplicadas que puedan quedar tras remover palabras
-  clean = clean.replace(/,\s*,/g, ',').replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').trim();
+  // Limpiar espacios/comas duplicadas que puedan quedar tras remover palabras.
+  // OJO: solo espacio/tab, nunca \s genérico — \s también matchea saltos de línea
+  // y aplastaba los párrafos de cada mensaje (bug real, ver commit de este fix).
+  clean = clean.replace(/,\s*,/g, ',').replace(/[ \t]{2,}/g, ' ').replace(/[ \t]+([,.!?])/g, '$1').trim();
   return clean;
 }
 
