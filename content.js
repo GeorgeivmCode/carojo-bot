@@ -298,7 +298,7 @@ Estas son alumnas reales que tambien dudaron al principio, como tu ahora, y hoy 
 
 Llevamos cientos de alumnas atendidas y seguimos aqui, respondiendo cada mensaje personalmente, no somos una pagina fantasma.
 
-Con esto sientes mas tranquilidad para dar el paso, o todavia te queda alguna duda? Cuentame y te ayudo 🌟`,
+Con esto sientes mas tranquilidad para dar el paso, o todavia te queda alguna duda? 🌟`,
   images: [`${BASE_URL}/testimonio1.png`, `${BASE_URL}/testimonio2.png`]
 };
 

@@ -489,8 +489,12 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // y el mostrario se agrega como complemento despues de la respuesta de Carol
   let sendMostrarioAfter = false;
   let sendTestimoniosAfter = false;
-  const stateBlocksGallery = ['delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client', 'awaiting_comprobante'];
+  // 'new' bloqueado a proposito: la plantilla de bienvenida (mensaje + 3 packs) es la secuencia
+  // de entrada y no debe ir acompañada de nada mas en el primerisimo contacto con la clienta.
+  const stateBlocksGallery = ['new', 'delivered', 'awaiting_email', 'awaiting_upgrade_comprobante', 'old_client', 'awaiting_comprobante'];
   const galleryBlocked = stateBlocksGallery.includes(contact.state) || (contact.pack_selected && ACTIVE_PAYMENT_STATES.has(contact.state));
+  // Si ya se le mandaron los testimonios en este chat, no se vuelven a mandar aunque el
+  // clasificador vuelva a decir que si — evita el spam de repetirlos varias veces por chat.
   if (msgType === 'text' && !galleryBlocked) {
     // Mostrario: ya no es lista de frases — Carol lee el contexto real (reemplaza MOSTRARIO_TRIGGERS,
     // que se quedaba corta con frases nuevas como "quiero ver una muestra del material")
@@ -499,10 +503,9 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     // Las dos consultas van en paralelo (no una despues de la otra) para no sumar latencia de mas,
     // y cada una ya devuelve false sola si falla la llamada a la IA, en vez de tumbar todo el mensaje.
     const recentForIntent = db.getRecentMessages(phone, 6);
-    const [wantsGallery, isDistrustful] = await Promise.all([
-      detectGalleryIntent(recentForIntent, text),
-      detectDistrustIntent(recentForIntent, text)
-    ]);
+    const checks = [detectGalleryIntent(recentForIntent, text)];
+    checks.push(contact.testimonios_sent ? Promise.resolve(false) : detectDistrustIntent(recentForIntent, text));
+    const [wantsGallery, isDistrustful] = await Promise.all(checks);
     if (wantsGallery) sendMostrarioAfter = true;
     if (isDistrustful) sendTestimoniosAfter = true;
   }
@@ -641,7 +644,10 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     try { await sendGallery(phone, MOSTRARIO); } catch (e) { console.error('Error mostrario:', e.message); }
   }
   if (sendTestimoniosAfter) {
-    try { await sendGallery(phone, TESTIMONIOS); } catch (e) { console.error('Error testimonios:', e.message); }
+    try {
+      await sendGallery(phone, TESTIMONIOS);
+      db.updateContact(phone, { testimonios_sent: 1 });
+    } catch (e) { console.error('Error testimonios:', e.message); }
   }
 }
 
@@ -1500,8 +1506,58 @@ async function handleUpgradeComprobante(contact, msgType, content) {
   );
 }
 
+// Candado final antes de enviar cualquier texto (generado por Carol o plantilla fija).
+// No reemplaza las reglas del system prompt de Carol — es la garantia de que, si el modelo
+// las olvida, el mensaje que le llega a la clienta de todas formas nunca tiene estas frases.
+const BOT_ADMISSION_MSG = `¡Hola! Soy Carol y estoy aquí detrás de la pantalla con toda la energía para ayudarte a emprender. 💖🎨
+No te preocupes, estás hablando con la experta. ¡Cuéntame qué necesitas y lo resolvemos ya!`;
+
+const BANNED_PHRASE_REPLACEMENTS = [
+  [/\b(te|le)\s+late\b/gi, '$1 parece'],
+  [/una pasada/gi, 'una maravilla'],
+  [/\bchido\b/gi, 'bacano'],
+  [/\b(g|w)uey\b/gi, 'amiga'],
+  [/\borale\b/gi, 'dale'],
+  [/\bchafa\b/gi, 'malo'],
+  [/\bmande\b/gi, 'dime'],
+  [/a toda madre/gi, 'buenísimo'],
+  [/\bchavo\b/gi, ''],
+  [/que padre/gi, 'que bueno'],
+  [/no manches/gi, 'en serio'],
+  [/\bt[íi]o\b/gi, 'amiga'],
+  [/\bt[íi]a\b/gi, 'amiga'],
+  [/\bmolar?\b/gi, 'chevere'],
+  [/\bguay\b/gi, 'chevere'],
+  [/\bhostia\b/gi, ''],
+  [/\bjoder\b/gi, ''],
+  [/\bcojonudo\b/gi, ''],
+  [/\bmazo\b/gi, ''],
+  [/\bflipar\b/gi, '']
+];
+
+const AI_ADMISSION_PATTERNS = [
+  /soy una ia\b/i, /soy un ia\b/i, /como ia\b/i, /soy un bot\b/i, /soy un robot\b/i,
+  /modelo de lenguaje/i, /asistente virtual/i, /inteligencia artificial/i
+];
+
+function sanitizeOutboundText(text) {
+  if (typeof text !== 'string' || !text) return text;
+
+  if (AI_ADMISSION_PATTERNS.some(p => p.test(text))) {
+    return BOT_ADMISSION_MSG;
+  }
+
+  let clean = text.replace(/[—–]/g, ',');
+  for (const [pattern, replacement] of BANNED_PHRASE_REPLACEMENTS) {
+    clean = clean.replace(pattern, replacement);
+  }
+  // Limpiar espacios/comas duplicadas que puedan quedar tras remover palabras
+  clean = clean.replace(/,\s*,/g, ',').replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').trim();
+  return clean;
+}
+
 async function sendAndSave(phone, textOrParts) {
-  const parts = Array.isArray(textOrParts) ? textOrParts : [textOrParts];
+  const parts = (Array.isArray(textOrParts) ? textOrParts : [textOrParts]).map(sanitizeOutboundText);
   for (let i = 0; i < parts.length; i++) {
     const wamid = await sendText(phone, parts[i]);
     db.saveMessage(phone, 'out', 'text', parts[i], wamid);

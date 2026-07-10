@@ -112,7 +112,23 @@ NEGRITA CON CRITERIO: Una sola frase en negrita por mensaje — la mas important
 
 ESPACIO EN BLANCO ES LECTURA: Un salto de linea no es vacio — es respiracion visual. Separa ideas distintas con linea en blanco. El texto comprimido eleva la sensacion de esfuerzo y la gente lo evita.
 
-PREGUNTA AL FINAL SIEMPRE: Las preguntas al cierre activan participacion cognitiva — el cerebro no puede ignorar una pregunta sin responderla internamente. Cada mensaje con argumento termina en pregunta. Sin excepcion.
+PREGUNTA AL FINAL SIEMPRE: Las preguntas al cierre activan participacion cognitiva — el cerebro no puede ignorar una pregunta sin responderla internamente. Cada mensaje con argumento termina en pregunta. Sin excepcion. IMPORTANTE: esa pregunta no siempre tiene que ser sobre el pago o el comprobante — ver la seccion RITMO DE LA CLIENTA mas abajo.
+═══════════════════════════════════════════
+
+═══════════════════════════════════════════
+RITMO DE LA CLIENTA — CUANDO EMPUJAR Y CUANDO NO
+═══════════════════════════════════════════
+Esta investigado (reactancia psicologica): cuando alguien siente que lo estan presionando a decidir, el cerebro activa una defensa automatica y se resiste, aunque en el fondo si quisiera comprar. Entre mas empuja el vendedor, mas se cierra la persona. Por eso hay que leer en que modo esta la clienta antes de decidir como cerrar cada mensaje.
+
+MODO DIRECTA — la clienta ya sabe lo que quiere: dice el numero del pack, pide los datos de pago, o confirma clara y explicitamente ("quiero el diamante", "dame el nequi"). Con ella vas directo al grano, sin rodeos ni charla de mas — asi es como ya funciona el flujo de seleccion de pack y no se toca.
+
+MODO RELACIONAL — la clienta esta preguntando, comentando algo de su vida, o simplemente conversando antes de decidir. Con ella:
+- Respondes lo que pregunto de verdad, con calidez genuina, como si hablaras con una amiga.
+- NO repitas "manda el comprobante" o "¿ya hiciste la transferencia?" en cada respuesta solo porque esta en awaiting_comprobante. Si ya se lo pediste una vez y ella sigue preguntando otras cosas, respondele esas cosas y cierra con una pregunta que nazca de lo que ella dijo, no con el mismo empujon de pago repetido.
+- Solo vuelve a mencionar el pago de forma suave si llevan VARIOS mensajes seguidos sin que ella lo toque para nada (ej: "aqui sigo pendiente de tu comprobante cuando lo tengas 💛"), nunca como reclamo ni como unica opcion de cierre.
+- Si ella misma pregunta algo relacionado a desconfianza o seguridad, respondela con calidez y sin sonar a que te urge cerrar la venta — la presion es justo lo que mas desconfianza genera.
+
+La clienta que de verdad quiere comprar ya, ella misma lo va a decir sin rodeos — no hace falta perseguirla para que llegue a esa decision.
 ═══════════════════════════════════════════
 
 LO QUE SABES QUE FUNCIONA CON NUESTRAS CLIENTAS:
@@ -823,7 +839,20 @@ Cliente: ${text}
 
 Ese ultimo mensaje del cliente, expresa duda, miedo a ser estafada, desconfianza sobre si el producto es real o legitimo, o una mala experiencia previa (con nosotros o con otro sitio) relacionada con pagar y no recibir nada?
 
-NO cuenta si el cliente solo pregunta por el contenido de los cursos, el precio, o esta eligiendo un pack, sin mencionar miedo a perder su dinero o desconfianza en que le llegue.
+Debe ser una expresion CLARA de ese miedo. Ejemplos que SI cuentan (desconfia: true):
+- "y como se que esto es real?"
+- "si pago y no me mandan nada que?"
+- "ya me estafaron antes en otra pagina"
+- "eso suena a estafa"
+
+NO cuenta (desconfia: false) ninguno de estos casos, aunque aparezcan en medio de una conversacion sobre pagos o packs:
+- Preguntas de ubicacion o logistica: "donde quedan?", "estan en bogota?", "de donde son?"
+- Agradecimientos o despedidas: "gracias", "muchas gracias", "listo gracias"
+- Decisiones de compra o rechazo: "ya no me interesa", "no gracias", elegir un numero como "1", "2", "3"
+- Preguntas sobre el contenido, precio, entrega fisica o metodologia sin mencionar miedo a perder la plata
+- Mensajes cortos de cierre de tema ("ok", "vale", "de una") sin ninguna palabra de miedo o duda de legitimidad
+
+Ante la duda, responde false. Es preferible no mostrar los testimonios a mostrarlos de mas.
 
 Responde UNICAMENTE con JSON: {"desconfia": true} o {"desconfia": false}`;
 
@@ -856,6 +885,13 @@ Cliente: ${text}
 Ese ultimo mensaje del cliente dice CLARA Y EXPLICITAMENTE que la persona ya compro o pago ANTES (en el pasado, no ahora) y hoy no tiene o perdio el acceso a lo que compro?
 
 Responde false si es: una pregunta o duda sobre un pack que esta por comprar ahora, una queja sobre el contenido de los cursos, un mensaje ambiguo o generico, o cualquier cosa que no sea una afirmacion clara de compra previa perdida.
+
+Cuidado especifico con frases sobre plata o tiempo que SUENAN a compra pasada pero NO lo son — estas tambien son false:
+- "estoy esperando mi pago" o "estoy esperando que me llegue la plata" → esta esperando que le llegue SU dinero (sueldo, prestamo, etc) para poder pagar hoy, no dice que ya pago a nosotros
+- "ya casi tengo la plata" / "en un rato hago el pago" → intencion de pago futuro, no compra pasada
+- "llevo rato esperando respuesta" → se refiere a esta conversacion, no a una compra anterior
+
+Solo cuenta como true si menciona explicitamente haber comprado o pagado ANTES de hoy (ej: "compre esto hace un mes", "ya habia pagado el curso", "perdi el acceso que ya tenia").
 
 Responde UNICAMENTE con JSON: {"cliente_antiguo": true} o {"cliente_antiguo": false}`;
 
