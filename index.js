@@ -849,17 +849,14 @@ app.post('/api/contacts/:phone/gallery', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const { type } = req.body;
   const { MOSTRARIO, TESTIMONIOS } = require('./content');
-  const { sendImage } = require('./whatsapp');
+  const { sendGallery } = require('./flows');
   const plantilla = type === 'mostrario' ? MOSTRARIO : TESTIMONIOS;
   const phone = req.params.phone;
   try {
-    for (const url of plantilla.images) {
-      await sendImage(phone, url);
-      db.saveMessage(phone, 'out', 'image', url, '');
-    }
-    await sendAndSave(phone, plantilla.text);
+    await sendGallery(phone, plantilla);
+    if (type !== 'mostrario') db.updateContact(phone, { testimonios_sent: 1 });
     const updated = db.getContact(phone);
-    broadcast('message', { contact: updated, direction: 'out', type: 'text', content: plantilla.text });
+    broadcast('refresh', { phone, contact: updated });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
