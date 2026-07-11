@@ -823,8 +823,7 @@ async function handleOfferedDiamante(contact, text) {
 
 async function handleOfferedOro(contact, text) {
   const phone = contact.phone;
-  const isShortYes = text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS);
-  if (text === '1' || text.includes('diamante') || isShortYes) {
+  if (text === '1' || text.includes('diamante')) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
     await sendAndSave(phone, DIAMANTE_DETAILS);
   } else if (text === '2' || text.includes('oro')) {
@@ -832,7 +831,15 @@ async function handleOfferedOro(contact, text) {
     await sendAndSave(phone, ORO_DETAILS);
   } else {
     const history = db.getRecentMessages(phone, 8);
-    await sendAndSave(phone, await carol(history, text));
+    // Mensaje ambiguo (no dice "diamante" ni "oro" explicito) — Carol lee el contexto
+    // real (incluye si esta respondiendo directo a la oferta) en vez de contar palabras
+    const aceptaDiamante = await detectUpgradeIntent(history, text, 'MEGA PACK DIAMANTE', 5000);
+    if (aceptaDiamante) {
+      db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
+      await sendAndSave(phone, DIAMANTE_DETAILS);
+    } else {
+      await sendAndSave(phone, await carol(history, text));
+    }
   }
 }
 
@@ -867,7 +874,7 @@ async function handleOfferedBasico(contact, text) {
     if (rechazaUpsell) await sendAndSave(phone, 'Sin problema! Aqui van los datos para tu Pack Basico 📖');
     await sendAndSave(phone, BASICO_DETAILS);
     await sendAndSave(phone, 'Ah, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
-  } else if (mentionsOro || (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, YES_WORDS))) {
+  } else if (mentionsOro) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
     await sendAndSave(phone, ORO_DETAILS);
   } else if (['no gracias', 'no, gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w))) {
@@ -877,9 +884,17 @@ async function handleOfferedBasico(contact, text) {
     await sendAndSave(phone, BASICO_DETAILS);
     await sendAndSave(phone, 'Ah, y solo para que lo sepas... el MEGA PACK DIAMANTE tiene un regalo adicional que no te hemos contado todavia 🤫\n\nSi en algun momento quieres saber de que se trata, me preguntas y te cuento 💎');
   } else {
-    db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
+    // Mensaje ambiguo (no dice "oro" ni un rechazo claro) — Carol lee el contexto real
+    // en vez de contar palabras, evita perder un "si" claro solo por tener mas de 4 palabras
     const history = db.getRecentMessages(phone, 8);
-    await sendAndSave(phone, await carol(history, text));
+    const aceptaOro = await detectUpgradeIntent(history, text, 'SUPERPACK ORO', 5000);
+    if (aceptaOro) {
+      db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'oro' });
+      await sendAndSave(phone, ORO_DETAILS);
+    } else {
+      db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
+      await sendAndSave(phone, await carol(history, text));
+    }
   }
 }
 
