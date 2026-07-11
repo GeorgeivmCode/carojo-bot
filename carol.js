@@ -811,6 +811,7 @@ Ese ultimo mensaje del cliente, es una aceptacion de subir de pack ahorita mismo
 
 Cuenta como ACEPTA (true):
 - Una afirmacion corta ("si", "dale", "listo", "va", "hagale") cuando el mensaje inmediatamente anterior del bot fue la oferta de subir de pack, y el cliente no esta hablando de otro tema.
+- Una afirmacion ("si", "dale", "listo", etc) seguida de una pregunta sobre COMO completar esa misma compra (ej: "si y como se puede pagar", "dale, a que numero te hago la transferencia", "si, mandame los datos") — aunque el mensaje tenga mas palabras, sigue siendo una aceptacion clara, no una duda.
 
 NO cuenta como aceptacion (false):
 - Un cierre de conversacion, despedida, agradecimiento o confirmacion sobre OTRO tema distinto a la oferta (ej: agradecer una ayuda de soporte, despedirse, confirmar un dato que no es la oferta), aunque el mensaje contenga palabras como "si", "ok", "listo" o "dale".
@@ -821,6 +822,7 @@ Responde UNICAMENTE con JSON: {"acepta": true} o {"acepta": false}`;
   const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 30,
+    temperature: 0,
     messages: [{ role: 'user', content: prompt }]
   }), 'detectUpgradeIntent');
 
