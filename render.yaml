@@ -24,3 +24,5 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      - key: HOTMART_HOTTOK
+        sync: false

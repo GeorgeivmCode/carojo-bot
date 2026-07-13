@@ -1021,6 +1021,71 @@ async function fireCapiWebsitePurchase({ phone, pack, amount, ip, ua, eventId, f
   console.log(`CAPI website ok [${phone}] ip=${ip ? 'si' : 'no'} ua=${ua ? 'si' : 'no'}:`, JSON.stringify(r.data));
 }
 
+// ── Webhook Hotmart → CAPI Creciendo con Fe ────────────────────────────────────
+const HOTMART_HOTTOK      = process.env.HOTMART_HOTTOK;
+const HOTMART_PRODUCT_ID  = 7482775; // Educa con Fe (Creciendo con Fe)
+const CONFE_PIXEL_ID      = '874282268605387'; // Creciendo con Fe - Pixel
+const hotmartFired = new Set(); // dedupe por transaction, se resetea con restart del server
+
+async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, amount, currency, orderDateMs }) {
+  const CAPI_TOKEN = process.env.META_CAPI_TOKEN;
+  if (!CONFE_PIXEL_ID || !CAPI_TOKEN) return;
+  const sha256 = v => crypto.createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
+  const ud = {};
+  if (email) ud.em = [sha256(email)];
+  if (phone) ud.ph = [sha256(`${phoneCode || ''}${phone}`.replace(/\D/g, ''))];
+  const event = {
+    event_name:       'Purchase',
+    event_time:       Math.floor((orderDateMs || Date.now()) / 1000),
+    action_source:    'website',
+    event_source_url: 'https://creciendoconfe.lovable.app/',
+    event_id:         transaction,
+    user_data:        ud,
+    custom_data: { currency: currency || 'USD', value: amount }
+  };
+  const axiosLib = require('axios');
+  const r = await axiosLib.post(
+    `https://graph.facebook.com/v21.0/${CONFE_PIXEL_ID}/events`,
+    { data: [event] },
+    { params: { access_token: CAPI_TOKEN }, timeout: 8000 }
+  );
+  console.log(`CAPI Hotmart ok [${transaction}]:`, JSON.stringify(r.data));
+}
+
+app.post('/webhooks/hotmart', async (req, res) => {
+  const body = req.body || {};
+  if (!HOTMART_HOTTOK || body.hottok !== HOTMART_HOTTOK) {
+    return res.status(401).json({ error: 'hottok invalido' });
+  }
+  res.status(200).json({ ok: true }); // responder rapido, Hotmart reintenta si tarda o falla
+
+  try {
+    if (body.event !== 'PURCHASE_APPROVED') return;
+    const data = body.data || {};
+    if ((data.product || {}).id !== HOTMART_PRODUCT_ID) return;
+
+    const transaction = (data.purchase || {}).transaction;
+    if (!transaction || hotmartFired.has(transaction)) return;
+    hotmartFired.add(transaction);
+
+    const buyer = data.buyer || {};
+    const price = (data.purchase || {}).price || {};
+    const orderDateMs = (data.purchase || {}).order_date;
+
+    await fireCapiHotmartPurchase({
+      transaction,
+      email: buyer.email,
+      phoneCode: buyer.checkout_phone_code,
+      phone: buyer.checkout_phone,
+      amount: price.value,
+      currency: price.currency_code,
+      orderDateMs
+    });
+  } catch (e) {
+    console.error('Webhook Hotmart error:', e.message);
+  }
+});
+
 function verifyAccessToken(token) {
   try {
     const decoded = Buffer.from(token, 'base64url').toString();
