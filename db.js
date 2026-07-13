@@ -74,6 +74,29 @@ try { db.exec(`ALTER TABLE messages ADD COLUMN golden INTEGER DEFAULT 0`); } cat
 // Settings table for VAPID keys and push subscriptions
 db.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
 
+// Todos los eventos del webhook de Hotmart (compras, cancelaciones, reembolsos, contracargos, etc.)
+// No solo PURCHASE_APPROVED — guarda el payload completo para poder auditar cualquier caso despues.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS hotmart_events (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    event         TEXT NOT NULL,
+    transaction_id TEXT DEFAULT '',
+    product_id    TEXT DEFAULT '',
+    product_name  TEXT DEFAULT '',
+    status        TEXT DEFAULT '',
+    buyer_name    TEXT DEFAULT '',
+    buyer_email   TEXT DEFAULT '',
+    amount        REAL,
+    currency      TEXT DEFAULT '',
+    order_date    TEXT DEFAULT '',
+    capi_sent     INTEGER DEFAULT 0,
+    raw           TEXT DEFAULT '',
+    created_at    TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_hotmart_events_tx ON hotmart_events(transaction_id);
+  CREATE INDEX IF NOT EXISTS idx_hotmart_events_event ON hotmart_events(event);
+`);
+
 // Backfill: usa el timestamp real del mensaje de entrega (contiene "carpeta personal")
 db.exec(`
   UPDATE contacts SET delivered_at = (
@@ -271,11 +294,42 @@ function setSetting(key, value) {
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, String(value));
 }
 
+// Hotmart events
+function saveHotmartEvent(fields) {
+  db.prepare(`
+    INSERT INTO hotmart_events
+      (event, transaction_id, product_id, product_name, status, buyer_name, buyer_email, amount, currency, order_date, capi_sent, raw)
+    VALUES (@event, @transaction_id, @product_id, @product_name, @status, @buyer_name, @buyer_email, @amount, @currency, @order_date, @capi_sent, @raw)
+  `).run({
+    event: fields.event || '',
+    transaction_id: fields.transaction_id || '',
+    product_id: fields.product_id != null ? String(fields.product_id) : '',
+    product_name: fields.product_name || '',
+    status: fields.status || '',
+    buyer_name: fields.buyer_name || '',
+    buyer_email: fields.buyer_email || '',
+    amount: fields.amount != null ? fields.amount : null,
+    currency: fields.currency || '',
+    order_date: fields.order_date || '',
+    capi_sent: fields.capi_sent ? 1 : 0,
+    raw: fields.raw || ''
+  });
+}
+
+function markHotmartEventCapiSent(transaction_id) {
+  db.prepare(`UPDATE hotmart_events SET capi_sent = 1 WHERE transaction_id = ?`).run(transaction_id);
+}
+
+function getHotmartEvents(limit = 100) {
+  return db.prepare(`SELECT * FROM hotmart_events ORDER BY id DESC LIMIT ?`).all(limit);
+}
+
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
   saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
   getContactsForR1, getContactsForR2,
   getStats, getSetting, setSetting, now,
-  markGolden, getGoldenExamples
+  markGolden, getGoldenExamples,
+  saveHotmartEvent, markHotmartEventCapiSent, getHotmartEvents
 };

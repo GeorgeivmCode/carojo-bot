@@ -1061,6 +1061,35 @@ app.post('/webhooks/hotmart', async (req, res) => {
   }
   res.status(200).json({ ok: true }); // responder rapido, Hotmart reintenta si tarda o falla
 
+  // Guarda TODO evento que llegue (venta, cancelacion, reembolso, contracargo, boleto pendiente, etc.)
+  // independiente de si es el producto/evento que dispara CAPI, para tener el historial completo.
+  try {
+    const data = body.data || {};
+    const purchase = data.purchase || {};
+    const subscription = data.subscription || {};
+    const buyer = data.buyer || data.subscriber || {};
+    const product = data.product || subscription.product || {};
+    const price = purchase.price || {};
+    const orderDateMs = purchase.order_date || body.creationDate || null;
+
+    db.saveHotmartEvent({
+      event: body.event,
+      transaction_id: purchase.transaction || body.id || '',
+      product_id: product.id,
+      product_name: product.name,
+      status: purchase.status || subscription.status || '',
+      buyer_name: buyer.name,
+      buyer_email: buyer.email,
+      amount: price.value != null ? price.value : null,
+      currency: price.currency_code,
+      order_date: orderDateMs ? new Date(orderDateMs).toISOString() : '',
+      capi_sent: false,
+      raw: JSON.stringify(body)
+    });
+  } catch (e) {
+    console.error('Webhook Hotmart error guardando evento:', e.message);
+  }
+
   try {
     if (body.event !== 'PURCHASE_APPROVED') return;
     const data = body.data || {};
@@ -1083,6 +1112,7 @@ app.post('/webhooks/hotmart', async (req, res) => {
       currency: price.currency_code,
       orderDateMs
     });
+    db.markHotmartEventCapiSent(transaction);
   } catch (e) {
     console.error('Webhook Hotmart error:', e.message);
   }
