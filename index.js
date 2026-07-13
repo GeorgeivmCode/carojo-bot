@@ -1054,7 +1054,9 @@ async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, a
 
 app.post('/webhooks/hotmart', async (req, res) => {
   const body = req.body || {};
-  if (!HOTMART_HOTTOK || body.hottok !== HOTMART_HOTTOK) {
+  const hottokOk = HOTMART_HOTTOK && body.hottok === HOTMART_HOTTOK;
+  console.log(`Webhook Hotmart recibido: event=${body.event} product=${(body.data || {}).product && body.data.product.id} hottok=${hottokOk ? 'ok' : 'INVALIDO'}`);
+  if (!hottokOk) {
     return res.status(401).json({ error: 'hottok invalido' });
   }
   res.status(200).json({ ok: true }); // responder rapido, Hotmart reintenta si tarda o falla
