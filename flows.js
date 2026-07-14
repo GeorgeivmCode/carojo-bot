@@ -1605,4 +1605,4 @@ async function sendAndSave(phone, textOrParts) {
   }
 }
 
-module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, generateAccessToken };
+module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, notifyTelegram, generateAccessToken };
