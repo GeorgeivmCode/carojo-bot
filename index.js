@@ -1058,6 +1058,12 @@ app.post('/webhooks/hotmart', async (req, res) => {
   const hottokOk = HOTMART_HOTTOK && body.hottok === HOTMART_HOTTOK;
   console.log(`Webhook Hotmart recibido: event=${body.event} product=${(body.data || {}).product && body.data.product.id} hottok=${hottokOk ? 'ok' : 'INVALIDO'}`);
   if (!hottokOk) {
+    // DIAGNOSTICO TEMPORAL (14 jul 2026): body.hottok no calza, buscar si Hotmart lo manda
+    // en alguna cabecera en vez de en el contenido. No cambia el comportamiento (sigue
+    // rechazando 401), solo deja rastro para ubicar el lugar correcto sin adivinar.
+    const headerNames = Object.keys(req.headers);
+    const matchingHeader = headerNames.find(h => req.headers[h] === HOTMART_HOTTOK);
+    console.log(`Webhook Hotmart DIAGNOSTICO: cabeceras=[${headerNames.join(', ')}] coincide_en_cabecera=${matchingHeader || 'ninguna'}`);
     return res.status(401).json({ error: 'hottok invalido' });
   }
   res.status(200).json({ ok: true }); // responder rapido, Hotmart reintenta si tarda o falla
