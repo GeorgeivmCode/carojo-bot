@@ -195,8 +195,11 @@ const TELEGRAM_CHAT_IDS = [8039105555, 1360753733]; // Jorge, Carol
 
 async function notifyTelegram(text) {
   if (!TELEGRAM_TOKEN) return;
+  // Promise.allSettled nunca rechaza aunque un chat_id falle — sin este catch individual,
+  // una falla de Telegram (bot bloqueado, rate limit, etc.) quedaba sin ningun rastro en logs (14 jul 2026)
   await Promise.allSettled(TELEGRAM_CHAT_IDS.map(chat_id =>
     axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { chat_id, text }, { timeout: 8000 })
+      .catch(e => console.error(`Telegram notify error [chat_id=${chat_id}]:`, e.response?.data ? JSON.stringify(e.response.data) : e.message))
   ));
 }
 
@@ -1286,7 +1289,11 @@ async function handlePostDelivery(contact, text) {
       'no me ha llegado', 'no me mandaron', 'no encuentro', 'no me dio'].some(w => text.includes(w));
     if (needsSupport) {
       const history = db.getRecentMessages(phone, 8);
-      await sendAndSave(phone, await carol(history, text));
+      // Sin este contexto Carol improvisaba y a veces inventaba que se habia mandado un
+      // correo (mandaba a revisar spam/promociones) -- NUNCA se envia ningun email, ver
+      // caso real 573022497665 (14 jul 2026)
+      const ctxNoLlego = '[CONTEXTO INTERNO: El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp, ya se le envio antes en esta conversacion. NUNCA se manda ningun correo electronico -- el Gmail que dio es solo la llave para poder abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada, dile que revise arriba en este mismo chat de WhatsApp (busca el mensaje con el link de Google Drive), NUNCA le digas que revise su bandeja de Gmail, spam o promociones -- ahi nunca va a encontrar nada porque no se envia ningun correo.]';
+      await sendAndSave(phone, await carol(history, ctxNoLlego + '\n\nMensaje de la clienta: ' + text));
       return;
     }
     // NO_WORDS (token suelto "no") solo cuenta en mensajes cortos — evita que "no tengo ninguna
