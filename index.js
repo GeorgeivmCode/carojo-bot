@@ -1027,13 +1027,14 @@ const HOTMART_PRODUCT_ID  = 7482775; // Educa con Fe (Creciendo con Fe)
 const CONFE_PIXEL_ID      = '874282268605387'; // Creciendo con Fe - Pixel
 const hotmartFired = new Set(); // dedupe por transaction, se resetea con restart del server
 
-async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, amount, currency, orderDateMs }) {
+async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, amount, currency, orderDateMs, fbc }) {
   const CAPI_TOKEN = process.env.META_CAPI_TOKEN;
   if (!CONFE_PIXEL_ID || !CAPI_TOKEN) return;
   const sha256 = v => crypto.createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
   const ud = {};
   if (email) ud.em = [sha256(email)];
   if (phone) ud.ph = [sha256(`${phoneCode || ''}${phone}`.replace(/\D/g, ''))];
+  if (fbc) ud.fbc = fbc;
   const event = {
     event_name:       'Purchase',
     event_time:       Math.floor((orderDateMs || Date.now()) / 1000),
@@ -1102,6 +1103,8 @@ app.post('/webhooks/hotmart', async (req, res) => {
     const buyer = data.buyer || {};
     const price = (data.purchase || {}).price || {};
     const orderDateMs = (data.purchase || {}).order_date;
+    const sck = (data.purchase || {}).sckPaymentLink;
+    const fbc = sck ? `fb.1.${Date.now()}.${sck}` : undefined;
 
     await fireCapiHotmartPurchase({
       transaction,
@@ -1110,7 +1113,8 @@ app.post('/webhooks/hotmart', async (req, res) => {
       phone: buyer.checkout_phone,
       amount: price.value,
       currency: price.currency_code,
-      orderDateMs
+      orderDateMs,
+      fbc
     });
     db.markHotmartEventCapiSent(transaction);
   } catch (e) {
