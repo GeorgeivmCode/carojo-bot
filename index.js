@@ -1054,12 +1054,6 @@ async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, a
 
 app.post('/webhooks/hotmart', async (req, res) => {
   const body = req.body || {};
-  console.log(
-    'DEBUG Hotmart estructura payload:',
-    'keys raiz=', Object.keys(body),
-    '| keys data=', Object.keys(body.data || {}),
-    '| headers sospechosos=', Object.keys(req.headers).filter(h => /hottok|token/i.test(h))
-  );
   const hottokOk = HOTMART_HOTTOK && body.hottok === HOTMART_HOTTOK;
   console.log(`Webhook Hotmart recibido: event=${body.event} product=${(body.data || {}).product && body.data.product.id} hottok=${hottokOk ? 'ok' : 'INVALIDO'}`);
   if (!hottokOk) {
