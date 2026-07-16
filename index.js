@@ -1057,8 +1057,14 @@ app.post('/webhooks/hotmart', async (req, res) => {
   const body = req.body || {};
   const isTrackedSale = body.event === 'PURCHASE_APPROVED' && ((body.data || {}).product || {}).id === HOTMART_PRODUCT_ID;
   // Tolerante a espacio/salto de linea invisible al copiar la clave (14 jul 2026)
-  const hottokOk = !!(HOTMART_HOTTOK && body.hottok && body.hottok.trim() === HOTMART_HOTTOK.trim());
-  console.log(`Webhook Hotmart recibido: event=${body.event} product=${(body.data || {}).product && body.data.product.id} hottok=${hottokOk ? 'ok' : 'INVALIDO'}`);
+  // Hotmart a veces manda la clave en el cuerpo del mensaje y a veces en la cabecera
+  // x-hotmart-hottok en vez del cuerpo -- confirmado con el diagnostico del 16 jul 2026.
+  // Aceptar cualquiera de los dos lugares.
+  const headerHottok = req.headers['x-hotmart-hottok'];
+  const bodyOk = !!(HOTMART_HOTTOK && body.hottok && body.hottok.trim() === HOTMART_HOTTOK.trim());
+  const headerOk = !!(HOTMART_HOTTOK && headerHottok && String(headerHottok).trim() === HOTMART_HOTTOK.trim());
+  const hottokOk = bodyOk || headerOk;
+  console.log(`Webhook Hotmart recibido: event=${body.event} product=${(body.data || {}).product && body.data.product.id} hottok=${hottokOk ? 'ok' : 'INVALIDO'} via=${bodyOk ? 'body' : (headerOk ? 'header' : 'ninguno')}`);
   if (!hottokOk) {
     // DIAGNOSTICO TEMPORAL (14 jul 2026): body.hottok no calza, buscar si Hotmart lo manda
     // en alguna cabecera en vez de en el contenido. No cambia el comportamiento (sigue
