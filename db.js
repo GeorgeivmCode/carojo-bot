@@ -97,18 +97,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_hotmart_events_event ON hotmart_events(event);
 `);
 
-// Backfill: usa el timestamp real del mensaje de entrega (contiene "carpeta personal")
-db.exec(`
-  UPDATE contacts SET delivered_at = (
-    SELECT m.created_at FROM messages m
-    WHERE m.phone = contacts.phone
-      AND m.direction = 'out'
-      AND m.content LIKE '%carpeta personal%'
-    ORDER BY m.created_at ASC LIMIT 1
-  )
-  WHERE state = 'delivered'
-`);
-
 function now() {
   return new Date().toISOString().replace('T', ' ').substring(0, 19);
 }

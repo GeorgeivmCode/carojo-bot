@@ -1374,7 +1374,7 @@ async function handlePostDelivery(contact, text) {
     contact.pack_selected === 'oro' ? 'SUPERPACK ORO' :
     contact.pack_selected === 'basico' ? 'PACK BASICO' : 'su pack';
   const packPriceDelivered = PACK_AMOUNTS[contact.pack_selected];
-  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. NO le pidas que pague ni le des datos de pago de nuevo — su compra esta completa. Ayudala con su duda o solicitud actual.]`;
+  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. NO le pidas que pague ni le des datos de pago de nuevo — su compra esta completa. Ayudala con su duda o solicitud actual.]`;
   const reply = await carol(history, ctxDelivered + '\n\nMensaje de la clienta: ' + text);
   await sendAndSave(phone, reply);
 }
