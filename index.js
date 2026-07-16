@@ -1055,6 +1055,7 @@ async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, a
 
 app.post('/webhooks/hotmart', async (req, res) => {
   const body = req.body || {};
+  const isTrackedSale = body.event === 'PURCHASE_APPROVED' && ((body.data || {}).product || {}).id === HOTMART_PRODUCT_ID;
   // Tolerante a espacio/salto de linea invisible al copiar la clave (14 jul 2026)
   const hottokOk = !!(HOTMART_HOTTOK && body.hottok && body.hottok.trim() === HOTMART_HOTTOK.trim());
   console.log(`Webhook Hotmart recibido: event=${body.event} product=${(body.data || {}).product && body.data.product.id} hottok=${hottokOk ? 'ok' : 'INVALIDO'}`);
@@ -1065,8 +1066,12 @@ app.post('/webhooks/hotmart', async (req, res) => {
     const headerNames = Object.keys(req.headers);
     const matchingHeader = headerNames.find(h => req.headers[h] === HOTMART_HOTTOK);
     console.log(`Webhook Hotmart DIAGNOSTICO: cabeceras=[${headerNames.join(', ')}] coincide_en_cabecera=${matchingHeader || 'ninguna'}`);
-    const { notifyTelegram } = require('./flows');
-    notifyTelegram(`⚠️ Hotmart rechazo un aviso de venta (clave invalida).\nEvento: ${body.event || '?'}\nRevisa la clave del webhook en Hotmart y actualizala en Render.`).catch(e => console.error('Telegram notify error:', e.message));
+    // Solo avisar a Telegram si lo rechazado era una VENTA APROBADA real (15 jul 2026) --
+    // otros eventos (carrito abandonado, boleto, suscripcion, etc.) solo quedan en el log.
+    if (isTrackedSale) {
+      const { notifyTelegram } = require('./flows');
+      notifyTelegram(`⚠️ No se pudo reportar una venta completada (clave del webhook invalida).\nRevisa la clave del webhook en Hotmart y actualizala en Render.`).catch(e => console.error('Telegram notify error:', e.message));
+    }
     return res.status(401).json({ error: 'hottok invalido' });
   }
   res.status(200).json({ ok: true }); // responder rapido, Hotmart reintenta si tarda o falla
