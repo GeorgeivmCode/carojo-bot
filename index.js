@@ -531,6 +531,9 @@ app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
   const fields = {};
   for (const k of allowed) if (req.body[k] !== undefined) fields[k] = req.body[k];
   db.updateContact(req.params.phone, fields);
+  if (Object.keys(fields).length) {
+    db.logAdminAction(req.params.phone, 'patch', Object.entries(fields).map(([k, v]) => `${k}=${v}`).join(', '));
+  }
   const updated = db.getContact(req.params.phone);
   broadcast('contact_updated', updated);
   res.json(updated);
@@ -558,6 +561,7 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   } catch (e) { console.error('Delivery msg error:', e.message); }
   // 3. Actualizar DB
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', pack_selected: pack, delivered_at: db.now(), email, folder_id: regFolderId });
+  db.logAdminAction(phone, 'register_sale', `pack=${pack}, email=${email}`);
   const updated = db.getContact(phone);
   try { await fireCapi(updated, pack); } catch (e) { console.error('CAPI error:', e.message); }
   try { await logSaleToSheets(updated, pack, email); } catch (e) { console.error('Sheets error:', e.message); }
@@ -574,6 +578,7 @@ app.post('/api/contacts/:phone/approve-payment', adminAuth, async (req, res) => 
   if (!c) return res.status(404).json({ error: 'not found' });
   const { PAYMENT_RECEIVED_ASK_EMAIL } = require('./content');
   db.updateContact(phone, { state: 'awaiting_email' });
+  db.logAdminAction(phone, 'approve_payment', `pack=${c.pack_selected || '-'}`);
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
@@ -612,6 +617,7 @@ app.post('/api/contacts/:phone/change-email', adminAuth, async (req, res) => {
   }
 
   db.updateContact(phone, { email: newEmail, folder_id: chEmailFolderId });
+  db.logAdminAction(phone, 'change_email', `${oldEmail || 'sin correo'} -> ${newEmail}${revokeOk ? '' : ' (revoke del anterior FALLO)'}`);
   const folderUrl = getFolderUrl(pack, chEmailFolderId);
   await sendAndSave(phone,
     `Tu acceso fue actualizado!\n\nEnlace al pack ${pack}:\n${folderUrl}\n\nAbrelo con el correo ${newEmail}. Cualquier problema me avisas!`
@@ -649,6 +655,7 @@ app.post('/api/contacts/:phone/restore-access', adminAuth, async (req, res) => {
   // NO se setea delivered_at para que no sume en el contador de ventas de hoy
   // NO usa pixel URL — no es venta nueva, no debe disparar Purchase en Meta
   db.updateContact(phone, { state: 'delivered', tag: 'Soporte', pack_selected: pack, email, folder_id: restoreFolderId });
+  db.logAdminAction(phone, 'restore_access', `pack=${pack}, email=${email}`);
   await notifyJorge(c, `ACCESO RESTAURADO (cliente antiguo)\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${c.name || '-'}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
@@ -675,6 +682,7 @@ app.post('/api/contacts/:phone/send-gift', adminAuth, async (req, res) => {
   const msg = `${GIFT_MSGS[gift]}\n\n${GIFT_URLS[gift]}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`;
   await sendAndSave(phone, msg);
   db.updateContact(phone, { gift_sent: 1 });
+  db.logAdminAction(phone, 'send_gift', `gift=${gift}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   res.json({ ok: true });
@@ -693,6 +701,7 @@ app.post('/api/contacts/:phone/revoke-access', adminAuth, async (req, res) => {
     console.error('revokeAccess Drive error:', e.message);
   }
   db.updateContact(phone, { state: 'awaiting_comprobante', tag: 'Acceso revocado' });
+  db.logAdminAction(phone, 'revoke_access', `pack=${c.pack_selected}, email=${c.email}${driveError ? ` (Drive FALLO: ${driveError})` : ''}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   if (driveError) {
@@ -722,6 +731,7 @@ app.post('/api/contacts/:phone/unblock-access', adminAuth, async (req, res) => {
   const newState = c.delivered_at ? 'delivered' : 'awaiting_comprobante';
   const newTag   = c.delivered_at ? 'Facturado' : 'Sin etiqueta';
   db.updateContact(phone, { state: newState, tag: newTag, bot_active: 1, folder_id: unblockFolderId });
+  db.logAdminAction(phone, 'unblock_access', `state=${newState}, tag=${newTag}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   res.json({ ok: true });
@@ -757,6 +767,7 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
     }
   }
   db.updateContact(phone, { pack_selected: pack, state: 'delivered', tag: 'Facturado', folder_id: chPackFolderId });
+  db.logAdminAction(phone, 'change_pack', `${oldPack || 'sin pack'} -> ${pack}${revokeOk ? '' : ' (revoke del anterior FALLO)'}`);
   // Reenviar mensaje de entrega con nuevo pack
   const { generateAccessToken } = require('./flows');
   const { deliveryMessage } = require('./content');
@@ -795,6 +806,7 @@ app.post('/api/contacts/:phone/mark-fraud', adminAuth, async (req, res) => {
   }
   // Bloquear contacto
   db.updateContact(phone, { bot_active: 0, state: 'fraud', tag: 'Fraude' });
+  db.logAdminAction(phone, 'mark_fraud', `pack=${c.pack_selected || '-'}, email=${c.email || '-'}`);
   // Notificar a Jorge
   try {
     await sendText(process.env.JORGE_PHONE,
@@ -814,6 +826,7 @@ app.post('/api/contacts/:phone/mark-test-sale', adminAuth, (req, res) => {
   // Toggle: si ya esta marcada como Prueba, revertir a Facturado (vuelve a contar)
   const newTag = c.tag === 'Prueba' ? 'Facturado' : 'Prueba';
   db.updateContact(phone, { tag: newTag });
+  db.logAdminAction(phone, 'mark_test_sale', `tag=${newTag}`);
   const updated = db.getContact(phone);
   broadcast('refresh', { phone, contact: updated });
   res.json({ ok: true, tag: newTag });
@@ -880,6 +893,13 @@ app.get('/api/stats', adminAuth, (req, res) => {
 app.get('/api/hotmart-events', adminAuth, (req, res) => {
   const limit = parseInt(req.query.limit) || 200;
   res.json(db.getHotmartEvents(limit));
+});
+
+// Historial de acciones de administracion sobre un contacto (revocar, marcar prueba/fraude,
+// cambiar pack/correo, restaurar acceso, etc.) -- antes solo quedaba el estado final.
+app.get('/api/contacts/:phone/admin-actions', adminAuth, (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  res.json(db.getAdminActions(req.params.phone, limit));
 });
 
 app.get('/api/vapid-key', (_req, res) => {

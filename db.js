@@ -97,6 +97,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_hotmart_events_event ON hotmart_events(event);
 `);
 
+// Historial de acciones de administracion sobre un contacto (revocar, marcar prueba/fraude,
+// cambiar pack/correo, etc.). Antes solo quedaba el estado final -- si dos acciones se
+// aplicaban seguidas, la segunda pisaba el rastro visible de la primera sin dejar registro.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS admin_actions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone      TEXT NOT NULL,
+    action     TEXT NOT NULL,
+    details    TEXT DEFAULT '',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_admin_actions_phone ON admin_actions(phone);
+`);
+
 function now() {
   return new Date().toISOString().replace('T', ' ').substring(0, 19);
 }
@@ -312,6 +326,16 @@ function getHotmartEvents(limit = 100) {
   return db.prepare(`SELECT * FROM hotmart_events ORDER BY id DESC LIMIT ?`).all(limit);
 }
 
+// Admin actions (historial de botones del panel usados sobre un contacto)
+function logAdminAction(phone, action, details) {
+  db.prepare(`INSERT INTO admin_actions (phone, action, details, created_at) VALUES (?, ?, ?, ?)`)
+    .run(phone, action, details || '', now());
+}
+
+function getAdminActions(phone, limit = 100) {
+  return db.prepare(`SELECT * FROM admin_actions WHERE phone = ? ORDER BY id DESC LIMIT ?`).all(phone, limit);
+}
+
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
@@ -319,5 +343,6 @@ module.exports = {
   getContactsForR1, getContactsForR2,
   getStats, getSetting, setSetting, now,
   markGolden, getGoldenExamples,
-  saveHotmartEvent, markHotmartEventCapiSent, getHotmartEvents
+  saveHotmartEvent, markHotmartEventCapiSent, getHotmartEvents,
+  logAdminAction, getAdminActions
 };
