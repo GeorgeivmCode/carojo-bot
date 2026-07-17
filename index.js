@@ -1025,22 +1025,35 @@ async function fireCapiWebsitePurchase({ phone, pack, amount, ip, ua, eventId, f
 const HOTMART_HOTTOK      = process.env.HOTMART_HOTTOK;
 const HOTMART_PRODUCT_ID  = 7482775; // Educa con Fe (Creciendo con Fe)
 const CONFE_PIXEL_ID      = '874282268605387'; // Creciendo con Fe - Pixel
-const hotmartFired = new Set(); // dedupe por transaction, se resetea con restart del server
+const hotmartFired = new Set(); // dedupe Purchase por transaction, se resetea con restart del server
+const hotmartCheckoutFired = new Set(); // dedupe InitiateCheckout (boleto/recibo) por transaction
 
-async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, amount, currency, orderDateMs, fbc }) {
-  const CAPI_TOKEN = process.env.META_CAPI_TOKEN;
-  if (!CONFE_PIXEL_ID || !CAPI_TOKEN) return;
+// ucode = identificador único de comprador que manda Hotmart en cada venta.
+// Meta lo usa como external_id para mejorar el match del comprador (EMQ).
+function buildHotmartUserData({ email, phoneCode, phone, fbc, ucode, name }) {
   const sha256 = v => crypto.createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
   const ud = {};
   if (email) ud.em = [sha256(email)];
   if (phone) ud.ph = [sha256(`${phoneCode || ''}${phone}`.replace(/\D/g, ''))];
   if (fbc) ud.fbc = fbc;
+  if (ucode) ud.external_id = [sha256(ucode)];
+  if (name) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts[0]) ud.fn = [sha256(parts[0])];
+    if (parts.length > 1) ud.ln = [sha256(parts[parts.length - 1])];
+  }
+  return ud;
+}
+
+async function postHotmartCapiEvent({ eventName, eventId, orderDateMs, amount, currency, ud }) {
+  const CAPI_TOKEN = process.env.META_CAPI_TOKEN;
+  if (!CONFE_PIXEL_ID || !CAPI_TOKEN) return;
   const event = {
-    event_name:       'Purchase',
+    event_name:       eventName,
     event_time:       Math.floor((orderDateMs || Date.now()) / 1000),
     action_source:    'website',
     event_source_url: 'https://creciendoconfe.lovable.app/',
-    event_id:         transaction,
+    event_id:         eventId,
     user_data:        ud,
     custom_data: { currency: currency || 'USD', value: amount }
   };
@@ -1050,7 +1063,23 @@ async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, a
     { data: [event] },
     { params: { access_token: CAPI_TOKEN }, timeout: 8000 }
   );
-  console.log(`CAPI Hotmart ok [${transaction}]:`, JSON.stringify(r.data));
+  console.log(`CAPI Hotmart ${eventName} ok [${eventId}]:`, JSON.stringify(r.data));
+}
+
+async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, amount, currency, orderDateMs, fbc, ucode, name }) {
+  const ud = buildHotmartUserData({ email, phoneCode, phone, fbc, ucode, name });
+  // event_id se deja EXACTAMENTE igual a `transaction` (sin cambios) para no romper
+  // la deduplicacion de Meta si Hotmart reintenta un webhook ya procesado antes de este cambio.
+  await postHotmartCapiEvent({ eventName: 'Purchase', eventId: transaction, orderDateMs, amount, currency, ud });
+}
+
+// Dispara cuando alguien pide el boleto/recibo para pagar en efectivo (PURCHASE_BILLET_PRINTED).
+// Todavia no completo el pago, pero ya mostro intencion real de compra -- sirve como InitiateCheckout
+// para que Meta tenga esta señal temprano, sobre todo porque los pagos tipo boleto/voucher a veces
+// nunca disparan el pixel del navegador (la persona paga fuera de la sesion original).
+async function fireCapiHotmartCheckout({ transaction, email, phoneCode, phone, amount, currency, orderDateMs, ucode, name }) {
+  const ud = buildHotmartUserData({ email, phoneCode, phone, ucode, name });
+  await postHotmartCapiEvent({ eventName: 'InitiateCheckout', eventId: `checkout_${transaction}`, orderDateMs, amount, currency, ud });
 }
 
 app.post('/webhooks/hotmart', async (req, res) => {
@@ -1112,13 +1141,12 @@ app.post('/webhooks/hotmart', async (req, res) => {
   }
 
   try {
-    if (body.event !== 'PURCHASE_APPROVED') return;
+    if (body.event !== 'PURCHASE_APPROVED' && body.event !== 'PURCHASE_BILLET_PRINTED') return;
     const data = body.data || {};
     if ((data.product || {}).id !== HOTMART_PRODUCT_ID) return;
 
     const transaction = (data.purchase || {}).transaction;
-    if (!transaction || hotmartFired.has(transaction)) return;
-    hotmartFired.add(transaction);
+    if (!transaction) return;
 
     const buyer = data.buyer || {};
     const price = (data.purchase || {}).price || {};
@@ -1126,17 +1154,43 @@ app.post('/webhooks/hotmart', async (req, res) => {
     const sck = (data.purchase || {}).sckPaymentLink;
     const fbc = sck ? `fb.1.${Date.now()}.${sck}` : undefined;
 
-    await fireCapiHotmartPurchase({
-      transaction,
-      email: buyer.email,
-      phoneCode: buyer.checkout_phone_code,
-      phone: buyer.checkout_phone,
-      amount: price.value,
-      currency: price.currency_code,
-      orderDateMs,
-      fbc
-    });
-    db.markHotmartEventCapiSent(transaction);
+    // DIAGNOSTICO TEMPORAL (16 jul 2026): confirmar con datos reales si Hotmart manda
+    // mas campos de identidad (ciudad, pais, documento) que hoy no se le mandan a Meta.
+    // No cambia ningun comportamiento, solo deja rastro en logs para no adivinar.
+    console.log(`Hotmart buyer keys [${transaction}]: ${Object.keys(buyer).join(', ')}`);
+
+    if (body.event === 'PURCHASE_APPROVED') {
+      if (hotmartFired.has(transaction)) return;
+      hotmartFired.add(transaction);
+      await fireCapiHotmartPurchase({
+        transaction,
+        email: buyer.email,
+        phoneCode: buyer.checkout_phone_code,
+        phone: buyer.checkout_phone,
+        amount: price.value,
+        currency: price.currency_code,
+        orderDateMs,
+        fbc,
+        ucode: buyer.ucode,
+        name: buyer.name
+      });
+      db.markHotmartEventCapiSent(transaction);
+    } else {
+      // PURCHASE_BILLET_PRINTED: pidio el recibo/boleto para pagar en efectivo, aun no completa.
+      if (hotmartCheckoutFired.has(transaction)) return;
+      hotmartCheckoutFired.add(transaction);
+      await fireCapiHotmartCheckout({
+        transaction,
+        email: buyer.email,
+        phoneCode: buyer.checkout_phone_code,
+        phone: buyer.checkout_phone,
+        amount: price.value,
+        currency: price.currency_code,
+        orderDateMs,
+        ucode: buyer.ucode,
+        name: buyer.name
+      });
+    }
   } catch (e) {
     console.error('Webhook Hotmart error:', e.message);
   }
