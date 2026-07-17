@@ -875,6 +875,13 @@ app.get('/api/stats', adminAuth, (req, res) => {
   res.json(statsCache);
 });
 
+// Historial crudo de eventos de Hotmart (ventas, boletos pendientes, cancelaciones, etc.)
+// Util para auditar/backfillear CAPI sin depender de lo que Hotmart todavia muestre en /sales/history.
+app.get('/api/hotmart-events', adminAuth, (req, res) => {
+  const limit = parseInt(req.query.limit) || 200;
+  res.json(db.getHotmartEvents(limit));
+});
+
 app.get('/api/vapid-key', (_req, res) => {
   res.json({ key: vapidPublicKey });
 });
