@@ -1104,9 +1104,59 @@ async function fireCapiHotmartPurchase({ transaction, email, phoneCode, phone, a
 // Todavia no completo el pago, pero ya mostro intencion real de compra -- sirve como InitiateCheckout
 // para que Meta tenga esta señal temprano, sobre todo porque los pagos tipo boleto/voucher a veces
 // nunca disparan el pixel del navegador (la persona paga fuera de la sesion original).
-async function fireCapiHotmartCheckout({ transaction, email, phoneCode, phone, amount, currency, orderDateMs, ucode, name }) {
-  const ud = buildHotmartUserData({ email, phoneCode, phone, ucode, name });
+async function fireCapiHotmartCheckout({ transaction, email, phoneCode, phone, amount, currency, orderDateMs, ucode, fbc, name }) {
+  const ud = buildHotmartUserData({ email, phoneCode, phone, ucode, fbc, name });
   await postHotmartCapiEvent({ eventName: 'InitiateCheckout', eventId: `checkout_${transaction}`, orderDateMs, amount, currency, ud });
+}
+
+// El aviso automatico de Hotmart (webhook) viene RESUMIDO: no trae el codigo de
+// comprador (ucode) ni el dato del clic del anuncio (tracking.source_sck). Esos dos
+// campos SI existen, pero solo se ven consultando la venta puntual en la API de Hotmart
+// (confirmado 17 jul 2026 comparando el webhook real contra /sales/history para la
+// misma transaccion). Por eso, apenas llega una venta aprobada, se le pregunta a
+// Hotmart por esa transaccion antes de avisarle a Meta, para mandar el dato completo
+// desde el primer intento en vez de depender de que Meta adivine por correo/telefono.
+let hotmartTokenCache = { token: null, expiresAt: 0 };
+async function getHotmartToken() {
+  if (hotmartTokenCache.token && Date.now() < hotmartTokenCache.expiresAt) return hotmartTokenCache.token;
+  const clientId = process.env.HOTMART_CLIENT_ID;
+  const clientSecret = process.env.HOTMART_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+  const axiosLib = require('axios');
+  const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+  const r = await axiosLib.post(
+    `https://api-sec-vlc.hotmart.com/security/oauth/token?grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`,
+    {},
+    { headers: { Authorization: `Basic ${basic}` }, timeout: 8000 }
+  );
+  hotmartTokenCache = { token: r.data.access_token, expiresAt: Date.now() + ((r.data.expires_in || 170000) * 1000) - 60000 };
+  return hotmartTokenCache.token;
+}
+
+async function enrichHotmartSale(transaction, attempt = 1) {
+  try {
+    const token = await getHotmartToken();
+    if (!token) return null;
+    const axiosLib = require('axios');
+    const r = await axiosLib.get('https://developers.hotmart.com/payments/api/v1/sales/history', {
+      params: { transaction },
+      headers: { Authorization: `Bearer ${token}` },
+      timeout: 8000
+    });
+    const item = (r.data.items || [])[0];
+    if (!item) throw new Error('transaccion aun no indexada');
+    return {
+      ucode: item.buyer && item.buyer.ucode,
+      sck: item.purchase && item.purchase.tracking && item.purchase.tracking.source_sck
+    };
+  } catch (e) {
+    if (attempt < 2) {
+      await new Promise(r => setTimeout(r, 4000));
+      return enrichHotmartSale(transaction, attempt + 1);
+    }
+    console.error(`Hotmart enrich fallo [${transaction}] tras ${attempt} intentos:`, e.message);
+    return null;
+  }
 }
 
 app.post('/webhooks/hotmart', async (req, res) => {
@@ -1179,12 +1229,16 @@ app.post('/webhooks/hotmart', async (req, res) => {
     const price = (data.purchase || {}).price || {};
     const orderDateMs = (data.purchase || {}).order_date;
     const sck = (data.purchase || {}).sckPaymentLink;
-    const fbc = sck ? `fb.1.${Date.now()}.${sck}` : undefined;
 
-    // DIAGNOSTICO TEMPORAL (16 jul 2026): confirmar con datos reales si Hotmart manda
-    // mas campos de identidad (ciudad, pais, documento) que hoy no se le mandan a Meta.
-    // No cambia ningun comportamiento, solo deja rastro en logs para no adivinar.
-    console.log(`Hotmart buyer keys [${transaction}]: ${Object.keys(buyer).join(', ')}`);
+    // El webhook casi nunca trae ucode/sck (ver nota arriba de enrichHotmartSale) --
+    // se consulta la venta puntual en la API de Hotmart para completar esos dos datos.
+    // Si la consulta falla (o Hotmart aun no la indexo), se sigue con lo que trajo el
+    // webhook -- nunca se pierde ni se atrasa el aviso a Meta por esto.
+    const enriched = await enrichHotmartSale(transaction);
+    const finalUcode = (enriched && enriched.ucode) || buyer.ucode;
+    const finalSck = (enriched && enriched.sck) || sck;
+    const finalFbc = finalSck ? `fb.1.${Date.now()}.${finalSck}` : undefined;
+    console.log(`Hotmart enrich [${transaction}]: fuente=${enriched ? 'api' : 'solo-webhook'} ucode=${finalUcode ? 'ok' : 'falta'} sck=${finalSck ? 'ok' : 'falta'} buyer_keys_webhook=${Object.keys(buyer).join(',')}`);
 
     if (body.event === 'PURCHASE_APPROVED') {
       if (hotmartFired.has(transaction)) return;
@@ -1197,8 +1251,8 @@ app.post('/webhooks/hotmart', async (req, res) => {
         amount: price.value,
         currency: price.currency_code,
         orderDateMs,
-        fbc,
-        ucode: buyer.ucode,
+        fbc: finalFbc,
+        ucode: finalUcode,
         name: buyer.name
       });
       db.markHotmartEventCapiSent(transaction);
@@ -1214,7 +1268,8 @@ app.post('/webhooks/hotmart', async (req, res) => {
         amount: price.value,
         currency: price.currency_code,
         orderDateMs,
-        ucode: buyer.ucode,
+        fbc: finalFbc,
+        ucode: finalUcode,
         name: buyer.name
       });
     }
