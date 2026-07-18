@@ -956,6 +956,48 @@ Responde UNICAMENTE con JSON: {"pide_ver": true} o {"pide_ver": false}`;
   }
 }
 
+// Reemplaza el uso conjunto de detectGalleryIntent + detectDistrustIntent (que corrian en
+// paralelo, cada una ciega de la otra). Bug real (17-18 jul 2026, chat 573003984894): un
+// mensaje corto y ambiguo ("Foto") hizo que las dos por separado dijeran que si, y el bot
+// mando el mostrario Y los testimonios seguidos -- 7 mensajes en 3 segundos, se ve como spam.
+// Ahora es UNA sola decision que ve el mensaje completo y elige como maximo una de las dos,
+// nunca las dos a la vez, aunque el mensaje toque un poco de ambas cosas.
+async function detectGalleryOrDistrustIntent(history, text) {
+  const historyText = history.slice(-6).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+
+  const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
+
+${historyText}
+Cliente: ${text}
+
+Sobre el ULTIMO mensaje del cliente, elige UNA SOLA categoria de estas 3 (nunca las dos a la vez, incluso si el mensaje toca un poco de ambas):
+
+- "mostrario": pide ver fotos, imagenes, una muestra o preview del contenido de los cursos (sin expresar miedo a ser estafada).
+- "desconfianza": expresa duda, miedo a ser estafada, si el producto es real o legitimo, o una mala experiencia previa pagando y no recibiendo nada. Ejemplos que SI cuentan: "y como se que esto es real?", "si pago y no me mandan nada que?", "ya me estafaron antes en otra pagina".
+- "ninguna": cualquier otra cosa -- preguntas de ubicacion/logistica, agradecimientos/despedidas, decisiones de compra o rechazo, preguntas conceptuales sobre contenido/precio/metodologia, mensajes de cierre de tema, o un mensaje demasiado corto/ambiguo como para saber con certeza ("foto", "ok", "?" solo).
+
+Si el mensaje es realmente ambiguo entre mostrario y desconfianza, o muy corto para estar segura, responde "ninguna" -- es preferible no mandar nada a mandar las dos galerias juntas de golpe.
+
+Responde UNICAMENTE con JSON: {"categoria": "mostrario"} o {"categoria": "desconfianza"} o {"categoria": "ninguna"}`;
+
+  try {
+    const res = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 20,
+      temperature: 0,
+      messages: [{ role: 'user', content: prompt }]
+    }), 'detectGalleryOrDistrustIntent');
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    return {
+      mostrario: parsed.categoria === 'mostrario',
+      desconfianza: parsed.categoria === 'desconfianza'
+    };
+  } catch (e) {
+    return { mostrario: false, desconfianza: false };
+  }
+}
+
 // Curso de regalo (Bordados/Resina/Globoflexia) — solo aplica a clientas elegibles (ver flows.js).
 // Lee contexto real en vez de substrings: soluciona el caso donde "?" hacia que cualquier
 // mensaje se tratara como consulta generica aunque nombrara un solo regalo sin ambiguedad.
@@ -995,4 +1037,4 @@ Responde UNICAMENTE con JSON: {"intencion": "elige"|"pregunta"|"ver_opciones"|"n
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGiftIntent };
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent };

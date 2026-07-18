@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGiftIntent } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -507,19 +507,14 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   const galleryBlocked = stateBlocksGallery.includes(contact.state) ||
     (contact.pack_selected && ACTIVE_PAYMENT_STATES.has(contact.state) && contact.state !== 'awaiting_comprobante');
   if (msgType === 'text' && !galleryBlocked) {
-    // Mostrario: ya no es lista de frases — Carol lee el contexto real (reemplaza MOSTRARIO_TRIGGERS,
-    // que se quedaba corta con frases nuevas como "quiero ver una muestra del material")
-    // Desconfianza/miedo a estafa se detecta leyendo el contexto real, no con lista de frases —
-    // "ya me lo hicieron y perdi mi plata" no coincidia con ninguna keyword y se quedaba sin testimonios
-    // Las dos consultas van en paralelo (no una despues de la otra) para no sumar latencia de mas,
-    // y cada una ya devuelve false sola si falla la llamada a la IA, en vez de tumbar todo el mensaje.
-    // Se corren igual aunque ya se hayan mandado antes en este chat: hace falta saber si esta
+    // Mostrario y desconfianza se deciden con UNA sola clasificacion (no dos por separado) --
+    // reemplaza MOSTRARIO_TRIGGERS y evita el bug real donde dos revisiones independientes
+    // podian decir que si las dos para el mismo mensaje ambiguo, mandando mostrario Y
+    // testimonios seguidos (7 mensajes en 3 segundos, se ve como spam). Ver detectGalleryOrDistrustIntent.
+    // Se corre igual aunque ya se hayan mandado antes en este chat: hace falta saber si esta
     // pidiendolo de NUEVO para avisarle donde ya estan, en vez de quedarse callado.
     const recentForIntent = db.getRecentMessages(phone, 6);
-    const [wantsGallery, isDistrustful] = await Promise.all([
-      detectGalleryIntent(recentForIntent, text),
-      detectDistrustIntent(recentForIntent, text)
-    ]);
+    const { mostrario: wantsGallery, desconfianza: isDistrustful } = await detectGalleryOrDistrustIntent(recentForIntent, text);
     if (wantsGallery) {
       if (contact.mostrario_sent) mostrarioAlreadySentNote = true;
       else sendMostrarioAfter = true;
