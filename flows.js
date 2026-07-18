@@ -466,10 +466,15 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     return;
   }
 
-  // Cliente que vuelve desde un anuncio nuevo — reiniciar flujo en cualquier estado
-  // excepto si ya está en medio de un pago activo (awaiting_comprobante, awaiting_email)
+  // Cliente que vuelve a tocar el anuncio (autofill "quiero el curso de timoteo") --
+  // SOLO reiniciar el flujo si ya termino su compra o dejo de hablar (entregado,
+  // detenido, cliente antiguo). Bug real confirmado 17 jul 2026: la condicion anterior
+  // excluia awaiting_comprobante/awaiting_email pero NO awaiting_choice ni offered_*
+  // (ACTIVE_PAYMENT_STATES) -- una clienta a mitad de elegir pack que volvia a tocar
+  // el mismo anuncio quedaba reiniciada de cero una y otra vez, sin poder cerrar nunca.
+  // Ahora es lista blanca (solo estados realmente terminados/inactivos), no lista negra.
   if (msgType === 'text' && text === 'quiero el curso de timoteo' &&
-      !['awaiting_comprobante', 'awaiting_email', 'awaiting_upgrade_comprobante'].includes(contact.state)) {
+      ['delivered', 'stopped', 'old_client'].includes(contact.state)) {
     db.updateContact(phone, { state: 'new', bot_active: 1, r1_sent: 0, r2_sent: 0, pack_selected: null, upgrade_target: null, upsell_sent: 0 });
     contact = db.getContact(phone);
     await handleNew(contact, text);
