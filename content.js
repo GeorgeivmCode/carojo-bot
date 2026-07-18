@@ -17,7 +17,7 @@ de forma fácil, práctica y muy divertida 💕`,
 3️⃣📖 PACK BÁSICO ($5.000)
 (Curso de Lettering + Cartillas — tu primer paso en el mundo creativo)
 
-👉 Escríbeme el número de tu opción (1, 2 o 3) y te envío todos los detalles al instante 💌`
+👉 ¿Cuál te gustaría elegir? Solo escríbeme el número (1, 2 o 3) y te envío todos los detalles al instante 💌`
 ];
 
 const DIAMANTE_DETAILS = [

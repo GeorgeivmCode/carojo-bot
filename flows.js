@@ -1603,11 +1603,33 @@ function sanitizeOutboundText(text) {
   return clean;
 }
 
+// Evita mandar el mismo texto exacto al mismo numero mas de una vez en pocos minutos.
+// Caso real (17 jul 2026): una clienta mando 3 dudas distintas en 30 segundos, cada una
+// disparaba de nuevo el recordatorio "ya te compartí los testimonios" -- tecnicamente
+// cada disparo tenia sentido por separado, pero para la clienta se veia como el bot
+// trabado repitiendo lo mismo. Eso puede llevar a que bloqueen o reporten el numero.
+const RECENT_SENT_WINDOW_MS = 6 * 60 * 1000; // 6 minutos
+const recentSentByPhone = new Map();
+
+function wasRecentlySent(phone, text) {
+  const now = Date.now();
+  const fresh = (recentSentByPhone.get(phone) || []).filter(e => now - e.ts < RECENT_SENT_WINDOW_MS);
+  recentSentByPhone.set(phone, fresh);
+  return fresh.some(e => e.text === text);
+}
+
 async function sendAndSave(phone, textOrParts) {
   const parts = (Array.isArray(textOrParts) ? textOrParts : [textOrParts]).map(sanitizeOutboundText);
   for (let i = 0; i < parts.length; i++) {
+    if (wasRecentlySent(phone, parts[i])) {
+      console.log(`sendAndSave: parte repetida omitida para ${phone} (ya se le mando hace menos de 6 min)`);
+      continue;
+    }
     const wamid = await sendText(phone, parts[i]);
     db.saveMessage(phone, 'out', 'text', parts[i], wamid);
+    const list = recentSentByPhone.get(phone) || [];
+    list.push({ text: parts[i], ts: Date.now() });
+    recentSentByPhone.set(phone, list);
     if (i < parts.length - 1) await new Promise(r => setTimeout(r, 700));
   }
 }
