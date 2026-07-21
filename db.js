@@ -262,11 +262,14 @@ function getContactsForR1() {
 
 function getContactsForR2() {
   const cutoff = new Date(Date.now() - 11 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  // awaiting_email y awaiting_upgrade_comprobante quedan afuera tambien: ahi el cliente YA pago,
+  // solo falta un dato (correo) o un comprobante de un upgrade ya aceptado -- mandarle el pitch
+  // de "convencete de comprar" ahi no tiene sentido, ver caso real Karen (573122745149, 20 jul).
   return db.prepare(`
     SELECT * FROM contacts
     WHERE r1_sent = 1
     AND r2_sent = 0
-    AND state NOT IN ('delivered', 'stopped')
+    AND state NOT IN ('delivered', 'stopped', 'awaiting_email', 'awaiting_upgrade_comprobante')
     AND bot_active = 1
     AND r1_sent_at != ''
     AND r1_sent_at < ?

@@ -1278,8 +1278,12 @@ async function handlePostDelivery(contact, text) {
       }
       return;
     }
-    const explicitWantsUpgrade = ['quiero', 'completar', 'agregar', 'mas cursos',
-      'me interesa', 'cuanto', 'cuánto', 'si quiero', 'sí quiero',
+    // 'quiero' y 'cuanto'/'cuánto' se sacaron de aca por ser demasiado genericas (ej. "eso es
+    // lo que quiero que me explique" de una pregunta de soporte, no de una compra) -- 'quiero'
+    // ya esta en YES_WORDS, asi que esos casos ambiguos igual caen al chequeo con contexto real
+    // (detectUpgradeIntent) mas abajo, en vez de confirmarse aqui a ciegas.
+    const explicitWantsUpgrade = ['completar', 'agregar', 'mas cursos',
+      'me interesa', 'si quiero', 'sí quiero',
       'comprobante', 'ya pague', 'ya pagué', 'te mando', 'ahi va', 'ahí va',
       'voy a pagar', 'como pago', 'cómo pago', 'datos de pago', 'numero de cuenta',
       'nequi', 'daviplata'].some(w => text.includes(w));
