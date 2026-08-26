@@ -51,6 +51,9 @@ const textBuffers = new Map();
 const AD_MAP = {
   '120224823866840501': { name: 'F1 - Messi',              campaign: 'Messi' },
   '120236759033280501': { name: 'V2 - Messi',              campaign: 'Messi' },
+  '120251413596020501': { name: 'F4 - Messi',              campaign: 'Messi' },
+  '120251413833410501': { name: 'F5 - Messi',              campaign: 'Messi' },
+  '120251413833400501': { name: 'F6 - Messi',              campaign: 'Messi' },
   '120245983517370501': { name: 'Tu propio dinero - LAL',  campaign: 'Carojo LAL' },
   '120245712723010501': { name: 'Emprende desde casa - LAL', campaign: 'Carojo LAL' },
   '120245712720490501': { name: '3200 mujeres - LAL',      campaign: 'Carojo LAL' },
