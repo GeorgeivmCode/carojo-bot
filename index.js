@@ -24,6 +24,22 @@ async function makeThumbnail(buffer, mimeType) {
   }
 }
 
+// Cuenta las paginas de un PDF sin librerias externas.
+// Un comprobante de pago real SIEMPRE es de 1 pagina; si vienen muchas, es otra cosa
+// (catalogo, ebook, guia) y sirve para mostrarlo en el panel y para no tratarlo como pago.
+// Devuelve 0 si no se puede determinar (PDF con estructura comprimida) — en ese caso no se asume nada.
+function countPdfPages(buffer) {
+  try {
+    const s = buffer.toString('latin1');
+    const byType = (s.match(/\/Type\s*\/Page[^s]/g) || []).length;
+    if (byType > 0) return byType;
+    const counts = [...s.matchAll(/\/Count\s+(\d+)/g)].map(m => parseInt(m[1], 10));
+    return counts.length ? Math.max(...counts) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 let vapidPublicKey = '';
 let pushSubscriptions = [];
 
@@ -471,7 +487,13 @@ app.post('/webhook', verifySignature, async (req, res) => {
               const { buffer, mimeType: resolvedMime } = await downloadMedia(mediaUrl);
               const finalMime = resolvedMime || mime;
               const thumb = await makeThumbnail(buffer, finalMime);
-              const payload = JSON.stringify({ buffer: buffer.toString('base64'), mimeType: finalMime, thumb });
+              const isPdf = finalMime === 'application/pdf';
+              const pages = isPdf ? countPdfPages(buffer) : 0;
+              if (isPdf) console.log(`Documento PDF recibido [${phone}]: ${pages || '?'} paginas, ${Math.round(buffer.length / 1024)} KB, archivo="${doc?.filename || '-'}"`);
+              const payload = JSON.stringify({
+                buffer: buffer.toString('base64'), mimeType: finalMime, thumb,
+                ...(isPdf ? { pages, bytes: buffer.length, filename: doc?.filename || '' } : {})
+              });
               await processMessage(phone, 'image', payload, wamid);
             } catch (e) {
               console.error('Document download error:', e.message);
@@ -907,6 +929,21 @@ app.get('/api/contacts/:phone/admin-actions', adminAuth, (req, res) => {
 
 app.get('/api/vapid-key', (_req, res) => {
   res.json({ key: vapidPublicKey });
+});
+
+// Sirve un documento (PDF) que mando un cliente, para poder abrirlo desde el panel.
+// El archivo ya esta guardado dentro del mensaje en la DB (base64), no hay que pedirselo de nuevo a Meta.
+app.get('/api/doc/:wamid', adminAuthMedia, (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const msg = db.getMessageByWamid(req.params.wamid);
+  if (!msg) return res.status(404).json({ error: 'not found' });
+  let parsed;
+  try { parsed = JSON.parse(msg.content); } catch { return res.status(400).json({ error: 'invalid content' }); }
+  if (!parsed.buffer) return res.status(400).json({ error: 'no buffer' });
+  res.set('Content-Type', parsed.mimeType || 'application/pdf');
+  res.set('Content-Disposition', 'inline; filename="documento.pdf"');
+  res.set('Cache-Control', 'no-store');
+  res.send(Buffer.from(parsed.buffer, 'base64'));
 });
 
 app.get('/api/video/:wamid', adminAuthMedia, async (req, res) => {

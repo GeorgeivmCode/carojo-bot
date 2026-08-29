@@ -937,15 +937,23 @@ async function tryEmailFallback(contact, result) {
 async function handleComprobante(contact, mediaContent) {
   const phone = contact.phone;
 
-  let imageBuffer, mimeType;
+  let imageBuffer, mimeType, docPages = 0;
   try {
     const parsed = JSON.parse(mediaContent);
     imageBuffer = Buffer.from(parsed.buffer, 'base64');
     mimeType    = parsed.mimeType;
+    docPages    = parsed.pages || 0;
   } catch {
     await sendAndSave(phone, 'No pude abrir la imagen. Intentalo de nuevo. 📸');
     return;
   }
+
+  // Descripcion del archivo para las alertas: asi se sabe si llego una foto o un PDF,
+  // y de cuantas paginas (un comprobante real siempre es de una sola).
+  const esPdf = mimeType === 'application/pdf';
+  const archivoInfo = esPdf
+    ? `\nArchivo: PDF de ${docPages || '?'} pagina(s), ${Math.round(imageBuffer.length / 1024)} KB`
+    : '';
 
   await sendAndSave(phone, 'Un momento, verificando tu pago... ⏳');
 
@@ -966,7 +974,7 @@ async function handleComprobante(contact, mediaContent) {
         await sendAndSave(phone, PLANTILLA_ACCESO);
         db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
         await notifyJorge(contact,
-          `POSIBLE CLIENTE ANTIGUO (envio imagen que no es comprobante):\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+          `POSIBLE CLIENTE ANTIGUO (envio imagen que no es comprobante):\nTel: ${phone}\nNombre: ${contact.name || '-'}${archivoInfo}`
         );
       } else {
         // En flujo activo de pago = cliente confundido, pedir el comprobante correcto
@@ -981,7 +989,7 @@ async function handleComprobante(contact, mediaContent) {
       await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
       db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
       await notifyJorge(contact,
-        `ALERTA comprobante sospechoso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nRevisa el comprobante en el panel antes de aprobar.`
+        `ALERTA comprobante sospechoso:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nRevisa el comprobante en el panel antes de aprobar.${archivoInfo}`
       );
     } else if (razon_rechazo === 'fecha_incorrecta') {
       const emailConfirmo = await tryEmailFallback(contact, result);
@@ -989,7 +997,7 @@ async function handleComprobante(contact, mediaContent) {
         await sendAndSave(phone, PLANTILLA_ACCESO);
         db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
         await notifyJorge(contact,
-          `CLIENTE ANTIGUO (comprobante con fecha pasada):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha || 'no detectada'}`
+          `CLIENTE ANTIGUO (comprobante con fecha pasada):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha || 'no detectada'}${archivoInfo}`
         );
       }
     } else if (razon_rechazo === 'destinatario_invalido') {
@@ -998,7 +1006,7 @@ async function handleComprobante(contact, mediaContent) {
         await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
         db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
         await notifyJorge(contact,
-          `VERIFICACION MANUAL requerida (destinatario no verificado):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nRevisa el comprobante en el panel.`
+          `VERIFICACION MANUAL requerida (destinatario no verificado):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nRevisa el comprobante en el panel.${archivoInfo}`
         );
       }
     } else if (razon_rechazo === 'transaccion_no_exitosa') {
@@ -1012,20 +1020,20 @@ async function handleComprobante(contact, mediaContent) {
         db.updateContact(phone, { state: 'awaiting_email' });
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
         await notifyJorge(contact,
-          `IMAGEN ILEGIBLE - entrega automatica pendiente verificacion:\nPack: ${contact.pack_selected}\nTel: ${phone}\nNombre: ${contact.name || '-'}\nVerifica manualmente que el pago es real antes de que entre el correo.`
+          `IMAGEN ILEGIBLE - entrega automatica pendiente verificacion:\nPack: ${contact.pack_selected}\nTel: ${phone}\nNombre: ${contact.name || '-'}\nVerifica manualmente que el pago es real antes de que entre el correo.${archivoInfo}`
         );
       } else {
         // Sin pack conocido no se puede entregar — pedir imagen mas clara y avisar a Jorge
         await sendAndSave(phone, 'No pude leer bien tu comprobante. Enviame una foto mas clara donde se vea el monto y el numero al que transferiste. 📸');
         await notifyJorge(contact,
-          `IMAGEN ILEGIBLE - sin pack, requiere atencion manual:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nRevisa el comprobante y procesa desde el panel.`
+          `IMAGEN ILEGIBLE - sin pack, requiere atencion manual:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nRevisa el comprobante y procesa desde el panel.${archivoInfo}`
         );
       }
     } else {
       await sendAndSave(phone, 'Recibimos tu comprobante! Nuestro equipo esta realizando una verificacion adicional de tu pago. Te confirmamos muy pronto. 🙏');
       db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
       await notifyJorge(contact,
-        `VERIFICACION MANUAL requerida (rechazo sin categoria):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nMotivo: ${razon_rechazo || 'desconocido'}\nRevisa el comprobante en el panel.`
+        `VERIFICACION MANUAL requerida (rechazo sin categoria):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}\nMotivo: ${razon_rechazo || 'desconocido'}\nRevisa el comprobante en el panel.${archivoInfo}`
       );
     }
     return;
@@ -1042,7 +1050,7 @@ async function handleComprobante(contact, mediaContent) {
     await sendAndSave(phone, PAYMENT_WRONG_RECIPIENT);
     db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
     await notifyJorge(contact,
-      `ALERTA: Comprobante destinatario incorrecto (modelo lo aprobo, codigo lo rechazo)\nDestinatario: ${result.destino || 'no detectado'} / ${result.nombre_destinatario || 'no detectado'}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+      `ALERTA: Comprobante destinatario incorrecto (modelo lo aprobo, codigo lo rechazo)\nDestinatario: ${result.destino || 'no detectado'} / ${result.nombre_destinatario || 'no detectado'}\nTel: ${phone}\nNombre: ${contact.name || '-'}${archivoInfo}`
     );
     return;
   }
@@ -1053,7 +1061,7 @@ async function handleComprobante(contact, mediaContent) {
     await sendAndSave(phone, PLANTILLA_ACCESO);
     db.updateContact(phone, { bot_active: 0, state: 'old_client', tag: 'Soporte' });
     await notifyJorge(contact,
-      `CLIENTE ANTIGUO (comprobante con fecha pasada — detectado por codigo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha}`
+      `CLIENTE ANTIGUO (comprobante con fecha pasada — detectado por codigo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nFecha comprobante: ${result.fecha}${archivoInfo}`
     );
     return;
   }

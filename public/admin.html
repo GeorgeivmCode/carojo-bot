@@ -1392,8 +1392,33 @@ function bubbleHtml(direction, type, content, ts, wamid = '', status = '', reply
       // La miniatura (si existe) es la que se pinta en el chat — liviana y rapida de decodificar.
       // El zoom (lightbox) siempre abre el buffer original completo, sin perdida de calidad.
       const fullSrc = `data:${mime};base64,${parsed.buffer}`;
-      const thumbSrc = parsed.thumb ? `data:image/jpeg;base64,${parsed.thumb}` : fullSrc;
-      body = `<img class="bubble-img" loading="lazy" src="${thumbSrc}" alt="Comprobante" onclick="openLightbox('${fullSrc}')">`;
+      if (mime === 'application/pdf') {
+        // Un PDF no se puede pintar como imagen (por eso antes no se veia nada).
+        // Se muestra una tarjeta con los datos del archivo y un boton para abrirlo en el visor.
+        const kb = parsed.bytes ? Math.round(parsed.bytes / 1024) : Math.round((parsed.buffer.length * 3 / 4) / 1024);
+        const pag = parsed.pages ? `${parsed.pages} pág${parsed.pages === 1 ? '' : 's'}` : 'págs. no detectadas';
+        const alerta = parsed.pages && parsed.pages > 2;
+        const nom = parsed.filename ? escHtml(parsed.filename) : 'documento.pdf';
+        let docSrc = fullSrc;
+        if (wamid) {
+          const pass = localStorage.getItem('adminPass') || '';
+          const tok = encodeURIComponent(btoa('CarojoAdmin:' + pass));
+          docSrc = `/api/doc/${encodeURIComponent(wamid)}?token=${tok}`;
+        }
+        body = `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid ${alerta ? 'var(--red)' : 'rgba(56,189,248,.35)'};max-width:250px">
+          <span style="font-size:26px;flex-shrink:0">📄</span>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nom}</div>
+            <div style="font-size:11px;color:${alerta ? 'var(--red)' : 'var(--sub)'}">PDF · ${pag} · ${kb} KB${alerta ? ' · NO es comprobante' : ''}</div>
+            <a href="${docSrc}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:11px;color:var(--blue);text-decoration:none;border:1px solid var(--blue);border-radius:4px;padding:3px 8px">Abrir documento</a>
+          </div>
+        </div>`;
+      } else {
+        // La miniatura (si existe) es la que se pinta en el chat — liviana y rapida de decodificar.
+        // El zoom (lightbox) siempre abre el buffer original completo, sin perdida de calidad.
+        const thumbSrc = parsed.thumb ? `data:image/jpeg;base64,${parsed.thumb}` : fullSrc;
+        body = `<img class="bubble-img" loading="lazy" src="${thumbSrc}" alt="Comprobante" onclick="openLightbox('${fullSrc}')">`;
+      }
     } catch {
       if (content && (content.startsWith('https://') || content.startsWith('http://'))) {
         body = `<img class="bubble-img" loading="lazy" src="${escHtml(content)}" alt="Imagen" onclick="openLightbox(this.src)">`;
