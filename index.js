@@ -793,6 +793,28 @@ app.post('/api/contacts/:phone/change-pack', adminAuth, async (req, res) => {
   }
   db.updateContact(phone, { pack_selected: pack, state: 'delivered', tag: 'Facturado', folder_id: chPackFolderId });
   db.logAdminAction(phone, 'change_pack', `${oldPack || 'sin pack'} -> ${pack}${revokeOk ? '' : ' (revoke del anterior FALLO)'}`);
+
+  // Si el cambio fue una SUBIDA de pack, es una venta real (el cliente pago el diferencial) y tiene
+  // que quedar en el Google Sheet igual que cuando el upgrade lo procesa el bot solo. Antes este
+  // boton no registraba nada, asi que los upgrades resueltos a mano no aparecian en los numeros
+  // del dia — caso real Karla (573143577059, 18 ago 2026), $10.000 que no quedaron en el sheet.
+  // Las bajadas de pack (correcciones) no se registran, solo las subidas.
+  const PRECIOS = { basico: 5000, oro: 10000, diamante: 15000 };
+  const diffPack = (PRECIOS[pack] || 0) - (PRECIOS[oldPack] || 0);
+  if (oldPack && oldPack !== pack && diffPack > 0 && process.env.GAS_SHEETS_URL) {
+    try {
+      const axiosSheet = require('axios');
+      await axiosSheet.post(process.env.GAS_SHEETS_URL, {
+        action: 'upgrade', telefono: phone, pack, diferencial: diffPack
+      }, { timeout: 15000 });
+      console.log(`Sheet actualizado por cambio de pack manual [${phone}]: ${oldPack} -> ${pack}, +$${diffPack}`);
+    } catch (e) {
+      console.error('Sheet change-pack error:', e.message);
+      await notifyJorge(c,
+        `ALERTA: cambio de pack manual NO quedo registrado en el Sheet\nTel: ${phone}\nNombre: ${c.name || '-'}\n${oldPack} -> ${pack} (+$${diffPack})\nAgregalo a mano en la hoja.`
+      ).catch(() => {});
+    }
+  }
   // Reenviar mensaje de entrega con nuevo pack
   const { generateAccessToken } = require('./flows');
   const { deliveryMessage } = require('./content');

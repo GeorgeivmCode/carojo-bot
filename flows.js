@@ -423,6 +423,21 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         await handleUpgradeComprobante(contact, msgType, content);
         return;
       }
+      // Red de seguridad: si todavia puede subir de pack pero nunca quedo marcado el upgrade,
+      // MIRAR la imagen antes de mandarla a soporte. Si resulta ser un comprobante cuyo monto
+      // calza exactamente con un diferencial valido, es un pago de upgrade y hay que procesarlo,
+      // no apagar el bot. Caso real Karla (573143577059, 18 ago 2026): pago los $10.000 del
+      // upgrade a Diamante y quedo 25 minutos esperando en soporte con el bot apagado.
+      if (contact.upsell_sent && contact.pack_selected !== 'diamante') {
+        const target = await inferUpgradeFromPayment(contact, content);
+        if (target) {
+          console.log(`Upgrade detectado por el monto del comprobante [${phone}]: ${contact.pack_selected} -> ${target}`);
+          db.updateContact(phone, { upgrade_target: target, state: 'awaiting_upgrade_comprobante', tag: 'Upgrade', ...(target === 'diamante' ? { gift_eligible: 1 } : {}) });
+          contact = db.getContact(phone);
+          await handleUpgradeComprobante(contact, msgType, content);
+          return;
+        }
+      }
       await sendAndSave(phone, 'Ya recibí tu mensaje. Un momento que te ayudo con eso. 🙏');
       db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
       await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
@@ -955,6 +970,20 @@ async function handleComprobante(contact, mediaContent) {
     ? `\nArchivo: PDF de ${docPages || '?'} pagina(s), ${Math.round(imageBuffer.length / 1024)} KB`
     : '';
 
+  // Candado: un comprobante real nunca pasa de 1 pagina. Si llega un PDF de varias, es otra cosa
+  // (ebook, catalogo, guia) y NO se le pregunta al verificador — ante un documento que no es un
+  // comprobante el modelo puede rellenar el JSON copiando el numero y el nombre correctos del
+  // propio prompt y responder "valido". Caso real 573247492562 (28 ago 2026): 7 PDF de un curso
+  // de cocina ajeno, el septimo fue aprobado como pago sin que la clienta hubiera pagado nada.
+  // Si no se pudo contar las paginas (docPages = 0) no se bloquea nada, sigue como siempre.
+  if (esPdf && docPages > 2) {
+    await sendAndSave(phone, 'Ese archivo no es un comprobante de pago. 📄 Mandame por favor la captura de pantalla del pago (la pantalla donde sale el monto, el numero al que enviaste y la fecha) y lo verifico de una. 📸');
+    await notifyJorge(contact,
+      `ARCHIVO DESCARTADO (no es comprobante):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || 'sin pack'}${archivoInfo}\nNo se le pidio verificacion al modelo. Revisalo en el panel si crees que si era un pago.`
+    );
+    return;
+  }
+
   await sendAndSave(phone, 'Un momento, verificando tu pago... ⏳');
 
   // Vision detecta el monto y determina el pack
@@ -1324,10 +1353,17 @@ async function handlePostDelivery(contact, text) {
       }
       return;
     }
-    // Palabras sueltas ambiguas ("si", "ok", "listo", "dale", "claro") no confirman por si solas —
-    // Carol lee el contexto real (puede ser un cierre de otro tema, no una aceptacion del upgrade)
+    // El chequeo con contexto real (detectUpgradeIntent) corre SIEMPRE, no solo cuando el mensaje
+    // trae una palabra de la lista de "si". Antes estaba detras de hasWord(text, YES_WORDS) y eso
+    // dejaba pasar de largo cualquier forma de decir que va a pagar que no usara esas palabras
+    // exactas — caso real Karla (573143577059, 18 ago 2026): "Aún puedo transferir los 10.000?"
+    // no tiene ninguna palabra de YES_WORDS ni de explicitWantsUpgrade, asi que nunca se marco el
+    // upgrade; Carol respondio bien pero el estado quedo sin actualizar, y cuando llego el
+    // comprobante 2 minutos despues el bot lo mando a soporte y se apago.
+    // A esta altura ya se descartaron soporte, rechazos y despedidas, asi que lo que queda vale
+    // la pena consultarlo con contexto. Ver [[feedback_carol_contexto_no_keywords]].
     let wantsUpgrade = explicitWantsUpgrade;
-    if (!wantsUpgrade && hasWord(text, YES_WORDS)) {
+    if (!wantsUpgrade) {
       const packLabelOffer = contact.pack_selected === 'oro' ? 'MEGA PACK DIAMANTE' : 'un pack superior (Oro o Diamante)';
       const montoOffer = contact.pack_selected === 'oro' ? 5000 : null;
       wantsUpgrade = await detectUpgradeIntent(recentMsgs, text, packLabelOffer, montoOffer);
@@ -1391,6 +1427,62 @@ async function handlePostDelivery(contact, text) {
   await sendAndSave(phone, reply);
 }
 
+// Normaliza un monto colombiano: "15.000,00" o "15.000" o 15000 -> 15000
+function normalizarMonto(raw) {
+  if (raw == null) return null;
+  return parseInt(String(raw).replace(/,\d*$/, '').replace(/\./g, ''), 10) || null;
+}
+
+// Un comprobante de pago real SIEMPRE es de una sola pagina. Si llega un PDF de varias,
+// es otra cosa (ebook, catalogo, guia) y no debe tratarse como pago.
+// Devuelve el motivo si hay que rechazarlo, o null si se puede procesar normal.
+function pdfNoEsComprobante(parsed) {
+  if (!parsed || parsed.mimeType !== 'application/pdf') return null;
+  const p = parsed.pages || 0;
+  if (p > 2) return `PDF de ${p} paginas`;
+  return null;
+}
+
+// Revisa una imagen/PDF que llego cuando el cliente YA esta entregado y todavia puede subir de pack,
+// pero sin que se haya marcado la intencion por texto. Si es un comprobante cuyo monto calza exacto
+// con un diferencial valido, devuelve el pack destino. Si no, devuelve null (va a soporte como antes).
+async function inferUpgradeFromPayment(contact, content) {
+  const actual = contact.pack_selected;
+  if (!actual || actual === 'diamante') return null;
+
+  let parsed, imageBuffer, mimeType;
+  try {
+    parsed = JSON.parse(content);
+    imageBuffer = Buffer.from(parsed.buffer, 'base64');
+    mimeType = parsed.mimeType;
+  } catch { return null; }
+
+  const motivoPdf = pdfNoEsComprobante(parsed);
+  if (motivoPdf) {
+    console.log(`Imagen post-entrega descartada como pago [${contact.phone}]: ${motivoPdf}`);
+    return null;
+  }
+
+  let result;
+  try {
+    result = await verifyPayment(imageBuffer, mimeType, actual);
+  } catch (e) {
+    console.error(`inferUpgradeFromPayment verifyPayment error [${contact.phone}]:`, e.message);
+    return null;
+  }
+  if (!result || !result.valido) return null;
+
+  const monto = normalizarMonto(result.monto);
+  if (!monto) return null;
+
+  // El pack destino sale del monto pagado + el pack que ya tiene (los diferenciales no se repiten
+  // dentro de un mismo pack de origen, asi que no hay ambiguedad)
+  const destino = Object.keys(PACK_AMOUNTS).find(
+    p => PACK_AMOUNTS[p] - PACK_AMOUNTS[actual] === monto
+  );
+  return destino || null;
+}
+
 async function handleUpgradeComprobante(contact, msgType, content) {
   const phone = contact.phone;
   const upgradeTarget = contact.upgrade_target;
@@ -1452,13 +1544,23 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   if (msgType !== 'image' && msgType !== 'document') return;
 
-  let imageBuffer, mimeType;
+  let imageBuffer, mimeType, parsedUpg;
   try {
-    const parsed = JSON.parse(content);
-    imageBuffer = Buffer.from(parsed.buffer, 'base64');
-    mimeType    = parsed.mimeType;
+    parsedUpg = JSON.parse(content);
+    imageBuffer = Buffer.from(parsedUpg.buffer, 'base64');
+    mimeType    = parsedUpg.mimeType;
   } catch {
     await sendAndSave(phone, 'No pude abrir la imagen. Intentalo de nuevo. 📸');
+    return;
+  }
+
+  // Mismo candado que en la verificacion normal: un PDF de varias paginas no es un comprobante
+  const motivoPdfUpg = pdfNoEsComprobante(parsedUpg);
+  if (motivoPdfUpg) {
+    await sendAndSave(phone, 'Ese archivo no es un comprobante de pago. 📄 Mandame por favor la captura de pantalla del pago y lo verifico de una. 📸');
+    await notifyJorge(contact,
+      `ARCHIVO DESCARTADO en upgrade (no es comprobante):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nArchivo: ${motivoPdfUpg}, ${Math.round(imageBuffer.length / 1024)} KB`
+    );
     return;
   }
 
