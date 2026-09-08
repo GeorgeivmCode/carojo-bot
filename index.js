@@ -558,6 +558,17 @@ app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
   const allowed = ['bot_active', 'tag', 'name', 'state', 'unread_count', 'folder_id'];
   const fields = {};
   for (const k of allowed) if (req.body[k] !== undefined) fields[k] = req.body[k];
+  // Si el estado se pasa a mano a "esperando correo", arrancar el reloj de la alerta de
+  // pago sin correo. Sin esto, corregir el estado desde el panel dejaba a esa clienta fuera
+  // del aviso, que es justo cuando mas falta hace acordarse de ella.
+  if (fields.state === 'awaiting_email') {
+    const actual = db.getContact(req.params.phone);
+    if (actual && actual.state !== 'awaiting_email') {
+      fields.awaiting_email_at = db.now();
+      fields.email_alert_1 = 0;
+      fields.email_alert_2 = 0;
+    }
+  }
   db.updateContact(req.params.phone, fields);
   if (Object.keys(fields).length) {
     db.logAdminAction(req.params.phone, 'patch', Object.entries(fields).map(([k, v]) => `${k}=${v}`).join(', '));
