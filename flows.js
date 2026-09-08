@@ -27,7 +27,7 @@ const {
   WELCOME_MESSAGE, DIAMANTE_DETAILS, ORO_DETAILS, ORO_UPSELL,
   BASICO_DETAILS, BASICO_UPSELL, PAYMENT_RECEIVED_ASK_EMAIL,
   PLANTILLA_ACCESO, STOPPED_MSG, OLD_CLIENT_TRIGGERS,
-  INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
+  INVALID_EMAIL_MSG, FIND_GMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
@@ -935,7 +935,7 @@ async function tryEmailFallback(contact, result) {
     if (emailRes.data?.found) {
       const packFb = (normalizedMontoFb ? AMOUNT_TO_PACK[normalizedMontoFb] : null) || contact.pack_selected;
       if (packFb) {
-        db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb });
+        db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
         await notifyJorge(contact,
           `PAGO VERIFICADO POR EMAIL:\nPack: ${packFb}\nMonto: $${montoFb.toLocaleString('es-CO')}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
@@ -1046,7 +1046,7 @@ async function handleComprobante(contact, mediaContent) {
     } else if (razon_rechazo === 'imagen_no_legible') {
       if (contact.pack_selected) {
         // Entregar el pack y notificar a Jorge para verificacion manual
-        db.updateContact(phone, { state: 'awaiting_email' });
+        db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
         await notifyJorge(contact,
           `IMAGEN ILEGIBLE - entrega automatica pendiente verificacion:\nPack: ${contact.pack_selected}\nTel: ${phone}\nNombre: ${contact.name || '-'}\nVerifica manualmente que el pago es real antes de que entre el correo.${archivoInfo}`
@@ -1114,7 +1114,7 @@ async function handleComprobante(contact, mediaContent) {
     return;
   }
 
-  db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack });
+  db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
 
   const destino = result.destino || '';
@@ -1149,10 +1149,12 @@ async function handleEmail(contact, emailText) {
     if (CLOSING_EMAIL.some(w => rawText === w)) return; // ignorar silenciosamente
 
     // Tiene correo no-Gmail (hotmail, outlook, yahoo, etc.)
+    // NO se le manda a crear un Gmail nuevo: se le guia a encontrar el que ya tiene.
+    // Ver comentario de FIND_GMAIL_MSG en content.js para la evidencia real detras de esto.
     const noGmailProviders = ['hotmail', 'outlook', 'yahoo', 'icloud', 'live.com', 'proton', 'aol'];
     if (noGmailProviders.some(p => rawText.includes(p))) {
       await sendAndSave(phone,
-        'El acceso funciona con Google Drive, que solo acepta Gmail 📧\n\nSi no tienes uno puedes crear tu Gmail gratis en gmail.com — tarda menos de 2 minutos. Cuando lo tengas me escribes el correo y te activo el acceso al instante! 💛'
+        'Ese correo no nos sirve para el acceso porque la carpeta vive en Google Drive y Drive solo abre con una cuenta de Google 📧\n\n' + FIND_GMAIL_MSG
       );
       return;
     }
@@ -1162,9 +1164,16 @@ async function handleEmail(contact, emailText) {
       'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
       'no tengo cuenta', 'no me llega correo'];
     if (sinGmail.some(p => rawText.includes(p))) {
-      await sendAndSave(phone,
-        'No te preocupes! El acceso no ocupa espacio en tu Gmail — el material vive en nuestro Google Drive, no en tu bandeja de entrada. Solo necesitamos el correo para registrar tu acceso.\n\nEscribenos tu Gmail completo:\ntunombre@gmail.com 📩'
-      );
+      // "esta lleno" / "no hay espacio" es una preocupacion distinta (bandeja llena), se aclara aparte
+      const esEspacio = ['no hay espacio', 'sin espacio', 'esta lleno', 'está lleno',
+        'llena de correo', 'no cabe', 'lleno de correo'].some(p => rawText.includes(p));
+      if (esEspacio) {
+        await sendAndSave(phone,
+          'No te preocupes! El acceso no ocupa espacio en tu Gmail, el material vive en nuestro Google Drive, no en tu bandeja de entrada. Solo necesitamos el correo para registrar tu acceso.\n\nEscribenos tu Gmail completo:\ntunombre@gmail.com 📩'
+        );
+      } else {
+        await sendAndSave(phone, FIND_GMAIL_MSG);
+      }
       return;
     }
 
@@ -1183,6 +1192,16 @@ async function handleEmail(contact, emailText) {
     return;
   }
 
+  await deliverPack(contact, email);
+}
+
+// Entrega real del pack: da acceso a Drive, manda el enlace por WhatsApp, marca la venta,
+// dispara CAPI y Sheets, entrega el regalo si aplica y programa el upsell.
+// Extraida de handleEmail (8 sep 2026) para poder reusarla desde la pagina de acceso cuando la
+// clienta entra con Google en vez de escribir su correo. NO duplicar esta logica en otro lado:
+// ese fue exactamente el origen del bug del mostrario triplicado (ver memoria 10 jul 2026).
+async function deliverPack(contact, email) {
+  const phone = contact.phone;
   const pack = contact.pack_selected || 'basico';
 
   let driveFolderId = '';
@@ -1193,7 +1212,7 @@ async function handleEmail(contact, emailText) {
     console.error('Drive access error:', e.message);
     await sendAndSave(phone, 'Hubo un problema al darte acceso. Ya le avise a nuestro equipo y lo resuelven en minutos!');
     await notifyJorge(contact, `ERROR acceso Drive:\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nError: ${e.message}`);
-    return;
+    return { ok: false, error: e.message };
   }
 
   const accessToken = generateAccessToken(phone, pack);
@@ -1230,6 +1249,8 @@ async function handleEmail(contact, emailText) {
       } catch (e) { console.error('Upsell error:', e.message); }
     }, 2 * 60 * 1000);
   }
+
+  return { ok: true, folderId: driveFolderId, pack };
 }
 
 async function handlePostDelivery(contact, text) {
@@ -1748,4 +1769,4 @@ async function sendAndSave(phone, textOrParts) {
   }
 }
 
-module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, notifyTelegram, generateAccessToken };
+module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, notifyTelegram, generateAccessToken, handleEmail, deliverPack };

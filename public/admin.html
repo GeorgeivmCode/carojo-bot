@@ -40,6 +40,7 @@
     --coral:    #ff6b6b;
     --indigo:   #818cf8;
     --fuchsia:  #d946ef;
+    --amber:    #fbbf24;
     --glow-g:   0 0 8px rgba(0,229,160,.4);
     --glow-b:   0 0 8px rgba(56,189,248,.4);
     --glow-r:   0 0 8px rgba(255,77,106,.4);
@@ -547,6 +548,12 @@
     border-color: var(--fuchsia); border-bottom-color: var(--fuchsia);
     box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(217,70,239,.35), inset 0 1px 0 rgba(217,70,239,.2);
   }
+  .qr-btn.amber { color: var(--amber); }
+  .qr-btn.amber:hover {
+    background: linear-gradient(180deg, rgba(251,191,36,.18) 0%, rgba(251,191,36,.06) 100%);
+    border-color: var(--amber); border-bottom-color: var(--amber);
+    box-shadow: 0 2px 10px rgba(0,0,0,.4), 0 0 14px rgba(251,191,36,.35), inset 0 1px 0 rgba(251,191,36,.2);
+  }
   /* old flex fallback */
   .quick-replies { display: flex; gap: 6px; flex-wrap: wrap; }
   .input-row { display: flex; gap: 8px; align-items: flex-end; }
@@ -964,6 +971,7 @@
             <button class="qr-btn blue" onclick="approvePayment()">✅ Aprobar pago</button>
             <button class="qr-btn yellow" onclick="insertQR('pedir_gmail')">📧 Pedir Gmail</button>
             <button class="qr-btn cyan" onclick="changeEmail()">✏️ Cambiar Gmail</button>
+            <button class="qr-btn amber" onclick="insertAccessLink()">🔗 Enlace acceso</button>
           </div>
         </div>
         <div class="cmd-group">
@@ -1574,6 +1582,27 @@ function insertQR(key) {
   inp.value = QUICK_REPLIES[key] || '';
   autoResize(inp);
   inp.focus();
+}
+
+// Trae el enlace de acceso del contacto ABIERTO y lo deja listo en el cuadro de mensaje.
+// Nunca copiar a mano el enlace de otra clienta: la pagina identifica a la persona por ese
+// enlace, y con la entrada por Google la venta se le activaria al contacto equivocado.
+async function insertAccessLink() {
+  if (!currentPhone) return;
+  const res = await apiFetch('/api/contacts/' + currentPhone + '/access-link');
+  if (!res) { showToast('No se pudo generar el enlace', 'error'); return; }
+  const d = await res.json();
+  if (!res.ok) {
+    showToast(d.mensaje || 'No se pudo generar el enlace', 'error', 8000);
+    return;
+  }
+  const inp = document.getElementById('msgInput');
+  inp.value = 'Aqui tienes tu acceso 👇\n\n' + d.url +
+    '\n\nToca el enlace, elige tu cuenta de Google y listo. Si te sale que necesitas permiso, abre el enlace en Chrome.';
+  autoResize(inp);
+  inp.focus();
+  const PACK_LABEL = { basico: 'BASICO', oro: 'ORO', diamante: 'DIAMANTE' };
+  showToast('Enlace del pack ' + (PACK_LABEL[d.pack] || d.pack) + ' listo', 'success', 5000);
 }
 
 // ── Stats ──────────────────────────────────────────────────────────────────────

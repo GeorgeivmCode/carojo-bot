@@ -65,6 +65,17 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN testimonios_sent INTEGER DEFAULT 
 // Candado para no repetir el envio del mostrario en el mismo chat
 try { db.exec(`ALTER TABLE contacts ADD COLUMN mostrario_sent INTEGER DEFAULT 0`); } catch (_) {}
 
+// Momento en que el cliente quedo esperando dar su correo (ya pago, falta el Gmail).
+// Sin esto no habia forma de saber cuanto llevaba colgado: awaiting_email esta excluido
+// de R1 y R2 a proposito, asi que nadie se enteraba. 10 casos reales en 45 dias (8 sep 2026).
+try { db.exec(`ALTER TABLE contacts ADD COLUMN awaiting_email_at TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN email_alert_1 INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN email_alert_2 INTEGER DEFAULT 0`); } catch (_) {}
+
+// Aviso de "entro con otra cuenta de Google" — columna propia para no pisar las de arriba,
+// que son de un caso distinto (pago sin correo). Una sola alerta por contacto, no spam.
+try { db.exec(`ALTER TABLE contacts ADD COLUMN otra_cuenta_avisada INTEGER DEFAULT 0`); } catch (_) {}
+
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_wamid ON messages(wamid)`); } catch (_) {}
@@ -276,6 +287,24 @@ function getContactsForR2() {
   `).all(cutoff);
 }
 
+// Clientes que YA PAGARON y llevan rato sin dar su correo.
+// No les manda nada al cliente: solo sirve para alertar a Jorge (ver scheduler en index.js).
+// alertField es 'email_alert_1' o 'email_alert_2' -- nombre validado contra lista blanca,
+// nunca viene de input externo.
+function getStuckAwaitingEmail(minutes, alertField) {
+  if (alertField !== 'email_alert_1' && alertField !== 'email_alert_2') return [];
+  const cutoff = new Date(Date.now() - minutes * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  return db.prepare(`
+    SELECT * FROM contacts
+    WHERE state = 'awaiting_email'
+    AND delivered_at = ''
+    AND awaiting_email_at != ''
+    AND awaiting_email_at < ?
+    AND ${alertField} = 0
+    ORDER BY awaiting_email_at ASC
+  `).all(cutoff);
+}
+
 // Stats
 function getStats() {
   // Colombia = UTC-5 (sin horario de verano)
@@ -343,7 +372,7 @@ module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
   saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
-  getContactsForR1, getContactsForR2,
+  getContactsForR1, getContactsForR2, getStuckAwaitingEmail,
   getStats, getSetting, setSetting, now,
   markGolden, getGoldenExamples,
   saveHotmartEvent, markHotmartEventCapiSent, getHotmartEvents,

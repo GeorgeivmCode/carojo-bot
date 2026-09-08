@@ -224,11 +224,25 @@ const PAYMENT_NOT_SUCCESSFUL = `Veo que la transaccion no aparece como exitosa. 
 
 Verifica que el pago quede *aprobado* en tu app y luego enviame el comprobante. 📸`;
 
-const INVALID_EMAIL_MSG = `El material vive en Google Drive y solo funciona con Gmail para darte acceso 📧
+// OJO: este mensaje NO manda a crear un Gmail nuevo. La evidencia de 45 dias de chats reales
+// (8 sep 2026) mostro que casi todas YA tienen uno y solo no saben cual es: Android lo exige
+// para la Play Store. Caso Bertilda 573225581498: dijo "tengo hotmail", el bot la mando a crear
+// uno, y 3 horas despues escribio "ya tenia, se me habia olvidado la contrasena". Mandarla a
+// buscar el que ya tiene resuelve en segundos lo que crear uno nuevo no resolvia en horas.
+const FIND_GMAIL_MSG = `Tranquila, es muy probable que YA tengas un Gmail sin darte cuenta 😊 Todos los celulares Android traen uno desde que se activan.
 
-Si no tienes uno puedes crear tu Gmail gratis en gmail.com, tarda menos de 2 minutos. Cuando lo tengas me escribes el correo y te activo el acceso al instante! 💛
+Asi lo ves en 10 segundos:
+1. Abre la Play Store (la tiendita de apps)
+2. Toca tu foto o la letra del circulo, arriba a la derecha
+3. Ahi aparece tu correo, el que termina en @gmail.com
 
-tunombre@gmail.com 📩`;
+Tambien lo puedes ver entrando a Ajustes y buscando "Cuentas" o "Google".
+
+Copialo y escribemelo aqui y te activo el acceso al instante 💛
+
+Cual te aparece?`;
+
+const INVALID_EMAIL_MSG = FIND_GMAIL_MSG;
 
 const SEND_COMPROBANTE_MSG = `Para confirmar tu pago necesito ver el comprobante. 📸
 
@@ -430,7 +444,7 @@ module.exports = {
   DELIVERY_BASICO, DELIVERY_ORO, DELIVERY_DIAMANTE,
   PLANTILLA_ACCESO,
   R1_MESSAGE, R2_MESSAGE,
-  INVALID_EMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
+  INVALID_EMAIL_MSG, FIND_GMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,

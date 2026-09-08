@@ -187,7 +187,7 @@ app.listen(PORT, () => {
 
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
 let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave, transcribeAudio;
-let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken;
+let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken, notifyTelegram, handleEmail, deliverPack;
 let R1_MESSAGE, R2_MESSAGE;
 let initialized = false;
 
@@ -209,6 +209,9 @@ async function init() {
     fireCapi       = flows.fireCapi;
     logSaleToSheets = flows.logSaleToSheets;
     notifyJorge    = flows.notifyJorge;
+    notifyTelegram = flows.notifyTelegram;
+    handleEmail    = flows.handleEmail;
+    deliverPack    = flows.deliverPack;
     generateAccessToken = flows.generateAccessToken;
     console.log('flows OK');
 
@@ -596,13 +599,41 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Enlace de acceso correcto para ESTE contacto. Existe porque pegar en el chat el enlace de otra
+// clienta (workaround manual de la "trampa" de solicitar acceso) apunta al contacto equivocado:
+// la pagina lee el telefono del token, asi que con el Fix de entrada con Google entregaria la
+// venta a otra persona. Este boton siempre genera el token del contacto que tienes abierto.
+app.get('/api/contacts/:phone/access-link', adminAuth, (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  // El enlace se arma con el pack que la clienta REALMENTE pago. Si el contacto no tiene pack
+  // registrado no se adivina: se avisa al panel para no mandarle la carpeta equivocada.
+  const pack = c.pack_selected || '';
+  if (!pack) {
+    return res.status(409).json({
+      error: 'sin_pack',
+      mensaje: 'Este contacto no tiene pack registrado. Ponle el pack correcto primero (boton Cambiar pack o Registrar venta) y vuelve a generar el enlace.'
+    });
+  }
+  const { getFolderUrl } = require('./drive');
+  const token = generateAccessToken(phone, pack);
+  res.json({
+    url: `https://bot.carojo.uk/acceso/${token}`,
+    pack,
+    email: c.email || '',
+    carpeta: getFolderUrl(pack, c.folder_id || null) || ''
+  });
+});
+
 app.post('/api/contacts/:phone/approve-payment', adminAuth, async (req, res) => {
   if (!initialized) return res.status(503).json({ error: 'starting' });
   const phone = req.params.phone;
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
   const { PAYMENT_RECEIVED_ASK_EMAIL } = require('./content');
-  db.updateContact(phone, { state: 'awaiting_email' });
+  db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
   db.logAdminAction(phone, 'approve_payment', `pack=${c.pack_selected || '-'}`);
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
   const updated = db.getContact(phone);
@@ -1358,15 +1389,78 @@ function verifyAccessToken(token) {
   } catch { return null; }
 }
 
+// Google Sign-In para que la clienta entre con la cuenta que ya tiene abierta en el celular,
+// sin escribir nada ni recordar contrasenas. Si no esta configurado, la pagina sigue funcionando
+// igual que antes (solo no aparece el boton) — el deploy es seguro sin esta variable.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+
+function esNavegadorWhatsApp(ua) {
+  return /WhatsApp/i.test(ua || '');
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 app.get('/acceso/:token', async (req, res) => {
   const info = verifyAccessToken(req.params.token);
   if (!info) return res.redirect(DRIVE_URLS_PIXEL.basico);
-  const { phone, pack, amount } = info;
+  const { phone, pack } = info;
   const contact = initialized ? db.getContact(phone) : null;
-  const driveUrl = contact?.folder_id
-    ? `https://drive.google.com/drive/folders/${contact.folder_id}`
-    : (DRIVE_URLS_PIXEL[pack] || DRIVE_URLS_PIXEL.basico);
-  const packName = PACK_NAMES_PIXEL[pack] || 'Pack';
+  // El pack manda: para quien todavia no tiene folder_id (aun no se le entrego) hay que usar la
+  // carpeta ACTIVA de su pack. OJO: DRIVE_URLS_PIXEL.diamante apunta a la carpeta vieja
+  // (1t3qNys..., la de los ~600 accesos individuales), no a la que usa el sistema de grupos.
+  // getFolderUrl de drive.js si devuelve la correcta, por eso se usa esa y no la lista de aqui.
+  const { getFolderUrl } = require('./drive');
+  const packEfectivo = contact?.pack_selected || pack;
+  const driveUrl = getFolderUrl(packEfectivo, contact?.folder_id || null)
+    || DRIVE_URLS_PIXEL[packEfectivo] || DRIVE_URLS_PIXEL.basico;
+  const packName = PACK_NAMES_PIXEL[packEfectivo] || 'Pack';
+
+  // Todavia no dio su correo (pago pero quedo colgada). Ahi el boton de Google es la accion principal.
+  // Se exige el estado awaiting_email a proposito: es el UNICO estado al que el bot llega despues
+  // de aprobar un pago. Con una condicion mas suelta (cualquiera sin correo y sin entregar) alguien
+  // que todavia no ha pagado podria activarse el pack solo con entrar con Google.
+  const necesitaCorreo = !!contact && contact.state === 'awaiting_email' && !contact.email;
+  const enWhatsApp = esNavegadorWhatsApp(req.headers['user-agent']);
+  const correoRegistrado = escapeHtml(contact?.email || '');
+
+  const avisoWhatsApp = enWhatsApp ? `
+  <div class="warn">
+    <b>Abre este enlace en Chrome</b><br>
+    Estas dentro del navegador de WhatsApp y Google no permite iniciar sesion aqui. Toca los tres puntitos de arriba y elige "Abrir en el navegador", o copia el enlace y pegalo en Chrome.
+    <button class="copy" onclick="copiar()">Copiar el enlace</button>
+    <span id="copiado" class="copiado"></span>
+  </div>` : '';
+
+  const bloqueGoogle = necesitaCorreo && GOOGLE_CLIENT_ID ? `
+  <div id="gwrap">
+    <div id="g_id_onload"
+         data-client_id="${escapeHtml(GOOGLE_CLIENT_ID)}"
+         data-callback="onGoogle"
+         data-auto_prompt="false"></div>
+    <div class="g_id_signin" data-type="standard" data-theme="outline" data-size="large"
+         data-text="continue_with" data-shape="pill" data-logo_alignment="left" data-locale="es"></div>
+  </div>
+  <div id="estado" class="estado"></div>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>` : '';
+
+  const cuerpoNecesitaCorreo = `
+  <h1>Ya casi, falta un paso</h1>
+  <p>Tu pago del ${escapeHtml(packName)} esta confirmado. Para abrirte la carpeta solo necesitamos saber con que cuenta de Google entras.</p>
+  ${GOOGLE_CLIENT_ID ? `<p class="sub">Toca el boton y elige la cuenta que ya usas en este celular. No tienes que escribir nada ni recordar contrasenas.</p>` : `<p class="sub">Escribenos tu correo de Google por WhatsApp y te activamos el acceso al instante.</p>`}
+  ${bloqueGoogle}
+  <div id="listo" class="hidden">
+    <p class="ok">Listo! Tu acceso quedo activo 🎉</p>
+    <a class="btn" id="btnListo" href="${driveUrl}">Abrir mi material</a>
+  </div>`;
+
+  const cuerpoEntregado = `
+  <h1>Tu ${escapeHtml(packName)} esta listo!</h1>
+  <p>Tu pago fue confirmado y el acceso ya esta activo.</p>
+  <a class="btn" href="${driveUrl}">Abrir mi material</a>
+  ${correoRegistrado ? `<p class="note">Importante: abrelo con la cuenta <b>${correoRegistrado}</b>. Si te sale que necesitas permiso, es porque tu celular tiene abierta otra cuenta de Google, cambiala y vuelve a tocar el boton.</p>` : `<p class="note">Abrelo con el correo que nos diste.</p>`}`;
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -1380,25 +1474,166 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .card{background:#fff;border-radius:20px;padding:36px 32px;text-align:center;max-width:420px;width:100%;box-shadow:0 4px 24px rgba(233,100,168,.15)}
 .logo{width:110px;height:110px;object-fit:contain;margin-bottom:8px}
 h1{color:#1a1a1a;font-size:22px;font-weight:700;margin-bottom:8px}
-p{color:#666;font-size:15px;line-height:1.5;margin-bottom:24px}
+p{color:#666;font-size:15px;line-height:1.5;margin-bottom:18px}
+p.sub{font-size:14px;color:#888}
 .btn{display:block;background:#e84c0e;color:#fff;text-decoration:none;padding:16px 24px;border-radius:12px;font-size:17px;font-weight:600;letter-spacing:.3px;transition:opacity .2s}
 .btn:active{opacity:.85}
-.note{color:#999;font-size:13px;margin-top:16px}
+.note{color:#999;font-size:13px;margin-top:16px;margin-bottom:0}
+.warn{background:#fff8e1;border:1px solid #ffe082;color:#7a5b00;border-radius:12px;padding:14px;font-size:14px;line-height:1.5;margin-bottom:20px;text-align:left}
+.copy{display:block;width:100%;margin-top:10px;background:#7a5b00;color:#fff;border:0;padding:12px;border-radius:10px;font-size:15px;font-weight:600}
+.copiado{display:block;font-size:13px;color:#2e7d32;margin-top:8px;min-height:16px}
+#gwrap{display:flex;justify-content:center;margin:18px 0 6px}
+.estado{font-size:14px;min-height:20px;color:#666}
+.estado.err{color:#c62828}
+.ok{color:#2e7d32;font-weight:600}
+.hidden{display:none}
 </style>
-<script>setTimeout(function(){ window.location.href='${driveUrl}'; },6000);</script>
 </head>
 <body>
 <div class="card">
   <img class="logo" src="/logo.png" alt="Carojo Aprende y Emprende">
-  <h1>Tu ${packName} esta listo!</h1>
-  <p>Tu pago fue confirmado y el acceso ya esta activo en tu Gmail.</p>
-  <a class="btn" href="${driveUrl}">Abrir mi material ahora</a>
-  <p class="note">Abrelo con el correo que nos diste. En 6 segundos te llevamos automaticamente.</p>
+  ${avisoWhatsApp}
+  ${necesitaCorreo ? cuerpoNecesitaCorreo : cuerpoEntregado}
 </div>
+<script>
+function copiar(){
+  var url = window.location.href;
+  var aviso = document.getElementById('copiado');
+  function ok(){ if(aviso) aviso.textContent = 'Enlace copiado, pegalo en Chrome'; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(ok, fallback);
+  } else { fallback(); }
+  function fallback(){
+    var t = document.createElement('textarea');
+    t.value = url; document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); ok(); } catch(e){ if(aviso) aviso.textContent = url; }
+    document.body.removeChild(t);
+  }
+}
+function onGoogle(resp){
+  var est = document.getElementById('estado');
+  est.className = 'estado';
+  est.textContent = 'Activando tu acceso...';
+  fetch(window.location.pathname + '/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential: resp.credential })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d && d.ok) {
+      var g = document.getElementById('gwrap'); if (g) g.style.display = 'none';
+      est.textContent = '';
+      var listo = document.getElementById('listo');
+      var btn = document.getElementById('btnListo');
+      if (btn && d.driveUrl) btn.href = d.driveUrl;
+      if (listo) listo.className = '';
+      if (d.driveUrl) setTimeout(function(){ window.location.href = d.driveUrl; }, 1200);
+    } else {
+      est.className = 'estado err';
+      est.textContent = (d && d.mensaje) ? d.mensaje : 'No pudimos activarlo. Escribenos por WhatsApp y lo resolvemos.';
+    }
+  }).catch(function(){
+    est.className = 'estado err';
+    est.textContent = 'Fallo la conexion. Intenta de nuevo o escribenos por WhatsApp.';
+  });
+}
+</script>
 </body>
 </html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
+});
+
+// Recibe la identidad de Google que la clienta acaba de confirmar en la pagina de acceso,
+// la verifica contra Google y entrega el pack. Reusa deliverPack (flows.js), no duplica entrega.
+app.post('/acceso/:token/google', async (req, res) => {
+  const info = verifyAccessToken(req.params.token);
+  if (!info) return res.status(400).json({ ok: false, mensaje: 'Este enlace ya no es valido. Escribenos por WhatsApp.' });
+  if (!GOOGLE_CLIENT_ID) return res.status(503).json({ ok: false, mensaje: 'Esta opcion todavia no esta habilitada.' });
+  if (!initialized) return res.status(503).json({ ok: false, mensaje: 'Intenta de nuevo en un momento.' });
+
+  const credential = req.body?.credential;
+  if (!credential || typeof credential !== 'string') {
+    return res.status(400).json({ ok: false, mensaje: 'Faltan datos. Intenta de nuevo.' });
+  }
+
+  // Verificacion del lado del servidor: nunca confiar en lo que manda el navegador.
+  let email = '';
+  try {
+    const axiosLib = require('axios');
+    const ver = await axiosLib.get('https://oauth2.googleapis.com/tokeninfo',
+      { params: { id_token: credential }, timeout: 8000 });
+    const d = ver.data || {};
+    if (d.aud !== GOOGLE_CLIENT_ID) throw new Error('aud no coincide');
+    if (String(d.email_verified) !== 'true') throw new Error('correo sin verificar');
+    if (!d.email) throw new Error('sin correo en el token');
+    email = String(d.email).toLowerCase();
+  } catch (e) {
+    console.error(`Google claim invalido [${info.phone}]:`, e.message);
+    return res.status(401).json({ ok: false, mensaje: 'No pudimos confirmar tu cuenta de Google. Intenta de nuevo desde Chrome.' });
+  }
+
+  const phone = info.phone;
+  const contact = db.getContact(phone);
+  if (!contact) return res.status(404).json({ ok: false, mensaje: 'No encontramos tu compra. Escribenos por WhatsApp.' });
+
+  const { getFolderUrl } = require('./drive');
+  const driveUrlDe = c => {
+    const p = c?.pack_selected || info.pack;
+    return getFolderUrl(p, c?.folder_id || null) || DRIVE_URLS_PIXEL[p] || DRIVE_URLS_PIXEL.basico;
+  };
+
+  // Ya entregada y entra con la MISMA cuenta: solo mandarla al material.
+  if (contact.delivered_at && contact.email && contact.email.toLowerCase() === email) {
+    return res.json({ ok: true, driveUrl: driveUrlDe(contact) });
+  }
+
+  // Ya entregada pero entra con OTRA cuenta de Google. No se le da acceso automatico a proposito:
+  // seria una puerta para revender el material (el problema que se cerro con las carpetas privadas).
+  // Se le explica cual cuenta usar y se le avisa a Jorge para que el decida con el boton Cambiar Gmail.
+  if (contact.delivered_at) {
+    console.log(`Google claim con otra cuenta [${phone}]: registrada=${contact.email || '-'} intento=${email}`);
+    try {
+      db.logAdminAction(phone, 'google_claim_otra_cuenta', `registrada=${contact.email || '-'} intento=${email}`);
+      if (!contact.otra_cuenta_avisada) {
+        await notifyTelegram(
+          `ENTRA CON OTRA CUENTA DE GOOGLE\nNombre: ${contact.name || '-'}\nTel: ${phone}\nCorreo registrado: ${contact.email || '-'}\nCuenta con la que entro: ${email}\nSi es la misma persona y quieres pasarle el acceso a esa cuenta, usa el boton "Cambiar Gmail" en el panel.`
+        );
+        db.updateContact(phone, { otra_cuenta_avisada: 1 });
+      }
+    } catch (e) { console.error('Aviso otra cuenta error:', e.message); }
+    return res.json({
+      ok: false,
+      mensaje: `Tu acceso quedo registrado a ${contact.email}. Estas entrando con ${email}. Cambia de cuenta en tu celular y vuelve a intentar, o escribenos por WhatsApp y te lo pasamos a esta cuenta.`
+    });
+  }
+
+  // Misma guarda que la pagina: solo se entrega si el contacto esta en awaiting_email, el unico
+  // estado al que llega el bot DESPUES de aprobar un pago. Nunca confiar solo en el chequeo del
+  // navegador, esta validacion es la que de verdad protege.
+  if (contact.state !== 'awaiting_email') {
+    console.log(`Google claim rechazado [${phone}]: estado=${contact.state} (no hay pago aprobado)`);
+    return res.status(409).json({
+      ok: false,
+      mensaje: 'Todavia no tenemos un pago confirmado en esta conversacion. Escribenos por WhatsApp y lo revisamos.'
+    });
+  }
+
+  // El caso que motivo todo esto: pago y nunca dio su correo.
+  // deliverPack captura el correo, marca la venta, la deja en el Google Sheet, dispara el pixel
+  // y te avisa por Telegram y WhatsApp. Es la misma entrega de siempre, no una version aparte.
+  try {
+    const r = await deliverPack(contact, email);
+    if (!r || !r.ok) {
+      return res.status(500).json({ ok: false, mensaje: 'Tuvimos un problema al activarlo. Ya avisamos a nuestro equipo, te escribimos por WhatsApp en minutos.' });
+    }
+    db.logAdminAction(phone, 'entrega_por_google', `email=${email} pack=${r.pack}`);
+    console.log(`Entrega por Google OK [${phone}]: ${email} pack=${r.pack}`);
+    broadcast('refresh', { phone, contact: db.getContact(phone) });
+    return res.json({ ok: true, driveUrl: driveUrlDe(db.getContact(phone)) });
+  } catch (e) {
+    console.error(`Entrega por Google error [${phone}]:`, e.message);
+    return res.status(500).json({ ok: false, mensaje: 'Tuvimos un problema al activarlo. Escribenos por WhatsApp y lo resolvemos.' });
+  }
 });
 
 // ── Remarketing Scheduler ──────────────────────────────────────────────────────
@@ -1447,6 +1682,27 @@ function startScheduler() {
         db.updateContact(c.phone, { r2_sent: 1, r2_sent_at: db.now() });
         broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('R2 error', c.phone, e.message); }
+    }
+
+    // Alerta de clientes que YA PAGARON y siguen sin dar su correo.
+    // NO le manda nada al cliente, es solo aviso interno a Jorge/Carol por Telegram.
+    // awaiting_email esta excluido de R1 y R2 a proposito, asi que antes de esto nadie se
+    // enteraba: 10 casos reales en 45 dias (~$90.000 COP), ver sesion 8 sep 2026.
+    for (const [minutes, field, etiqueta] of [[60, 'email_alert_1', '1 hora'], [720, 'email_alert_2', '12 horas']]) {
+      for (const c of db.getStuckAwaitingEmail(minutes, field)) {
+        try {
+          await notifyTelegram(
+            `PAGO SIN CORREO (${etiqueta} esperando)\n` +
+            `Nombre: ${c.name || '-'}\n` +
+            `Tel: ${c.phone}\n` +
+            `Pack: ${c.pack_selected || '-'}\n` +
+            `Bot activo: ${c.bot_active ? 'si' : 'NO'}\n` +
+            `Ya pago y nunca dio su Gmail. Abre el chat en el panel y usa el boton "Enlace acceso" para que ella entre con Google, o registra la venta a mano si ya tienes su correo.`
+          );
+          db.updateContact(c.phone, { [field]: 1 });
+          console.log(`Alerta pago-sin-correo enviada [${c.phone}] ${etiqueta}`);
+        } catch (e) { console.error('Alerta pago-sin-correo error', c.phone, e.message); }
+      }
     }
   }, 2 * 60 * 1000);
 }
