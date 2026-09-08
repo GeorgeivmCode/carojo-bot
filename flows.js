@@ -174,6 +174,54 @@ function isValidGmail(email) {
   return /^[a-zA-Z0-9._%+\-]+@gmail\.com$/i.test(email.trim());
 }
 
+const NUMEROS_DESTINO_OK = ['3058989359', '3217239198'];
+const NOMBRES_DESTINO_OK = ['jorge vanegas', 'carol apolinar'];
+
+// RESCATE de "destinatario_invalido" cuando el modelo NO logro extraer el numero.
+//
+// Caso real 8 sep 2026 (Libia, 573167527471): tirilla de PAPEL de Corresponsal Redeban,
+// recarga Nequi de $15.000 al 3058989359, titular JORGE VANEGAS, de ese mismo dia. El modelo
+// leyo bien el monto, el nombre, la fecha y que fue exitosa, pero dejo "destino" en null porque
+// en la tirilla el numero va bajo la etiqueta "Producto:", que no estaba en la lista de campos
+// donde el prompt le decia buscar. Termino en revision manual. Reproducido 3 de 3 veces.
+//
+// Esto NO relaja la seguridad: solo corrige el veredicto y deja que corran igual TODAS las capas
+// de codigo que ya existen despues (destinatario y fecha). Si el destinatario de verdad estuviera
+// mal, la capa siguiente lo sigue frenando. Y solo entra cuando el modelo dejo el numero VACIO:
+// si extrajo un numero y ese numero es de otra persona, aqui no se rescata nada.
+//
+// Muta result a proposito (igual que el flujo normal lo lee despues) y marca result.rescatado
+// para poder avisarle a Jorge que este pago entro por esta via.
+function rescatarComprobanteSinNumero(result, phone) {
+  if (!result || result.valido) return false;
+  if (result.razon_rechazo !== 'destinatario_invalido') return false;
+
+  const textoTodo = Object.values(result).filter(v => typeof v === 'string').join(' ').replace(/\D/g, '');
+  const hayNumero = NUMEROS_DESTINO_OK.some(n => textoTodo.includes(n));
+  const hayNombre = NOMBRES_DESTINO_OK.some(n => (result.nombre_destinatario || '').toLowerCase().includes(n));
+  const montoOk   = !!result.monto && !!AMOUNT_TO_PACK[result.monto];
+  const exitosa   = /exito|realizad|aprobad|complet/i.test(result.estado || '');
+  const fechaOk   = !result.fecha || !isFechaAnterior(result.fecha);
+
+  // Dos formas de llegar aca, las dos vistas en la misma tirilla real:
+  // a) el numero NUESTRO si aparece en el resultado pero el modelo igual dijo invalido
+  //    (se contradice solo). Rescatar es seguro: el numero calza exacto con el nuestro.
+  // b) el modelo no extrajo ningun numero, pero el nombre del destinatario es el nuestro.
+  // Si el modelo extrajo un numero y NO es ninguno de los nuestros, aqui no se rescata nada.
+  const seContradice = hayNumero;
+  const sinNumeroPeroConNombre = !result.destino && hayNombre;
+  if (!(seContradice || sinNumeroPeroConNombre)) return false;
+  if (!(montoOk && exitosa && fechaOk)) return false;
+
+  console.log(`Comprobante rescatado [${phone}] (${seContradice ? 'el modelo se contradijo' : 'no extrajo el numero'}): ` +
+    `numero=${hayNumero ? 'ok' : 'no'} nombre=${hayNombre ? 'ok' : 'no'} monto=${result.monto} ` +
+    `destino=${result.destino || '-'} app=${result.app || '-'} estado=${result.estado || '-'} fecha=${result.fecha || '-'}`);
+  result.valido = true;
+  result.razon_rechazo = null;
+  result.rescatado = true;
+  return true;
+}
+
 function isOldClientTrigger(text) {
   const t = text.toLowerCase();
   return OLD_CLIENT_TRIGGERS.some(trigger => t.includes(trigger));
@@ -996,6 +1044,9 @@ async function handleComprobante(contact, mediaContent) {
     return;
   }
 
+  // Red de seguridad antes de rechazar: ver rescatarComprobanteSinNumero arriba
+  rescatarComprobanteSinNumero(result, phone);
+
   if (!result.valido) {
     const { razon_rechazo, monto } = result;
     if (razon_rechazo === 'no_es_comprobante') {
@@ -1123,7 +1174,8 @@ async function handleComprobante(contact, mediaContent) {
                     result.nombre_destinatario || 'no identificado';
 
   await notifyJorge(contact,
-    `PAGO verificado!\nPack: ${pack}\nMonto: $${result.monto?.toLocaleString('es-CO') || PACK_PRICES[pack]?.toLocaleString('es-CO')}\nApp: ${result.app || 'desconocida'}\nPago a: ${paraQuien}\nCliente: ${contact.name || phone}\nTel: ${phone}`
+    `PAGO verificado!\nPack: ${pack}\nMonto: $${result.monto?.toLocaleString('es-CO') || PACK_PRICES[pack]?.toLocaleString('es-CO')}\nApp: ${result.app || 'desconocida'}\nPago a: ${paraQuien}\nCliente: ${contact.name || phone}\nTel: ${phone}` +
+    (result.rescatado ? `\n\nOJO: este entro por la red de seguridad. El lector no logro sacar el numero del destinatario (tirilla de corresponsal o campo con etiqueta rara) y se aprobo por el nombre y el monto. Si puedes, echale un ojo a la imagen en el panel.` : '')
   );
 }
 
@@ -1595,6 +1647,9 @@ async function handleUpgradeComprobante(contact, msgType, content) {
     await sendAndSave(phone, 'Tuve un problema procesando tu imagen. Por favor enviamela de nuevo. 📸');
     return;
   }
+
+  // Red de seguridad antes de rechazar: ver rescatarComprobanteSinNumero arriba
+  rescatarComprobanteSinNumero(result, phone);
 
   if (!result.valido) {
     const { razon_rechazo, monto } = result;

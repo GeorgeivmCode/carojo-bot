@@ -699,14 +699,20 @@ NO rechaces por:
 - No reconocer la app: Colombia tiene decenas de bancos y fintechs (Falabella, AV Villas, Bancoomeva, Pibank, RappiPay y muchos mas). Cualquier app bancaria colombiana es valida. Si parece un comprobante de pago real, tratalo como valido.
 - El estilo visual o tema de color: las apps tienen temas claros, oscuros y distintos segun la version.
 
-Para CORRESPONSALES (Wompi/Redeban): el numero del destinatario aparece como "Numero Nequi" o "Producto". El nombre como "Titular". Esto es valido.
+Para CORRESPONSALES (Wompi/Redeban), que son TIRILLAS DE PAPEL fotografiadas y no capturas de pantalla:
+- El numero del destinatario aparece etiquetado como "Numero Nequi:" o como "Producto:". Los dos son el numero del destinatario y son validos.
+- El nombre aparece como "TITULAR:".
+- El monto aparece como "VALOR $X".
+- Una tirilla de "RECARGA NEQU" / "RECARGA NEQUI" a "Producto: 3058989359" ES un pago valido a nosotros.
+- OBLIGATORIO: cuando el numero venga en "Producto:", igual debes devolverlo en el campo "destino" del JSON. NUNCA dejes "destino" en null si el numero esta visible en la tirilla bajo cualquier etiqueta.
 
 NUMEROS QUE DEBES IGNORAR — NO SON EL DESTINATARIO:
 Los comprobantes bancarios incluyen numeros largos que NO son el numero del destinatario. NUNCA los uses para validar:
 - "No. de autorización" (AV Villas, otros): 20-35 digitos, es un codigo interno de la transaccion
 - "ID Transaccion", "Numero de referencia", "Comprobante No.": codigos internos del banco
 - Numero de cuenta de origen ("Ahorros No. **** 2960"): es la cuenta del PAGADOR, no del receptor
-El numero destinatario SIEMPRE es un celular colombiano de 10 digitos (empieza por 3). Busca exclusivamente en campos como "Enviaste a:", "Para:", "Numero Nequi:", "Llave que recibe:", "Llave:", "Numero celular:".
+El numero destinatario SIEMPRE es un celular colombiano de 10 digitos (empieza por 3). Buscalo en campos como "Enviaste a:", "Para:", "Numero Nequi:", "Producto:", "Llave que recibe:", "Llave:", "Numero celular:", "Destino:", "Cuenta destino:".
+Esa lista es una guia, NO es exhaustiva: cada banco y cada corresponsal usa su propia etiqueta. Si ves un celular de 10 digitos que empieza por 3 y que claramente identifica a QUIEN RECIBE la plata, ese es el destinatario, sin importar como se llame el campo. Lo unico que nunca es el destinatario son los codigos internos listados arriba.
 
 LECTURA OBLIGATORIA DIGITO POR DIGITO:
 Antes de cualquier validacion, lee el comprobante completo con maxima atencion. Lee los numeros digito por digito, no asumas. Si un numero parece "3058989359" leelo asi: 3-0-5-8-9-8-9-3-5-9 y verifica cada posicion.
@@ -737,6 +743,14 @@ Combinaciones invalidas: solo NUMERO sin fecha ni nombre / FECHA+NOMBRE sin nume
 
 Si el NUMERO no aparece en el comprobante → destinatario_invalido (sin importar si el nombre esta correcto).
 Si el NUMERO aparece pero ni FECHA ni NOMBRE son verificables → destinatario_invalido.
+
+NO TE CONTRADIGAS: si ya pusiste 3058989359 o 3217239198 en el campo "destino", entonces el NUMERO
+SI aparece y NO puedes responder "destinatario_invalido". Antes de cerrar el JSON revisa: si
+"destino" trae uno de nuestros dos numeros y ademas el monto es 5000/10000/15000 y la transaccion
+es exitosa y la fecha es de hoy, la respuesta correcta es valido = true.
+Esto aplica igual si el numero venia bajo la etiqueta "Producto:" de una tirilla de corresponsal.
+Una RECARGA a nuestro numero de Nequi es una forma normal de pagarnos, tan valida como una
+transferencia: no la rechaces por ser una recarga en vez de un envio.
 
 NUMERO: Lee digito por digito. 3058989359 = 3-0-5-8-9-8-9-3-5-9. Un solo digito diferente = invalido.
 NOMBRE enmascarado: JO**E V****AS o JOR** VAN***S = Jorge Vanegas = VALIDO. Solo rechaza si tiene CORCHETES [].
@@ -770,10 +784,13 @@ Responde SOLO en JSON (sin texto adicional):
   "app": "nombre_app_o_null",
   "destino": "numero_o_null",
   "nombre_destinatario": "nombre_o_null",
+  "numeros_vistos": "todos_los_celulares_de_10_digitos_que_empiezan_por_3_separados_por_espacio_o_null",
   "fecha": "texto_o_null",
   "estado": "exitosa/fallida/pendiente/desconocido",
   "razon_rechazo": "codigo_o_null"
-}`
+}
+
+Sobre "numeros_vistos": escribe ahi TODOS los numeros de celular de 10 digitos que empiecen por 3 que veas en la imagen, separados por un espacio, sin importar en que campo esten ni si crees que son el destinatario. Es una red de seguridad para no perder el numero cuando la etiqueta del campo es rara. No incluyas los codigos internos largos (autorizacion, referencia, RRN).`
         }
       ]
     }]
