@@ -1023,6 +1023,61 @@ Responde UNICAMENTE con JSON: {"categoria": "mostrario"} o {"categoria": "descon
   }
 }
 
+// Clasifica una imagen que manda una clienta YA ENTREGADA, para dejar de mandar todo a soporte.
+// Antes, CUALQUIER imagen de una clienta entregada apagaba el bot y notificaba soporte. Con datos
+// reales de 30 dias (8 sep 2026): de 17 imagenes revisadas una por una, 12 eran problemas de
+// acceso (capturas de Drive, pantallas de login de Google, error 403) y 2 eran clientas mostrando
+// su trabajo terminado. A una que mando un lettering hermoso el bot se le apago y quedo muda.
+// Devuelve: 'trabajo' | 'acceso' | 'comprobante' | 'otro'. Ante cualquier falla devuelve 'otro',
+// que es el comportamiento de siempre (soporte), asi que un error nunca empeora nada.
+async function clasificarImagenPostVenta(imageBuffer, mimeType) {
+  const isPDF = mimeType === 'application/pdf';
+  const mediaBlock = isPDF
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: imageBuffer.toString('base64') } }
+    : { type: 'image', source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBuffer.toString('base64') } };
+
+  try {
+    const res = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 30,
+      temperature: 0,
+      messages: [{
+        role: 'user',
+        content: [mediaBlock, {
+          type: 'text',
+          text: `Esta imagen la mando por WhatsApp una clienta que YA COMPRO y YA RECIBIO un curso digital de lettering y manualidades. Clasificala en UNA sola categoria:
+
+- "trabajo": la clienta esta mostrando algo que HIZO o COMPRO en el mundo fisico. Fotos de letras o lettering hechos a mano, cuadernos o agendas decoradas, cajas o moldes armados, manualidades terminadas, marcadores o materiales sobre una mesa, trabajos de sus alumnas. Es una foto de la vida real, tomada con la camara, no una captura de pantalla.
+- "acceso": una CAPTURA DE PANTALLA relacionada con entrar al material. Pantallas de Google Drive (listas de carpetas o archivos), pantallas de inicio de sesion de Google, "Accede a tu cuenta", "Te damos la bienvenida", pedir contraseña, "Solicitud enviada", "solicitar acceso", errores tipo 403 o "no tienes acceso a esta pagina", bandeja de Gmail, verificacion de dispositivo, o una foto de la pantalla de un computador mostrando Drive.
+- "comprobante": un comprobante de pago o transferencia bancaria (Nequi, Daviplata, Bancolombia, tirilla de corresponsal, etc.).
+- "otro": cualquier otra cosa, o si no estas segura.
+
+COMO SEPARAR "trabajo" DE "acceso" (es la confusion mas facil):
+Fijate PRIMERO en si es una captura de pantalla o una foto de la vida real, NO en si el contenido se ve bonito.
+Es "acceso" (captura de pantalla) si ves cualquiera de estas señales, sin importar que el contenido muestre diseños lindos:
+la barra de estado del celular con hora y bateria, una barra de direccion o un dominio como "drive.google.com" o "accounts.google.com",
+el encabezado de WhatsApp o de un navegador, botones de interfaz, listas de archivos o carpetas, iconos de Drive, menus de tres puntos.
+Una captura de la carpeta de Drive mostrando las cartillas, plantillas o diseños del curso es "acceso", NO "trabajo":
+son los archivos que le vendimos vistos en pantalla, no algo que ella haya hecho.
+Es "trabajo" solo si es una foto tomada con la camara a algo fisico: papel, cuaderno, marcadores, una caja armada, una mesa.
+Suele notarse por la iluminacion irregular, las sombras, el fondo de una mesa o el piso, y porque no hay ninguna interfaz de celular.
+
+Si dudas entre dos, responde "otro".
+
+Responde UNICAMENTE con JSON: {"tipo": "trabajo"} o {"tipo": "acceso"} o {"tipo": "comprobante"} o {"tipo": "otro"}`
+        }]
+      }]
+    }), 'clasificarImagenPostVenta');
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    const tipo = parsed.tipo;
+    return ['trabajo', 'acceso', 'comprobante'].includes(tipo) ? tipo : 'otro';
+  } catch (e) {
+    console.error('clasificarImagenPostVenta error:', e.message);
+    return 'otro';
+  }
+}
+
 // Curso de regalo (Bordados/Resina/Globoflexia) — solo aplica a clientas elegibles (ver flows.js).
 // Lee contexto real en vez de substrings: soluciona el caso donde "?" hacia que cualquier
 // mensaje se tratara como consulta generica aunque nombrara un solo regalo sin ambiguedad.
@@ -1062,4 +1117,4 @@ Responde UNICAMENTE con JSON: {"intencion": "elige"|"pregunta"|"ver_opciones"|"n
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent };
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta };

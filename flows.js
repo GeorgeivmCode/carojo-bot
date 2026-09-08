@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -486,9 +486,55 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
           return;
         }
       }
+      // Antes, CUALQUIER imagen de una clienta entregada apagaba el bot y escalaba a soporte.
+      // Con 30 dias de datos reales (8 sep 2026), de 17 imagenes revisadas una por una: 12 eran
+      // problemas de acceso (capturas de Drive, login de Google, error 403) y 2 eran clientas
+      // mostrando su trabajo terminado. A una que mando un lettering hermoso el bot se le apago
+      // y quedo muda, y de paso se perdio el testimonio y la oportunidad de upsell.
+      // Ahora se mira la imagen antes de decidir. Si la clasificacion falla devuelve 'otro',
+      // que es exactamente el comportamiento viejo, asi que un error nunca empeora las cosas.
+      let tipoImg = 'otro';
+      try {
+        const parsedImg = JSON.parse(content);
+        if (parsedImg.buffer) {
+          tipoImg = await clasificarImagenPostVenta(Buffer.from(parsedImg.buffer, 'base64'), parsedImg.mimeType);
+        }
+      } catch (e) { console.error(`Imagen post-venta ilegible [${phone}]:`, e.message); }
+      console.log(`Imagen post-venta [${phone}]: tipo=${tipoImg}`);
+
+      if (tipoImg === 'trabajo') {
+        // Clienta feliz mostrando lo que hizo. No es soporte: se le celebra, el bot sigue
+        // encendido, y se le pide permiso para usarlo como testimonio.
+        const history = db.getRecentMessages(phone, 8);
+        const ctxTrabajo = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE su acceso. Acaba de mandar una FOTO de un trabajo que hizo ella misma con el curso, o de los materiales que compro. NO es un problema ni soporte. Felicitala de corazon y con detalle, con la emocion de alguien que de verdad se alegra por ella. Luego pidele permiso para compartirlo como testimonio con otras alumnas. Cierra preguntandole que quiere aprender o mejorar ahora, para poder guiarla al siguiente curso del material que ya tiene. NUNCA le pidas comprobante ni datos de pago.]`;
+        const reply = await carol(history, ctxTrabajo + '\n\n(la clienta mando una foto de su trabajo)');
+        await sendAndSave(phone, reply);
+        await notifyJorge(contact,
+          `TRABAJO DE UNA ALUMNA (no es soporte, el bot sigue activo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nMando una foto de lo que hizo. Miralo en el panel, sirve como testimonio.`
+        );
+        return;
+      }
+
+      if (tipoImg === 'acceso') {
+        // Captura de Drive, de login de Google o de un error de permiso. Carol ya tiene todas
+        // las reglas correctas de acceso en su contexto, que responda ella en vez de callarse.
+        const history = db.getRecentMessages(phone, 8);
+        const packLabelAcc = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE'
+          : contact.pack_selected === 'oro' ? 'SUPERPACK ORO'
+          : contact.pack_selected === 'basico' ? 'PACK BASICO' : 'tu pack';
+        const ctxAcceso = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE ACCESO activo a ${packLabelAcc}. Correo registrado: ${contact.email || 'no registrado'}. Acaba de mandar una CAPTURA DE PANTALLA de un problema para entrar al material (puede ser Google Drive, una pantalla de inicio de sesion de Google, que le pide contraseña, "solicitud enviada", o un error de que no tiene acceso). Ayudala a resolverlo con pasos concretos y en orden, uno por mensaje. Lo mas comun y lo primero que debes revisar: que el celular tenga abierta la cuenta de Google correcta (la registrada), porque si tiene otra cuenta abierta Drive le niega el permiso. El segundo mas comun: que abrio el enlace dentro de WhatsApp, y ahi Google falla, tiene que abrirlo en Chrome. El acceso SOLO llega como enlace en este mismo chat, NUNCA por correo. NO le pidas comprobante ni datos de pago. Cierra preguntandole que ve exactamente en la pantalla para poder seguir ayudandola.]`;
+        const reply = await carol(history, ctxAcceso + '\n\n(la clienta mando una captura de un problema de acceso)');
+        await sendAndSave(phone, reply);
+        await notifyJorge(contact,
+          `PROBLEMA DE ACCESO (Carol esta atendiendo, el bot sigue activo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nCorreo: ${contact.email || 'no registrado'}\nMando una captura de que no puede entrar. Si ves que no avanza, entra tu al chat.`
+        );
+        return;
+      }
+
+      // 'comprobante' que no calzo como upgrade, u 'otro': se mantiene el comportamiento de antes.
       await sendAndSave(phone, 'Ya recibí tu mensaje. Un momento que te ayudo con eso. 🙏');
       db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
-      await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
+      await notifyJorge(contact, `SOPORTE POST-VENTA (envió imagen${tipoImg === 'comprobante' ? ' que parece un comprobante' : ''}):\nTel: ${phone}\nNombre: ${contact.name || '-'}`);
       return;
     }
     // Estado new o awaiting_choice: procesar comprobante directamente
