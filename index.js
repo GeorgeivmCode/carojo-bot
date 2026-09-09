@@ -153,7 +153,130 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (_req, res) => res.json({ ok: true, initialized }));
-app.get('/', (_req, res) => res.send('<!DOCTYPE html><html><head><meta name="facebook-domain-verification" content="clgru5a4p4a25bab2t5ose7aecavdz" /></head><body></body></html>'));
+// Paginas publicas (portada, privacidad, condiciones).
+// La portada existia solo para servir la etiqueta de verificacion de dominio de Meta y se veia en
+// blanco. Se convirtio en una portada real SIN tocar esa etiqueta: si se quita, se pierde la
+// verificacion de dominio en Brand Safety del Business Manager (ver memoria 29 mayo 2026).
+// Privacidad y condiciones se agregaron el 8 sep 2026 porque Google las exige para publicar la
+// pantalla de consentimiento y poder usar el boton de "Entrar con Google" en /acceso.
+const WA_PUBLICO = '+57 324 4971371';
+const CORREO_PUBLICO = 'george.camaras@gmail.com';
+
+function paginaPublica(titulo, cuerpo, extraHead = '') {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+${extraHead}
+<title>${titulo} - Carojo Aprende y Emprende</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff0f6;color:#333;line-height:1.6;padding:24px}
+.wrap{background:#fff;border-radius:20px;padding:32px 28px;max-width:760px;margin:0 auto;box-shadow:0 4px 24px rgba(233,100,168,.15)}
+.logo{width:96px;height:96px;object-fit:contain;display:block;margin:0 auto 16px}
+h1{font-size:24px;color:#1a1a1a;margin-bottom:6px;text-align:center}
+h2{font-size:17px;color:#1a1a1a;margin:26px 0 8px}
+p,li{font-size:15px;color:#555;margin-bottom:10px}
+ul{padding-left:22px}
+a{color:#e84c0e}
+.fecha{text-align:center;color:#999;font-size:13px;margin-bottom:8px}
+.nav{text-align:center;margin-top:28px;padding-top:18px;border-top:1px solid #f0e0e8;font-size:14px}
+.nav a{margin:0 8px}
+.cta{display:inline-block;background:#e84c0e;color:#fff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:600;margin-top:8px}
+</style>
+</head>
+<body><div class="wrap">
+<img class="logo" src="/logo.png" alt="Carojo Aprende y Emprende">
+${cuerpo}
+<div class="nav">
+  <a href="/">Inicio</a> ·
+  <a href="/privacidad">Privacidad</a> ·
+  <a href="/terminos">Condiciones</a> ·
+  <a href="/data-deletion">Eliminar mis datos</a>
+</div>
+</div></body></html>`;
+}
+
+app.get('/', (_req, res) => {
+  res.send(paginaPublica('Inicio', `
+<h1>Carojo Aprende y Emprende</h1>
+<p style="text-align:center">Cursos digitales de lettering, letra Timoteo y manualidades para emprender desde casa.</p>
+<h2>Que ensenamos</h2>
+<p>Vendemos cursos y cartillas en formato digital (PDF) para aprender lettering y letra Timoteo, marcado de cuadernos, moldes 3D, papeleria creativa y agendas personalizadas. Miles de mujeres en Colombia ya los usan para crear sus propios productos y venderlos.</p>
+<h2>Como funciona</h2>
+<p>La compra y la entrega se hacen por WhatsApp. Despues de confirmar tu pago te damos acceso a una carpeta personal de Google Drive con todo tu material, y el acceso queda registrado a tu cuenta de Google.</p>
+<h2>Escribenos</h2>
+<p>WhatsApp: <strong>${WA_PUBLICO}</strong><br>Correo: <a href="mailto:${CORREO_PUBLICO}">${CORREO_PUBLICO}</a></p>
+<p style="text-align:center"><a class="cta" href="https://wa.me/573244971371">Escribirnos por WhatsApp</a></p>
+`, '<meta name="facebook-domain-verification" content="clgru5a4p4a25bab2t5ose7aecavdz" />'));
+});
+
+app.get('/privacidad', (_req, res) => {
+  res.send(paginaPublica('Politica de Privacidad', `
+<h1>Politica de Privacidad</h1>
+<div class="fecha">Actualizada el 8 de septiembre de 2026</div>
+<p>Esta politica explica que datos recogemos en Carojo Aprende y Emprende, para que los usamos y como puedes pedir que los borremos. Somos un negocio colombiano que vende cursos digitales de lettering y manualidades por WhatsApp.</p>
+
+<h2>Que datos recogemos</h2>
+<ul>
+  <li><strong>Tu numero de WhatsApp y el nombre</strong> que tienes puesto en WhatsApp, porque por ahi se hace toda la compra y la entrega.</li>
+  <li><strong>Los mensajes de la conversacion</strong>, para poder atenderte y resolver dudas sobre tu compra.</li>
+  <li><strong>La imagen del comprobante de pago</strong> que nos envias, para confirmar la transferencia.</li>
+  <li><strong>Tu direccion de correo de Google</strong>, que es la llave con la que te damos acceso a tu carpeta de material.</li>
+</ul>
+
+<h2>Cuando entras con Google</h2>
+<p>Si usas el boton de "Entrar con Google" para activar tu acceso, Google nos comparte unicamente <strong>tu direccion de correo y tu nombre</strong>. Nada mas.</p>
+<p>No leemos tus correos, no vemos tus archivos, no accedemos a tus contactos ni a tu calendario, y no pedimos tu contrasena en ningun momento. Ese correo lo usamos solo para darte permiso de lectura sobre la carpeta de Google Drive con el material que compraste.</p>
+
+<h2>Para que usamos tus datos</h2>
+<ul>
+  <li>Confirmar tu pago y entregarte el material que compraste.</li>
+  <li>Darte soporte si tienes problemas para abrir o descargar tu carpeta.</li>
+  <li>Avisarte de novedades o promociones por WhatsApp. Si no las quieres, escribenos la palabra <strong>Salir</strong> y dejamos de enviarte mensajes.</li>
+  <li>Medir si nuestra publicidad funciona. Para esto compartimos con Meta (Facebook e Instagram) una version cifrada de tu telefono o tu correo, que no permite leer el dato original. No compartimos tus mensajes ni tus comprobantes.</li>
+</ul>
+
+<h2>Con quien los compartimos</h2>
+<p>No vendemos tus datos a nadie. Solo los tratan los servicios que necesitamos para operar: Google (para darte acceso a tu carpeta de Drive), Meta (para el envio de mensajes de WhatsApp y la medicion de publicidad) y los servidores donde funciona nuestro sistema.</p>
+
+<h2>Cuanto tiempo los guardamos</h2>
+<p>Guardamos tu compra y tu acceso mientras tengas el material, porque el acceso es de por vida. Puedes pedirnos que borremos todo cuando quieras.</p>
+
+<h2>Como pedir que borremos tus datos</h2>
+<p>Escribenos por WhatsApp al <strong>${WA_PUBLICO}</strong> con el mensaje "Eliminar mis datos", o al correo <a href="mailto:${CORREO_PUBLICO}">${CORREO_PUBLICO}</a>. Lo resolvemos en maximo 30 dias. Ten en cuenta que al borrar tus datos tambien se quita tu acceso a la carpeta del material. Puedes ver el detalle en <a href="/data-deletion">esta pagina</a>.</p>
+
+<h2>Contacto</h2>
+<p>Carojo Aprende y Emprende<br>WhatsApp: <strong>${WA_PUBLICO}</strong><br>Correo: <a href="mailto:${CORREO_PUBLICO}">${CORREO_PUBLICO}</a></p>
+`));
+});
+
+app.get('/terminos', (_req, res) => {
+  res.send(paginaPublica('Condiciones del Servicio', `
+<h1>Condiciones del Servicio</h1>
+<div class="fecha">Actualizadas el 8 de septiembre de 2026</div>
+<p>Estas condiciones aplican a la compra de los cursos digitales de Carojo Aprende y Emprende.</p>
+
+<h2>Que estas comprando</h2>
+<p>Cursos y cartillas en formato digital (PDF y plantillas) para aprender lettering, letra Timoteo y manualidades. Es material descargable: no se envia nada fisico a tu casa.</p>
+
+<h2>Como se entrega</h2>
+<p>Despues de confirmar tu pago te pedimos tu correo de Google y te damos acceso de lectura a una carpeta de Google Drive con tu material. El enlace te llega por WhatsApp, en la misma conversacion donde hiciste la compra. El acceso queda registrado a esa cuenta de Google y es de por vida.</p>
+
+<h2>Uso personal</h2>
+<p>El acceso es personal y no se puede transferir. Puedes usar lo que aprendes para crear y vender tus propios productos, eso es justamente para lo que existe el curso. Lo que no esta permitido es revender, regalar, publicar o compartir los archivos del curso ni el enlace de acceso. Si detectamos que un acceso se esta compartiendo, podemos retirarlo.</p>
+
+<h2>Pagos</h2>
+<p>Los precios estan en pesos colombianos y se pagan por transferencia (Nequi, Daviplata, Bre-B o corresponsal bancario) a las cuentas que te indicamos en la conversacion. Verificamos cada comprobante antes de entregar el material.</p>
+
+<h2>Si algo sale mal</h2>
+<p>Si tienes cualquier problema con tu compra o no logras abrir tu carpeta, escribenos por WhatsApp al <strong>${WA_PUBLICO}</strong> y lo resolvemos contigo.</p>
+
+<h2>Contacto</h2>
+<p>Carojo Aprende y Emprende<br>WhatsApp: <strong>${WA_PUBLICO}</strong><br>Correo: <a href="mailto:${CORREO_PUBLICO}">${CORREO_PUBLICO}</a></p>
+`));
+});
 
 // Endpoint requerido por Meta para eliminacion de datos de usuario
 app.get('/data-deletion', (_req, res) => {
