@@ -666,6 +666,7 @@ app.get('/api/contacts', adminAuth, (req, res) => {
   if (tag)                  return res.json(db.getContactsByTag(tag));
   if (filter === 'unread')  return res.json(db.getUnreadContacts());
   if (filter === 'today')   return res.json(db.getContactsToday());
+  if (filter === 'pendientes') return res.json(db.getPendientes());
   if (date)                 return res.json(db.getContactsByDate(date));
   res.json(db.getAllContacts());
 });

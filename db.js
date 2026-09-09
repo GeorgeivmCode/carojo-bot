@@ -180,6 +180,37 @@ function getContactsToday() {
   `).all();
 }
 
+// Lista de tareas pendientes del panel. Dos grupos que necesitan accion manual de Jorge:
+//   1. Ya pagaron y nunca dieron el correo (awaiting_email sin entrega). Ahi estaban las 10
+//      clientas que se perdieron en silencio, ~$90.000 COP en 45 dias (ver sesion 8 sep 2026).
+//   2. Clientes antiguos sin restaurar. El boton "Restaurar acceso" pasa el contacto a
+//      'delivered', asi que quien siga en 'old_client' es exactamente el que falta atender.
+// Orden al REVES que el resto del panel: el que lleva mas tiempo esperando va primero, porque
+// esto es una lista de pendientes y lo mas viejo es lo mas urgente.
+// Para los de awaiting_email se usa awaiting_email_at (cuando quedo esperando el correo) y si
+// esta vacio, o para los old_client, cae a last_message_at.
+// COALESCE en tag y delivered_at a proposito: en SQL una comparacion contra NULL da NULL, no
+// verdadero, asi que un contacto con esos campos nulos se caeria de la lista SIN AVISO. En una
+// lista de pendientes esconder a alguien en silencio es el peor fallo posible.
+const SQL_PENDIENTES = `
+  SELECT * FROM contacts
+  WHERE COALESCE(tag, '') != 'Prueba'
+  AND (
+    (state = 'awaiting_email' AND COALESCE(delivered_at, '') = '')
+    OR state = 'old_client'
+  )
+`;
+
+function getPendientes() {
+  return db.prepare(SQL_PENDIENTES + `
+    ORDER BY COALESCE(NULLIF(awaiting_email_at, ''), last_message_at) ASC
+  `).all();
+}
+
+function countPendientes() {
+  return db.prepare(`SELECT COUNT(*) as n FROM (${SQL_PENDIENTES})`).get().n;
+}
+
 function getContactsByDate(dateStr) {
   return db.prepare(`
     SELECT DISTINCT c.* FROM contacts c
@@ -314,7 +345,8 @@ function getStats() {
     awaiting:            db.prepare("SELECT COUNT(*) as n FROM contacts WHERE state = 'awaiting_comprobante'").get().n,
     active:              db.prepare("SELECT COUNT(*) as n FROM contacts WHERE bot_active = 1 AND state NOT IN ('delivered','stopped')").get().n,
     today_conversations: db.prepare("SELECT COUNT(*) as n FROM contacts WHERE date(created_at, '-5 hours') = date('now', '-5 hours')").get().n,
-    today_sales:         db.prepare("SELECT COUNT(*) as n FROM contacts WHERE delivered_at != '' AND date(delivered_at, '-5 hours') = date('now', '-5 hours') AND tag != 'Prueba'").get().n
+    today_sales:         db.prepare("SELECT COUNT(*) as n FROM contacts WHERE delivered_at != '' AND date(delivered_at, '-5 hours') = date('now', '-5 hours') AND tag != 'Prueba'").get().n,
+    pendientes:          countPendientes()
   };
 }
 
@@ -371,6 +403,7 @@ function getAdminActions(phone, limit = 100) {
 module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
+  getPendientes, countPendientes,
   saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
   getContactsForR1, getContactsForR2, getStuckAwaitingEmail,
   getStats, getSetting, setSetting, now,
