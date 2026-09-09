@@ -494,19 +494,27 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       // Ahora se mira la imagen antes de decidir. Si la clasificacion falla devuelve 'otro',
       // que es exactamente el comportamiento viejo, asi que un error nunca empeora las cosas.
       let tipoImg = 'otro';
+      let descImg = '';
       try {
         const parsedImg = JSON.parse(content);
         if (parsedImg.buffer) {
-          tipoImg = await clasificarImagenPostVenta(Buffer.from(parsedImg.buffer, 'base64'), parsedImg.mimeType);
+          const cls = await clasificarImagenPostVenta(Buffer.from(parsedImg.buffer, 'base64'), parsedImg.mimeType);
+          tipoImg = cls.tipo;
+          descImg = cls.descripcion || '';
         }
       } catch (e) { console.error(`Imagen post-venta ilegible [${phone}]:`, e.message); }
-      console.log(`Imagen post-venta [${phone}]: tipo=${tipoImg}`);
+      console.log(`Imagen post-venta [${phone}]: tipo=${tipoImg} desc="${descImg}"`);
+      // Lo que Carol necesita saber para no responder a ciegas: QUE muestra la imagen.
+      // Sin esto (8 sep 2026, Mary 573171594370) la clienta mando una captura de su Gmail
+      // redactando un correo y Carol le pidio revisar la Play Store, cuando lo que hacia falta
+      // era sacarla del Gmail y mandarla al enlace del chat.
+      const loQueMuestra = descImg ? `\nEn la imagen se ve: ${descImg}.` : '';
 
       if (tipoImg === 'trabajo') {
         // Clienta feliz mostrando lo que hizo. No es soporte: se le celebra, el bot sigue
         // encendido, y se le pide permiso para usarlo como testimonio.
         const history = db.getRecentMessages(phone, 8);
-        const ctxTrabajo = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE su acceso. Acaba de mandar una FOTO de un trabajo que hizo ella misma con el curso, o de los materiales que compro. NO es un problema ni soporte. Felicitala de corazon y con detalle, con la emocion de alguien que de verdad se alegra por ella. Luego pidele permiso para compartirlo como testimonio con otras alumnas. Cierra preguntandole que quiere aprender o mejorar ahora, para poder guiarla al siguiente curso del material que ya tiene. NUNCA le pidas comprobante ni datos de pago.]`;
+        const ctxTrabajo = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE su acceso. Acaba de mandar una FOTO de un trabajo que hizo ella misma con el curso, o de los materiales que compro.${loQueMuestra} NO es un problema ni soporte. Felicitala de corazon y con detalle, con la emocion de alguien que de verdad se alegra por ella. Luego pidele permiso para compartirlo como testimonio con otras alumnas. Cierra preguntandole que quiere aprender o mejorar ahora, para poder guiarla al siguiente curso del material que ya tiene. NUNCA le pidas comprobante ni datos de pago.]`;
         const reply = await carol(history, ctxTrabajo + '\n\n(la clienta mando una foto de su trabajo)');
         await sendAndSave(phone, reply);
         await notifyJorge(contact,
@@ -522,7 +530,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         const packLabelAcc = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE'
           : contact.pack_selected === 'oro' ? 'SUPERPACK ORO'
           : contact.pack_selected === 'basico' ? 'PACK BASICO' : 'tu pack';
-        const ctxAcceso = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE ACCESO activo a ${packLabelAcc}. Correo registrado: ${contact.email || 'no registrado'}. Acaba de mandar una CAPTURA DE PANTALLA de un problema para entrar al material (puede ser Google Drive, una pantalla de inicio de sesion de Google, que le pide contraseña, "solicitud enviada", o un error de que no tiene acceso). Ayudala a resolverlo con pasos concretos y en orden, uno por mensaje. Lo mas comun y lo primero que debes revisar: que el celular tenga abierta la cuenta de Google correcta (la registrada), porque si tiene otra cuenta abierta Drive le niega el permiso. El segundo mas comun: que abrio el enlace dentro de WhatsApp, y ahi Google falla, tiene que abrirlo en Chrome. El acceso SOLO llega como enlace en este mismo chat, NUNCA por correo. NO le pidas comprobante ni datos de pago. Cierra preguntandole que ve exactamente en la pantalla para poder seguir ayudandola.]`;
+        const ctxAcceso = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE ACCESO activo a ${packLabelAcc}. Correo registrado: ${contact.email || 'no registrado'}. Acaba de mandar una CAPTURA DE PANTALLA de un problema para entrar al material (puede ser Google Drive, una pantalla de inicio de sesion de Google, que le pide contraseña, "solicitud enviada", o un error de que no tiene acceso).${loQueMuestra} Ayudala a resolverlo con pasos concretos y en orden, uno por mensaje. Lo mas comun y lo primero que debes revisar: que el celular tenga abierta la cuenta de Google correcta (la registrada), porque si tiene otra cuenta abierta Drive le niega el permiso. El segundo mas comun: que abrio el enlace dentro de WhatsApp, y ahi Google falla, tiene que abrirlo en Chrome. El acceso SOLO llega como enlace en este mismo chat, NUNCA por correo. Si la imagen muestra que esta metida en su Gmail o buscando un correo, lo PRIMERO que debes hacer es sacarla de ahi con cariño: explicarle que ahi no hay nada que buscar y llevarla al mensaje del chat que tiene el enlace de su carpeta. NO le pidas comprobante ni datos de pago. Cierra preguntandole que ve exactamente en la pantalla para poder seguir ayudandola.]`;
         const reply = await carol(history, ctxAcceso + '\n\n(la clienta mando una captura de un problema de acceso)');
         await sendAndSave(phone, reply);
         await notifyJorge(contact,
@@ -1284,7 +1292,15 @@ async function handleEmail(contact, emailText) {
     // Todo lo demás (deferral, confusión, preguntas, etc.) → Carol con historial completo
     // Contexto invisible: recordarle a Carol que la clienta ya pagó y solo necesita el Gmail
     const history = db.getRecentMessages(phone, 8);
-    const ctxEmail = '[CONTEXTO INTERNO: Esta clienta YA PAGÓ su pack. Está en el paso final de dar su Gmail para recibir el acceso. NO ofrezcas packs ni preguntes qué pack quiere. Solo ayúdala a conseguir o escribir su correo Gmail.]';
+    // La regla del correo tiene que estar TAMBIEN aqui, no solo en el contexto post-entrega.
+    // Caso real 8 sep 2026 (Mary, 573171594370): en este punto exacto Carol improviso "tu carpeta
+    // personal con TODO el material llega al Gmail que me des", la clienta se fue a buscarla a su
+    // Gmail y termino en la pantalla de redactar un correo. Es el mismo error del 14-15 jul, que se
+    // habia corregido solo en ctxDelivered y dejo esta ventana sin cubrir.
+    const ctxEmail = '[CONTEXTO INTERNO: Esta clienta YA PAGÓ su pack. Está en el paso final de dar su Gmail. NO ofrezcas packs ni preguntes qué pack quiere. Solo ayúdala a conseguir o escribir su correo Gmail.\n' +
+      'VERDAD QUE NUNCA PUEDES CONTRADECIR: a su correo NO le va a llegar absolutamente nada. El Gmail es solo la LLAVE con la que Google Drive la deja abrir su carpeta. El enlace de la carpeta se lo mandamos por WhatsApp, en este mismo chat, apenas nos dé el correo.\n' +
+      'PROHIBIDO decirle que el material, la carpeta, el acceso o el enlace le llegan al correo o al Gmail. PROHIBIDO mandarla a revisar su bandeja de entrada, su spam o sus promociones. Si te pregunta si le llega al correo, aclárale que no, que le llega aquí mismo en el chat.\n' +
+      'Si no sabe cuál es su Gmail o dice que no tiene, guíala a ENCONTRAR el que ya tiene: abrir la Play Store y tocar su foto arriba a la derecha, o entrar a Ajustes y buscar Cuentas de Google. Casi todas ya tienen uno porque el celular Android lo exige.]';
     const reply = await carol(history, ctxEmail + '\n\nMensaje de la clienta: ' + emailText);
     await sendAndSave(phone, reply);
     return;
@@ -1821,11 +1837,40 @@ const AI_ADMISSION_PATTERNS = [
   /modelo de lenguaje/i, /asistente virtual/i, /inteligencia artificial/i
 ];
 
+// CANDADO: nunca prometerle a una clienta que el material le llega por correo.
+// Nada le llega al correo: el Gmail es solo la llave con la que Drive la deja abrir su carpeta,
+// y el enlace se manda por WhatsApp. Esta prohibicion ya estaba en el prompt de Carol desde el
+// 14 jul y aun asi volvio a inventarlo el 8 sep (Mary, 573171594370: "tu carpeta personal con
+// TODO el material llega al Gmail que me des"), y la clienta se fue a buscarla a su Gmail.
+// Leccion ya documentada: una regla lexica simple hay que garantizarla con codigo, no solo
+// pidiendosela al modelo. Mismo patron que la admision de ser IA: se reemplaza el mensaje entero.
+const FALSE_EMAIL_DELIVERY_PATTERNS = [
+  /revisa(r|s)?\s+(tu|el|su)\s+(correo|gmail|bandeja|spam|buz[oó]n)/i,
+  /(bandeja de entrada|correo no deseado|carpeta de spam)/i,
+  /(llega|llegar[aá]|lleg[oó]|llegan|enviamos|enviaremos|enviad[oa]|mandamos|mandaremos|te\s+lo\s+envi)[^.!?\n]{0,45}\b(al|a\s+tu|a\s+su|en\s+tu|en\s+su)\s+(correo|gmail|bandeja|buz[oó]n)/i,
+  /(carpeta|material|acceso|enlace|link|pack|curso)[^.!?\n]{0,60}\b(llega|llegar[aá]|llegan|te\s+llega)[^.!?\n]{0,25}\b(correo|gmail|bandeja)/i
+];
+
+const EMAIL_DELIVERY_CORRECTION_MSG = `Ojo con esto, que es importante 📲
+
+Tu material no se manda por correo electronico. El enlace de tu carpeta te lo paso *aqui mismo, en este chat de WhatsApp*.
+
+🔑 Tu Gmail solo sirve como llave para poder abrir la carpeta.
+
+Mira arriba en esta conversacion el mensaje que dice "Tu carpeta personal" y toca ese enlace. Si no lo encuentras o no te abre, escribeme y lo resolvemos ya mismo 💛`;
+
 function sanitizeOutboundText(text) {
   if (typeof text !== 'string' || !text) return text;
 
   if (AI_ADMISSION_PATTERNS.some(p => p.test(text))) {
     return BOT_ADMISSION_MSG;
+  }
+
+  const patronCorreo = FALSE_EMAIL_DELIVERY_PATTERNS.find(p => p.test(text));
+  if (patronCorreo) {
+    console.error('BLOQUEADO mensaje que prometia entrega por correo. Texto original: ' +
+      JSON.stringify(text.slice(0, 300)));
+    return EMAIL_DELIVERY_CORRECTION_MSG;
   }
 
   let clean = text.replace(/[—–]/g, ',');

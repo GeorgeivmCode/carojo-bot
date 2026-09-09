@@ -122,13 +122,19 @@ const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 Quedo atenta a tu comprobante por aqui. 📲`;
 
+// OJO con la redaccion de este mensaje. La version vieja decia "A que *Gmail* te lo enviamos?",
+// y eso hacia entender que el material llegaba al correo. Caso real 8 sep 2026 (Mary,
+// 573171594370): pago, dio su correo, y se fue a buscar la carpeta a su Gmail hasta terminar en la
+// pantalla de redactar un correo. Aqui se explica de una que el Gmail es solo la LLAVE y que el
+// enlace llega por este chat.
 const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Pago recibido. 🎉
 
-Para activarte el acceso solo necesito tu correo Gmail. Te doy acceso a tu carpeta personal y te mando el enlace aqui mismo por WhatsApp.
+Ahora necesito tu correo *Gmail*. Te cuento rapido para que es:
 
-📧 A que *Gmail* te lo enviamos? (debe terminar en @gmail.com) 💌
+🔑 Tu Gmail es la *llave* que abre tu carpeta. Nada te va a llegar a ese correo.
+📲 El enlace de tu material te lo paso *aqui mismo, en este chat*.
 
-Escribenos el Gmail que usas a diario, el acceso queda registrado a ese correo.`;
+Escribeme tu Gmail, el que usas a diario y termina en @gmail.com, y te activo el acceso al instante 💛`;
 
 const DELIVERY_BASICO = `Hola! 🎉✨
 
@@ -392,12 +398,28 @@ function deliveryMessage(pack, accessUrl, email) {
     const driveUrl = DRIVE_URLS_FOR_DELIVERY[pack] || DRIVE_URLS_FOR_DELIVERY.basico;
     msg = msg.replace(driveUrl, accessUrl);
   }
-  if (email) {
-    msg = msg.replace(
-      '⚠️ Abrelo con el correo que nos diste. El acceso esta registrado a tu nombre.',
-      `⚠️ Importante: en tu celular revisa que la cuenta activa en Gmail o Drive sea *${email}* antes de abrir el enlace. Si tienes otro correo abierto, cambia de cuenta primero (toca tu foto de perfil en la app y selecciona ${email}).`
-    );
-  }
+  // Instrucciones paso a paso, cortas y numeradas. Antes era un solo parrafo largo y las
+  // clientas no lo seguian: 30 de 687 entregas de 45 dias terminaron en soporte diciendo que
+  // no podian abrir o descargar (8 sep 2026). Las 2 causas reales, en orden, estan aqui:
+  // tener otra cuenta de Google abierta, y haber tocado el enlace dentro de WhatsApp.
+  const pasos = email
+    ? `📲 *Como abrirlo, paso a paso:*
+
+1️⃣ Toca el enlace de arriba
+2️⃣ Toca el boton naranja que aparece
+3️⃣ Si te dice que necesitas permiso, es porque tienes otra cuenta de Google abierta. Toca tu foto arriba a la derecha, cambia a *${email}* y vuelve a entrar
+
+💡 Si lo abriste desde aqui y no te deja, abrelo en Chrome: toca los tres puntitos de arriba y elige "Abrir en el navegador".
+
+❗ Recuerda: a tu correo no te va a llegar nada. Todo esta en el enlace de arriba.`
+    : `📲 *Como abrirlo:* toca el enlace de arriba y luego el boton naranja. Abrelo con el mismo correo de Google que nos diste.
+
+❗ Recuerda: a tu correo no te va a llegar nada. Todo esta en el enlace de arriba.`;
+
+  msg = msg.replace(
+    '⚠️ Abrelo con el correo que nos diste. El acceso esta registrado a tu nombre.',
+    pasos
+  );
   return msg;
 }
 

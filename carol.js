@@ -1039,7 +1039,7 @@ async function clasificarImagenPostVenta(imageBuffer, mimeType) {
   try {
     const res = await withRetry(() => client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 30,
+      max_tokens: 120,
       temperature: 0,
       messages: [{
         role: 'user',
@@ -1064,17 +1064,21 @@ Suele notarse por la iluminacion irregular, las sombras, el fondo de una mesa o 
 
 Si dudas entre dos, responde "otro".
 
-Responde UNICAMENTE con JSON: {"tipo": "trabajo"} o {"tipo": "acceso"} o {"tipo": "comprobante"} o {"tipo": "otro"}`
+Ademas de la categoria, describe en UNA frase corta y concreta que se ve en la imagen, para que quien atienda a la clienta sepa exactamente que le esta mostrando. Ejemplos de descripcion: "pantalla de Gmail redactando un correo nuevo", "carpeta de Drive con las cartillas del curso", "error de Google que dice que no tiene acceso a la pagina", "hoja con lettering hecho a mano y marcadores encima", "pantalla de Google pidiendo la contrasena de la cuenta".
+
+Responde UNICAMENTE con JSON, sin texto adicional:
+{"tipo": "trabajo|acceso|comprobante|otro", "descripcion": "que se ve, en una frase corta"}`
         }]
       }]
     }), 'clasificarImagenPostVenta');
     const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(raw);
-    const tipo = parsed.tipo;
-    return ['trabajo', 'acceso', 'comprobante'].includes(tipo) ? tipo : 'otro';
+    const tipo = ['trabajo', 'acceso', 'comprobante'].includes(parsed.tipo) ? parsed.tipo : 'otro';
+    const descripcion = typeof parsed.descripcion === 'string' ? parsed.descripcion.slice(0, 200) : '';
+    return { tipo, descripcion };
   } catch (e) {
     console.error('clasificarImagenPostVenta error:', e.message);
-    return 'otro';
+    return { tipo: 'otro', descripcion: '' };
   }
 }
 
