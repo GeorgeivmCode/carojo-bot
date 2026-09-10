@@ -33,7 +33,7 @@ const {
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
   deliveryMessage,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
-  NEQUI_DOWN_TRIGGERS, WELCOME_IMAGE
+  NEQUI_DOWN_TRIGGERS, WELCOME_IMAGE, WELCOME_IMAGE_CAPTION
 } = require('./content');
 
 async function checkNequiStatus() {
@@ -826,8 +826,10 @@ async function handleNew(contact, text) {
     // sale igual: la bienvenida nunca se puede quedar a medias.
     await sendAndSave(phone, WELCOME_MESSAGE[0]);
     try {
-      await sendImage(phone, WELCOME_IMAGE);
-      db.saveMessage(phone, 'out', 'image', WELCOME_IMAGE, '');
+      // Con pie de foto que la presenta como una muestra, y guardando el id de WhatsApp para que el
+      // panel le muestre los chulitos de entregado/leido como a los demas mensajes
+      const wamidFoto = await sendImage(phone, WELCOME_IMAGE, WELCOME_IMAGE_CAPTION);
+      db.saveMessage(phone, 'out', 'image', WELCOME_IMAGE, wamidFoto || '');
     } catch (e) { console.error(`Foto de bienvenida no enviada [${phone}]:`, e.message); }
     await sendAndSave(phone, WELCOME_MESSAGE[1]);
     db.updateContact(phone, { state: 'awaiting_choice' });
