@@ -86,6 +86,8 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN molesta_avisada INTEGER DEFAULT 0
 // Cuando se deshace una entrega (accion "liberar venta"), la compra ya se reporto a Meta: la
 // siguiente entrega de ese contacto no debe reportarla de nuevo.
 try { db.exec(`ALTER TABLE contacts ADD COLUMN capi_omitir_proxima INTEGER DEFAULT 0`); } catch (_) {}
+// Pregunta "Pudiste abrir tu material?" a los 30 min de la entrega (reemplaza el upsell de los 2 min)
+try { db.exec(`ALTER TABLE contacts ADD COLUMN check_acceso_sent INTEGER DEFAULT 0`); } catch (_) {}
 
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
@@ -313,6 +315,42 @@ function getContactsForR1() {
   `).all(cutoff);
 }
 
+// Eligieron Basico u Oro, recibieron la oferta de subir de pack y llevan 10 min sin contestar.
+// Se les mandan los datos del pack que eligieron. Solo entre los 10 y 35 minutos: despues le toca
+// al R1, que ahora tambien lleva los datos de su pack (asi a las 7am no les llegan dos mensajes).
+function getStuckInUpsell() {
+  const hace10 = new Date(Date.now() - 10 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  const hace35 = new Date(Date.now() - 35 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  return db.prepare(`
+    SELECT * FROM contacts
+    WHERE state IN ('offered_basico', 'offered_oro')
+    AND pack_selected IN ('basico', 'oro')
+    AND bot_active = 1
+    AND r1_sent = 0
+    AND last_message_at != ''
+    AND last_message_at < ?
+    AND last_message_at > ?
+  `).all(hace10, hace35);
+}
+
+// Entregadas hace entre 30 min y 10 horas a las que todavia no se les pregunto si pudieron abrir.
+// El tope de 10h evita que al desplegar le llegue la pregunta a todas las compradoras viejas, y
+// cubre a quien compro de noche (el programador no manda nada entre las 11pm y las 7am).
+function getForCheckAcceso() {
+  const hace30 = new Date(Date.now() - 30 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  const hace10h = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  return db.prepare(`
+    SELECT * FROM contacts
+    WHERE state = 'delivered'
+    AND bot_active = 1
+    AND check_acceso_sent = 0
+    AND COALESCE(tag, '') != 'Prueba'
+    AND delivered_at != ''
+    AND delivered_at < ?
+    AND delivered_at > ?
+  `).all(hace30, hace10h);
+}
+
 function getContactsForR2() {
   const cutoff = new Date(Date.now() - 11 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
   // awaiting_email y awaiting_upgrade_comprobante quedan afuera tambien: ahi el cliente YA pago,
@@ -416,7 +454,7 @@ module.exports = {
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
   getPendientes, countPendientes,
   saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
-  getContactsForR1, getContactsForR2, getStuckAwaitingEmail,
+  getContactsForR1, getContactsForR2, getStuckAwaitingEmail, getStuckInUpsell, getForCheckAcceso,
   getStats, getSetting, setSetting, now,
   markGolden, getGoldenExamples,
   saveHotmartEvent, markHotmartEventCapiSent, getHotmartEvents,

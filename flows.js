@@ -33,7 +33,7 @@ const {
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
   deliveryMessage,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
-  NEQUI_DOWN_TRIGGERS
+  NEQUI_DOWN_TRIGGERS, WELCOME_IMAGE
 } = require('./content');
 
 async function checkNequiStatus() {
@@ -821,7 +821,15 @@ async function handleNew(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante' });
     await sendAndSave(phone, SEND_COMPROBANTE_MSG);
   } else {
-    await sendAndSave(phone, WELCOME_MESSAGE);
+    // Bienvenida con foto del material en medio (10 sep 2026): intro, foto, y el menu al final
+    // para que la pregunta de elegir pack quede como lo ultimo que ve. Si la foto falla, el menu
+    // sale igual: la bienvenida nunca se puede quedar a medias.
+    await sendAndSave(phone, WELCOME_MESSAGE[0]);
+    try {
+      await sendImage(phone, WELCOME_IMAGE);
+      db.saveMessage(phone, 'out', 'image', WELCOME_IMAGE, '');
+    } catch (e) { console.error(`Foto de bienvenida no enviada [${phone}]:`, e.message); }
+    await sendAndSave(phone, WELCOME_MESSAGE[1]);
     db.updateContact(phone, { state: 'awaiting_choice' });
   }
 }
@@ -948,6 +956,14 @@ function esSoloRechazo(text) {
   const limpio = String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
   return /^(no|nop|nope|negativo|paso)( (gracias|muchas gracias|mil gracias|por ahora|por el momento|senora|amiga|asi estoy bien|estoy bien asi))*$/.test(limpio);
+}
+
+// Respuesta corta afirmativa a "Pudiste abrir tu material?" ("si", "si gracias", "ya pude").
+// Despues de una pregunta de si/no un "si" corto no es ambiguo; lo largo lo decide el revisor.
+function esAfirmacionCorta(text) {
+  const limpio = String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(s+i+|ya|claro|listo|ok|okey|perfecto|excelente|genial|todo bien|gracias|muchas gracias|mil gracias|ya pude|si pude|ya abri|ya entre|ya me abrio|si ya|ya si|si senora|si senor)( (gracias|muchas gracias|mil gracias|ya pude|todo bien|perfecto|senora|amiga|pude|ya|claro|excelente))*$/.test(limpio);
 }
 
 // ¿Ya tiene su enlace de acceso para esta compra? Cuenta el que manda el bot y tambien el que
@@ -1428,19 +1444,9 @@ async function deliverPack(contact, email) {
     } catch (e) { console.error(`Regalo no enviado [${phone}]:`, e.message); }
   }
 
-  // Upsell post-entrega — solo para basico y oro, 2 minutos despues
-  if (pack !== 'diamante') {
-    setTimeout(async () => {
-      try {
-        const fresh = db.getContact(phone);
-        if (fresh && fresh.state === 'delivered' && !fresh.upsell_sent) {
-          const msg = pack === 'basico' ? UPSELL_BASICO : UPSELL_ORO;
-          await sendAndSave(phone, msg);
-          db.updateContact(phone, { upsell_sent: 1 });
-        }
-      } catch (e) { console.error('Upsell error:', e.message); }
-    }, 2 * 60 * 1000);
-  }
+  // La oferta de subir de pack ya NO sale a los 2 minutos (1 de 113 subio en 20 dias, llegaba
+  // antes de que abrieran el material). Ahora el programador pregunta a los 30 min si pudo abrir
+  // (CHECK_ACCESO_MSG) y la oferta sale en handlePostDelivery cuando responde que si.
 
   return { ok: true, folderId: driveFolderId, pack };
 }
@@ -1470,6 +1476,20 @@ async function handlePostDelivery(contact, text) {
     return;
   }
 
+  // 10 sep 2026: la oferta de subir de pack sale cuando responde que SI pudo abrir su material a la
+  // pregunta de los 30 min ("Pudiste abrir tu material?"), ya no a los 2 min de la entrega.
+  const recentPost = db.getRecentMessages(phone, 6);
+  const ultimoBotPost = recentPost.filter(m => m.direction === 'out').pop();
+  const respondeCheck = !!contact.check_acceso_sent && !contact.upsell_sent &&
+    ['basico', 'oro'].includes(contact.pack_selected) && !!ultimoBotPost &&
+    String(ultimoBotPost.content || '').includes('Pudiste abrir tu material');
+  const mandarUpsellTrasCheck = async () => {
+    await sendAndSave(phone, contact.pack_selected === 'basico' ? UPSELL_BASICO : UPSELL_ORO);
+    db.updateContact(phone, { upsell_sent: 1 });
+    console.log(`Upsell tras confirmar que abrio [${phone}] pack=${contact.pack_selected}`);
+  };
+  if (respondeCheck && esAfirmacionCorta(text)) { await mandarUpsellTrasCheck(); return; }
+
   // Revisor con contexto (10 sep 2026): antes de cualquier otra regla de post-entrega se mira si la
   // clienta dice que no puede abrir su material, o si esta claramente molesta. Solo se salta con
   // cierres de una palabra ("gracias", "ok") para no gastar una consulta en eso.
@@ -1481,6 +1501,10 @@ async function handlePostDelivery(contact, text) {
     if (clsPost.molesta) {
       notaMolesta = NOTA_CLIENTA_MOLESTA;
       await avisarClientaMolesta(contact, text, 'ya entregada');
+    }
+    if (respondeCheck && clsPost.ya_abrio && !clsPost.no_puede_abrir && !clsPost.molesta) {
+      await mandarUpsellTrasCheck();
+      return;
     }
     if (clsPost.no_puede_abrir) {
       // Caso Alexandra 573244127150: dijo que no podia abrir y Carol le respondio "mira arriba",

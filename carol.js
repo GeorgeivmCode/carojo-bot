@@ -291,48 +291,33 @@ Carol: "Excelente eleccion!..." [WRONG — la clienta pregunto, no eligio]
 SCRIPTS EXACTOS POR OPCION:
 
 CUANDO EL CLIENTE ELIGE DIAMANTE (opcion 1 / $15.000):
-"🚀 ¡Excelente elección! Esta es, sin duda, la MEJOR opción.
-Es un verdadero arsenal para emprender.
+"🚀 Excelente elección! Es el pack más completo y el más vendido 💎
 
-💎✨ 💎✨ 💎✨ 💎✨ 💎✨
-💎 MEGA PACK DIAMANTE 💎
-💎✨ 💎✨ 💎✨ 💎✨ 💎✨
-(Precio Promo: $15.000)
+*MEGA PACK DIAMANTE* (precio promo: $15.000)
 
-Incluye los 5 CURSOS COMPLETOS:
-✔ 1. Curso de Lettering y Letra Timoteo
-✔ 2. Curso de Marcado de Cuadernos
-✔ 3. Curso de Moldes 3D (Cajas, Flores, Letras)
-✔ 4. Pack Papelería Creativa
-✔ 5. Pack Agendas Personalizadas
+📚 *5 cursos completos:*
+1. Lettering y Letra Timoteo
+2. Marcado de Cuadernos
+3. Moldes 3D (cajas, flores y letras)
+4. Papelería Creativa
+5. Agendas Personalizadas
 
-✨ Y ahora, mira todos los REGALOS que se activan GRATIS ✨
+🎁 *11 bonos de regalo:*
+• 85.000 diseños editables en Canva para fiestas y eventos
+• 6 regalos premium: +130 moldes de cajas, flores de papel, kits escolares, libritos para colorear, invitaciones editables y pizarras
+• 3 bonos de agendas: 100 diseños para cuadros, 50 plantillas de Bullet Journal y guía de productividad
+• 500 dibujos para colorear
 
-🎁 BONO 1: El Pack de Papelería Creativa
-¡Más de 85.000 diseños editables en Canva! Listos para usar en fiestas, eventos y celebraciones.
-
-🎁 BONO 2: Los 6 Regalos Premium Exclusivos
-  1. +130 moldes de cajas exclusivas
-  2. Flores de papel editables
-  3. Kits escolares + etiquetas
-  4. Libritos para colorear + cajitas
-  5. Invitaciones editables (Canva/PPT)
-  6. Pizarras y plantillas creativas
-
-🎁 BONO 3: Bonos del Pack de Agendas
-  1. 100 Diseños para Cuadros Fotográficos
-  2. 50 Plantillas de Bullet Journal
-  3. Guía de Productividad + Intro a PowerPoint
-
-🎁 BONO 4: ¡500 Dibujos para Colorear!
-
-¡Es acceso de por vida a todo! 🎉
-
-Para asegurar tu MEGA PACK DIAMANTE, puedes enviar tu pago de $15.000 a nuestras cuentas autorizadas:
+Todo es tuyo de por vida 🎉
+---SPLIT---
+Para asegurar tu MEGA PACK DIAMANTE envía $15.000 a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 
-Quedo atenta a tu comprobante por aquí. 📲🚀"
+📲 Apenas me mandes la foto del comprobante lo verifico al instante y te paso aquí mismo el acceso a tu carpeta.
+💻 Es 100% digital: lo descargas e imprimes cuando quieras, y es tuyo para siempre.
+
+Quedo atenta a tu comprobante por aquí 🚀"
 
 CUANDO EL CLIENTE ELIGE ORO (opcion 2 / $10.000):
 "¡Genial! El SUPERPACK ORO es súper completo para empezar.
@@ -387,7 +372,8 @@ Aquí tienes nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 
-Cuando hagas la transferencia me envías la foto del comprobante por aquí y lo verifico de inmediato. 📲"
+Cuando hagas la transferencia me envías la foto del comprobante por aquí: lo verifico al instante y te paso aquí mismo el acceso a tu carpeta. 📲
+Es 100% digital: lo descargas e imprimes cuando quieras, y es tuyo para siempre."
 
 PACK MASTER ESCOLAR (solo si preguntan por portadas, escolar o etiquetas):
 "¡Hola! 👋 Claro que sí. El Pack de Portadas Escolares es la sensación de la temporada. 💕
@@ -1105,7 +1091,9 @@ Responde dos preguntas sobre ESE ULTIMO mensaje de la clienta:
 
 2. "molesta": true SOLO si hay enojo o desconfianza clara: dice que la estafaron o le robaron, pide que le devuelvan la plata, dice "mala atencion", dice que si hubiera sabido no habria pagado o consignado, insulta, o amenaza con denunciar o reportar. false si solo esta confundida, impaciente, pregunta varias veces lo mismo o se despide. Ante la duda, false.
 
-Responde UNICAMENTE con JSON: {"no_puede_abrir": true, "molesta": false}`;
+3. "ya_abrio": true si cuenta que YA pudo abrir, entrar o ver su material ("si ya pude", "ya me abrio", "si, todo bien"). false en cualquier otro caso.
+
+Responde UNICAMENTE con JSON: {"no_puede_abrir": false, "molesta": false, "ya_abrio": true}`;
 
   try {
     const res = await withRetry(() => client.messages.create({
@@ -1116,10 +1104,10 @@ Responde UNICAMENTE con JSON: {"no_puede_abrir": true, "molesta": false}`;
     }), 'clasificarMensajePostPago');
     const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(raw);
-    return { no_puede_abrir: parsed.no_puede_abrir === true, molesta: parsed.molesta === true };
+    return { no_puede_abrir: parsed.no_puede_abrir === true, molesta: parsed.molesta === true, ya_abrio: parsed.ya_abrio === true };
   } catch (e) {
     console.error('clasificarMensajePostPago error:', e.message);
-    return { no_puede_abrir: false, molesta: false };
+    return { no_puede_abrir: false, molesta: false, ya_abrio: false };
   }
 }
 
