@@ -1044,6 +1044,16 @@ async function avisarClientaMolesta(contact, text, estadoLabel) {
   );
 }
 
+// Android o iPhone, segun lo que la clienta haya escrito (gana la ultima mencion). '' si no dijo.
+// Palabras sin ambiguedad a proposito: "vivo" o "moto" tambien son palabras comunes en español.
+function detectarCelular(texto) {
+  const t = String(texto || '').toLowerCase();
+  const iph = [...t.matchAll(/\b(i\s?phone|iph|ios|apple)\b/g)].pop();
+  const andr = [...t.matchAll(/\b(android|androide|samsung|xiaomi|redmi|motorola|huawei|oppo|tecno|honor|realme|infinix)\b/g)].pop();
+  if (iph && andr) return iph.index > andr.index ? 'iphone' : 'android';
+  return iph ? 'iphone' : andr ? 'android' : '';
+}
+
 const NOTA_CLIENTA_MOLESTA = '\n[CONTEXTO INTERNO: LA CLIENTA ESTA MOLESTA. Pidele disculpas UNA sola vez, corto y sincero, asegurale que su compra y su plata estan seguras y que una persona del equipo la va a ayudar por aqui. No le discutas ni le repitas instrucciones que ya le diste.]';
 
 const YES_WORDS = ['si', 'sí', 'dale', 'listo', 'ok', 'claro', 'confirmo', 'confirmado', 'voy', 'perfecto', 'hagalo', 'hagámoslo', 'quiero', 'de una'];
@@ -1158,7 +1168,7 @@ async function tryEmailFallback(contact, result) {
     if (emailRes.data?.found) {
       const packFb = (normalizedMontoFb ? AMOUNT_TO_PACK[normalizedMontoFb] : null) || contact.pack_selected;
       if (packFb) {
-        db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
+        db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0, enlace_fallos: 0, ayuda_correo_avisada: 0 });
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
         await notifyJorge(contact,
           `PAGO VERIFICADO POR EMAIL:\nPack: ${packFb}\nMonto: $${montoFb.toLocaleString('es-CO')}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
@@ -1272,7 +1282,7 @@ async function handleComprobante(contact, mediaContent) {
     } else if (razon_rechazo === 'imagen_no_legible') {
       if (contact.pack_selected) {
         // Entregar el pack y notificar a Jorge para verificacion manual
-        db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
+        db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0, enlace_fallos: 0, ayuda_correo_avisada: 0 });
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
         await notifyJorge(contact,
           `IMAGEN ILEGIBLE - entrega automatica pendiente verificacion:\nPack: ${contact.pack_selected}\nTel: ${phone}\nNombre: ${contact.name || '-'}\nVerifica manualmente que el pago es real antes de que entre el correo.${archivoInfo}`
@@ -1340,7 +1350,7 @@ async function handleComprobante(contact, mediaContent) {
     return;
   }
 
-  db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
+  db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0, enlace_fallos: 0, ayuda_correo_avisada: 0 });
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
 
   const destino = result.destino || '';
@@ -1388,6 +1398,46 @@ async function handleEmail(contact, emailText) {
     const yaTieneEnlace = yaTieneEnlaceAcceso(contact, historyLarga);
     if (!yaTieneEnlace && await enviarEnlaceSinCorreo(contact)) return;
 
+    // 10 sep 2026 (tarde), caso Sandra 573134520181: pago, dio un Hotmail, recibio su enlace y
+    // escribio "No pude", "No puedo dar mi cuenta de Google", "No sale". Carol le repitio los mismos
+    // pasos 3 veces, le dijo "No necesitas Gmail para nada" (falso: sin cuenta de Google la carpeta
+    // no abre) y nadie le aviso a Jorge. Ahora: al primer "no pude" Carol hace UNA pregunta (Android
+    // o iPhone) sin repetir pasos; con Android le enseña a ver el Gmail que ya tiene en el celular;
+    // con iPhone o al segundo "no pude" se le avisa a Jorge UNA sola vez y Carol le dice que una
+    // persona del equipo la ayuda.
+    let fallos = contact.enlace_fallos || 0;
+    if (yaTieneEnlace && clsEmail.no_puede_abrir) {
+      fallos++;
+      db.updateContact(phone, { enlace_fallos: fallos });
+    }
+    const desdePago = contact.awaiting_email_at || '';
+    const textoClienta = historyLarga
+      .filter(m => m.direction === 'in' && typeof m.content === 'string' && (!desdePago || (m.created_at || '') >= desdePago))
+      .map(m => m.content).concat(emailText).join('\n');
+    const celular = detectarCelular(textoClienta);
+    const escalar = yaTieneEnlace && (fallos >= 2 || celular === 'iphone');
+    if (escalar && !contact.ayuda_correo_avisada) {
+      db.updateContact(phone, { ayuda_correo_avisada: 1 });
+      // Si ya se le aviso a Jorge que esta molesta, no le llega un segundo aviso por la misma clienta
+      if (!clsEmail.molesta && !contact.molesta_avisada) {
+        await notifyJorge(contact,
+          `PAGO Y NO LOGRA ENTRAR (no ha dado su Gmail)\nNombre: ${contact.name || '-'}\nTel: ${phone}\nPack: ${contact.pack_selected || '-'}\nCelular: ${celular === 'iphone' ? 'iPhone' : celular === 'android' ? 'Android' : 'no ha dicho'}\nUltimo mensaje: "${String(emailText).slice(0, 200)}"\nYa tiene su enlace de acceso. Carol le dijo que una persona del equipo la ayuda por aqui: entra tu al chat. Este aviso llega una sola vez por clienta.`
+        );
+      }
+    }
+    let guiaEnlace;
+    if (!yaTieneEnlace) {
+      guiaEnlace = 'Si no sabe cuál es su Gmail y tiene Android, puede verlo en la Play Store tocando su foto arriba a la derecha.\n';
+    } else if (escalar) {
+      guiaEnlace = 'ESTA CLIENTA NO HA PODIDO ENTRAR CON SU ENLACE y ya se le avisó a una persona del equipo. En UN solo mensaje corto y cálido: que no se preocupe, que su compra está segura y que una persona del equipo la va a ayudar por aquí en un momento. NO le des pasos ni instrucciones y NO le vuelvas a explicar el enlace ni el botón de Google.\n';
+    } else if (celular === 'android') {
+      guiaEnlace = 'YA SE LE MANDO SU ENLACE y su celular es ANDROID. Un Android siempre tiene un Gmail abierto (sin eso no funciona la Play Store) y NO necesita contraseña para verlo. NO le repitas los pasos del enlace. Explícale corto: "Abre la Play Store, toca tu foto o la letra del círculo arriba a la derecha, y ahí aparece tu correo que termina en @gmail.com". Pídele que te lo escriba aquí y le activas el acceso.\n';
+    } else if (clsEmail.no_puede_abrir) {
+      guiaEnlace = 'YA SE LE MANDO SU ENLACE y dice que NO PUDO entrar. NO le repitas los pasos del enlace ni del botón de Google. En UN solo mensaje corto: tranquilízala, dile que no tiene que darte ninguna contraseña ni ningún dato, y hazle UNA sola pregunta: si su celular es Android o iPhone.\n';
+    } else {
+      guiaEnlace = 'YA SE LE MANDO SU ENLACE PERSONAL en este chat. Con ese enlace entra tocando "Continuar con Google" y eligiendo su cuenta, sin escribir ningún correo. NO le vuelvas a pedir el Gmail y NO le repitas pasos que ya le diste. Si ella igual quiere darte su Gmail, perfecto, recíbelo. Si da un correo que no es Gmail (Hotmail, Outlook), explícale con calma que ese no abre la carpeta y recuérdale el enlace.\n';
+    }
+
     // Ya tiene su enlace (o no hay pack para armarlo): responde Carol, sin volver a pedir el Gmail
     const history = db.getRecentMessages(phone, 8);
     // La regla del correo tiene que estar TAMBIEN aqui, no solo en el contexto post-entrega.
@@ -1398,9 +1448,8 @@ async function handleEmail(contact, emailText) {
     const ctxEmail = '[CONTEXTO INTERNO: Esta clienta YA PAGÓ su pack. NO ofrezcas packs ni preguntes qué pack quiere.\n' +
       'VERDAD QUE NUNCA PUEDES CONTRADECIR: a su correo NO le va a llegar absolutamente nada. El Gmail es solo la LLAVE con la que Google Drive la deja abrir su carpeta. El enlace de la carpeta va por WhatsApp, en este mismo chat.\n' +
       'PROHIBIDO decirle que el material, la carpeta, el acceso o el enlace le llegan al correo o al Gmail. PROHIBIDO mandarla a revisar su bandeja de entrada, su spam o sus promociones.\n' +
-      (yaTieneEnlace
-        ? 'YA SE LE MANDO SU ENLACE PERSONAL en este chat. Con ese enlace entra tocando "Continuar con Google" y eligiendo su cuenta, sin escribir ningún correo. NO le vuelvas a pedir el Gmail. Ayúdala a usar ese enlace: que lo abra en Chrome o Safari si dentro de WhatsApp no la deja, y que entre con SU propia cuenta de Google, porque el material queda en la cuenta con la que entre. Si ella igual quiere darte su Gmail, perfecto, recíbelo. Si da un correo que no es Gmail (Hotmail, Outlook), explícale con calma que ese no abre la carpeta y recuérdale el enlace.\n'
-        : 'Si no sabe cuál es su Gmail y tiene Android, puede verlo en la Play Store tocando su foto arriba a la derecha.\n') +
+      'NUNCA le digas que no necesita Gmail o cuenta de Google: SÍ necesita una cuenta de Google para abrir la carpeta. Lo que NO tiene que hacer es escribir su correo ni ninguna contraseña.\n' +
+      guiaEnlace +
       'SI TIENE IPHONE no existe la Play Store: NUNCA le des instrucciones de Play Store ni de Ajustes de Android.\n' +
       'TACTO, OBLIGATORIO: no repitas una instrucción que ya le diste en esta conversación. Nunca le discutas ni le digas "no funciona así". Nunca uses "te lo juro", "te apuesto" ni porcentajes como "el 99%". Mensajes cortos y cálidos.]' +
       (clsEmail.molesta ? NOTA_CLIENTA_MOLESTA : '');
@@ -2012,6 +2061,10 @@ const BANNED_PHRASE_REPLACEMENTS = [
   [/\bte juro\b/gi, m => (m[0] === 'T' ? 'De verdad' : 'de verdad')],
   [/\b(casi\s+)?el\s+99\s*%\s+de\s+las\s+personas/gi, 'muchas personas'],
   [/\bpero no funciona as[ií]\b/gi, 'pero funciona de otra forma'],
+  // Falso y confuso: sin una cuenta de Google la carpeta NO abre. Lo cierto es que no tiene que
+  // ESCRIBIR su correo (10 sep 2026, Sandra 573134520181: "No necesitas Gmail para nada").
+  [/\bno necesitas?\s+(un\s+|tu\s+|el\s+|ning[uú]n\s+)?(gmail|correo(\s+de\s+gmail)?|cuenta\s+de\s+google)(?!\s+nuevo)(\s+para\s+nada)?/gi,
+    m => (m[0] === 'N' ? 'No tienes que escribirme tu Gmail' : 'no tienes que escribirme tu Gmail')],
   // WhatsApp marca negrita con UN asterisco; con dos (formato de otras apps) se ven los asteriscos
   [/\*\*([^*\n]+)\*\*/g, '*$1*']
 ];

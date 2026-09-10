@@ -772,7 +772,7 @@ app.post('/api/contacts/:phone/approve-payment', adminAuth, async (req, res) => 
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
   const { PAYMENT_RECEIVED_ASK_EMAIL } = require('./content');
-  db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
+  db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0, enlace_fallos: 0, ayuda_correo_avisada: 0 });
   db.logAdminAction(phone, 'approve_payment', `pack=${c.pack_selected || '-'}`);
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
   const updated = db.getContact(phone);
@@ -929,7 +929,8 @@ app.post('/api/contacts/:phone/liberar-venta', adminAuth, async (req, res) => {
   }
   db.updateContact(phone, {
     state: 'awaiting_email', tag: 'Sin etiqueta', email: '', delivered_at: '', folder_id: '',
-    enlace_acceso_enviado: 0, otra_cuenta_avisada: 0, capi_omitir_proxima: 1
+    enlace_acceso_enviado: 0, otra_cuenta_avisada: 0, capi_omitir_proxima: 1,
+    enlace_fallos: 0, ayuda_correo_avisada: 0
   });
   db.logAdminAction(phone, 'liberar_venta', `correo_quitado=${c.email}, pack=${c.pack_selected}, entregado_antes=${c.delivered_at}`);
   const updated = db.getContact(phone);

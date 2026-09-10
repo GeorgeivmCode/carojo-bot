@@ -264,6 +264,8 @@ NUNCA ofrezcas una alternativa de envío directo de los archivos.
 REGLA CRÍTICA — CUANDO NO TIENE GMAIL, TIENE HOTMAIL O NO QUIERE DAR EL CORREO:
 NUNCA le digas "crea un Gmail nuevo" como primera respuesta.
 Si ya pagó, el sistema le manda su enlace personal: con ese enlace entra tocando "Continuar con Google" y eligiendo su cuenta, sin escribir ningún correo. Apóyate en ese enlace y NO le sigas pidiendo el Gmail. Si ella igual quiere darte su Gmail, perfecto, recíbelo.
+NUNCA le digas "no necesitas Gmail" ni "no necesitas cuenta de Google": SÍ necesita una cuenta de Google para abrir la carpeta. Lo cierto es que no tiene que escribirte su correo ni ninguna contraseña.
+Si dice que no pudo entrar con el enlace, NO le repitas los mismos pasos: pregúntale si su celular es Android o iPhone.
 Si tiene Android y quiere encontrar su Gmail: "Abre la Play Store, toca tu foto o la letra del círculo arriba a la derecha, y ahí aparece tu correo que termina en @gmail.com."
 Si tiene iPhone NO existe la Play Store: NUNCA le des esas instrucciones.
 Si dice que olvidó la contraseña, NO necesita recordarla para darte la dirección.
@@ -1087,7 +1089,7 @@ Cliente: ${text}
 
 Responde dos preguntas sobre ESE ULTIMO mensaje de la clienta:
 
-1. "no_puede_abrir": true si dice que no puede abrir, entrar, ver o descargar su material o su enlace, que el enlace no le funciona, que le pide permiso o contraseña, o pregunta como abrirlo porque no ha podido. false si habla de otra cosa: agradecer, despedirse, preguntar por otro curso, dudas del contenido, o cuenta que YA pudo abrir ("ya me abrio", "ya pude", "ya entre").
+1. "no_puede_abrir": true si dice que no puede abrir, entrar, ver o descargar su material o su enlace, que el enlace no le funciona, que le pide permiso o contraseña, que no le sale nada, que no puede entrar o dar su cuenta de Google o su correo ("no pude", "no sale", "no puedo dar mi cuenta de Google"), o pregunta como abrirlo porque no ha podido. false si habla de otra cosa: agradecer, despedirse, preguntar por otro curso, dudas del contenido, o cuenta que YA pudo abrir ("ya me abrio", "ya pude", "ya entre").
 
 2. "molesta": true SOLO si hay enojo o desconfianza clara: dice que la estafaron o le robaron, pide que le devuelvan la plata, dice "mala atencion", dice que si hubiera sabido no habria pagado o consignado, insulta, o amenaza con denunciar o reportar. false si solo esta confundida, impaciente, pregunta varias veces lo mismo o se despide. Ante la duda, false.
 

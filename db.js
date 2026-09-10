@@ -88,6 +88,10 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN molesta_avisada INTEGER DEFAULT 0
 try { db.exec(`ALTER TABLE contacts ADD COLUMN capi_omitir_proxima INTEGER DEFAULT 0`); } catch (_) {}
 // Pregunta "Pudiste abrir tu material?" a los 30 min de la entrega (reemplaza el upsell de los 2 min)
 try { db.exec(`ALTER TABLE contacts ADD COLUMN check_acceso_sent INTEGER DEFAULT 0`); } catch (_) {}
+// Clienta que pago, ya tiene su enlace y dice que no puede entrar (todavia sin Gmail): cuantas veces
+// lo ha dicho, y aviso UNICO a Jorge al segundo intento o si tiene iPhone (caso Sandra 573134520181).
+try { db.exec(`ALTER TABLE contacts ADD COLUMN enlace_fallos INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN ayuda_correo_avisada INTEGER DEFAULT 0`); } catch (_) {}
 
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
