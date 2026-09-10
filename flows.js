@@ -958,6 +958,33 @@ function esSoloRechazo(text) {
   return /^(no|nop|nope|negativo|paso)( (gracias|muchas gracias|mil gracias|por ahora|por el momento|senora|amiga|asi estoy bien|estoy bien asi))*$/.test(limpio);
 }
 
+// Lo que trae y lo que NO trae cada pack, para el contexto de Carol despues de la entrega.
+// Caso real 10 sep 2026 (573115578810, Oro): Carol le dijo que tenia "los diseños de Canva",
+// que son del Diamante. Tampoco podia contarle que puede completar su pack aunque preguntara
+// "Que mas venden?", porque tenia prohibido hablar de pagos despues de la entrega.
+function detallePackEntregado(pack) {
+  const incluye = {
+    basico: 'Curso de Lettering y Letra Timoteo con 34 cartillas (+2.400 paginas) y el bono de 500 dibujos para colorear',
+    oro: 'Curso de Lettering y Letra Timoteo (34 cartillas), Curso de Marcado de Cuadernos (+300 paginas), Curso de Moldes de cajas, flores y letras 3D, y el bono de 500 dibujos para colorear',
+    diamante: 'los 5 cursos (Lettering y Letra Timoteo, Marcado de Cuadernos, Moldes 3D, Papeleria Creativa y Agendas Personalizadas) y los 11 bonos (85.000 diseños editables en Canva, 6 regalos premium, 3 bonos de agendas y 500 dibujos para colorear)'
+  };
+  const noIncluye = {
+    basico: 'Marcado de Cuadernos, Moldes 3D, Papeleria Creativa, los 85.000 diseños de Canva, Agendas Personalizadas ni los 6 regalos premium',
+    oro: 'Papeleria Creativa, los 85.000 diseños de Canva, Agendas Personalizadas, los bonos de agendas ni los 6 regalos premium'
+  };
+  const completar = {
+    basico: 'al SUPERPACK ORO por $5.000 adicionales (2 cursos mas) o al MEGA PACK DIAMANTE por $10.000 adicionales (4 cursos mas, 11 bonos y un curso de regalo a su eleccion)',
+    oro: 'al MEGA PACK DIAMANTE por $5.000 adicionales (Papeleria Creativa con 85.000 diseños de Canva, Agendas, 6 regalos premium y un curso de regalo a su eleccion)'
+  };
+  if (!incluye[pack]) return 'NO le pidas que pague, su compra esta completa.';
+  if (pack === 'diamante') {
+    return `Su pack trae: ${incluye.diamante}. Ya tiene el pack mas completo, no hay nada mas que ofrecerle. NO le pidas que pague, su compra esta completa.`;
+  }
+  return `Su pack trae: ${incluye[pack]}. Su pack NO trae ${noIncluye[pack]}: NUNCA le digas que tiene algo de eso. ` +
+    `NO le pidas que pague lo que ya compro, su compra esta completa. Solo si ELLA pregunta que mas tenemos, que mas venden o quiere mas contenido, ` +
+    `puedes contarle UNA vez y sin presionar que puede completar ${completar[pack]}. No le des datos de pago tu: si dice que quiere, el sistema se los manda.`;
+}
+
 // Respuesta corta afirmativa a "Pudiste abrir tu material?" ("si", "si gracias", "ya pude").
 // Despues de una pregunta de si/no un "si" corto no es ambiguo; lo largo lo decide el revisor.
 function esAfirmacionCorta(text) {
@@ -1686,9 +1713,18 @@ async function handlePostDelivery(contact, text) {
     contact.pack_selected === 'oro' ? 'SUPERPACK ORO' :
     contact.pack_selected === 'basico' ? 'PACK BASICO' : 'su pack';
   const packPriceDelivered = PACK_AMOUNTS[contact.pack_selected];
-  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. NO le pidas que pague ni le des datos de pago de nuevo — su compra esta completa. Ayudala con su duda o solicitud actual.]`;
+  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. ${detallePackEntregado(contact.pack_selected)} Ayudala con su duda o solicitud actual.]`;
   const reply = await carol(history, ctxDelivered + notaMolesta + '\n\nMensaje de la clienta: ' + text);
   await sendAndSave(phone, reply);
+  // Si Carol le conto que puede completar su pack, se anota como oferta hecha: asi, si responde
+  // "si quiero", el bloque de upsell le manda los datos correctos del upgrade. Sin esto Carol
+  // ofreceria algo que el codigo no sabe (mismo error del caso Karla 573143577059, 18 ago).
+  const replyTxt = Array.isArray(reply) ? reply.join(' ') : String(reply || '');
+  if (!contact.upsell_sent && ['basico', 'oro'].includes(contact.pack_selected) &&
+      /diamante|superpack oro/i.test(replyTxt) && /(?<![\d.])(5|10)\.000/.test(replyTxt)) {
+    db.updateContact(phone, { upsell_sent: 1 });
+    console.log(`Carol ofrecio completar el pack [${phone}] -> upsell_sent=1`);
+  }
 }
 
 // Normaliza un monto colombiano: "15.000,00" o "15.000" o 15000 -> 15000
