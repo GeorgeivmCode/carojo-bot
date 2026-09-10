@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -27,7 +27,7 @@ const {
   WELCOME_MESSAGE, DIAMANTE_DETAILS, ORO_DETAILS, ORO_UPSELL,
   BASICO_DETAILS, BASICO_UPSELL, PAYMENT_RECEIVED_ASK_EMAIL,
   PLANTILLA_ACCESO, STOPPED_MSG, OLD_CLIENT_TRIGGERS,
-  INVALID_EMAIL_MSG, FIND_GMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
+  INVALID_EMAIL_MSG, FIND_GMAIL_MSG, ENLACE_SIN_CORREO_MSG, REENVIO_ENLACE_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
@@ -524,6 +524,14 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       }
 
       if (tipoImg === 'acceso') {
+        // Primero se le reenvia su enlace con los pasos (maximo uno cada 24h). Si ya se le mando
+        // hace poco, la atiende Carol mirando lo que muestra la captura.
+        if (!reenviadoHaceMenosDe24h(contact) && await reenviarEnlaceAcceso(contact)) {
+          await notifyJorge(contact,
+            `PROBLEMA DE ACCESO (se le reenvio su enlace automaticamente, el bot sigue activo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nCorreo: ${contact.email || 'no registrado'}${descImg ? `\nEn la imagen: ${descImg}` : ''}`
+          );
+          return;
+        }
         // Captura de Drive, de login de Google o de un error de permiso. Carol ya tiene todas
         // las reglas correctas de acceso en su contexto, que responda ella en vez de callarse.
         const history = db.getRecentMessages(phone, 8);
@@ -574,7 +582,14 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       } catch (e) {
         console.error('extractEmailFromImage error:', e.message);
       }
-      await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
+      // No se leyo ningun correo en la imagen. Si todavia no tiene su enlace se le manda; si ya lo
+      // tiene, no se le vuelve a pedir el Gmail (eso fue lo que desespero a Paula y a Bibiana).
+      const histImg = db.getRecentMessages(phone, 12);
+      if (yaTieneEnlaceAcceso(contact, histImg)) {
+        await sendAndSave(phone, 'Recibí tu imagen 💛 Para entrar no tienes que mandarme nada más: toca el enlace que te envié arriba, dale a *Continuar con Google* y elige tu cuenta. Si no te deja, cuéntame qué te aparece y te ayudo.');
+      } else if (!(await enviarEnlaceSinCorreo(contact))) {
+        await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
+      }
       return;
     }
     // Estado inesperado para imagen — log para diagnostico y guiar al cliente
@@ -925,6 +940,67 @@ function hasWord(text, words) {
   return words.some(w => w.includes(' ') ? text.includes(w) : tokens.includes(w));
 }
 
+// Rechazo SOLO si el mensaje es unicamente eso ("no", "no gracias", "no por ahora"...).
+// Antes bastaba un mensaje corto con la palabra "no": caso real Brend 573209005984 (10 sep 2026)
+// escribio "No lo puedo abrir" despues de la oferta de mas cursos y el bot le contesto
+// "Entendido! Disfruta tu pack" en vez de ayudarla. Cualquier otra frase con "no" cae a Carol.
+function esSoloRechazo(text) {
+  const limpio = String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(no|nop|nope|negativo|paso)( (gracias|muchas gracias|mil gracias|por ahora|por el momento|senora|amiga|asi estoy bien|estoy bien asi))*$/.test(limpio);
+}
+
+// ¿Ya tiene su enlace de acceso para esta compra? Cuenta el que manda el bot y tambien el que
+// manda Jorge a mano con el boton "Enlace acceso" del panel (caso Paula 573223534427: Jorge le
+// mando el enlace y Carol le siguio pidiendo el Gmail como si no existiera).
+function yaTieneEnlaceAcceso(contact, history) {
+  if (contact.enlace_acceso_enviado) return true;
+  const desde = contact.awaiting_email_at || '';
+  return history.some(m => m.direction === 'out' && typeof m.content === 'string' &&
+    m.content.includes('/acceso/') && (!desde || (m.created_at || '') >= desde));
+}
+
+// Manda el enlace a la clienta que YA PAGO y no da (o no tiene) Gmail. Una sola vez por compra.
+async function enviarEnlaceSinCorreo(contact) {
+  if (!contact.pack_selected) return false;
+  const url = `${BOT_URL}/acceso/${generateAccessToken(contact.phone, contact.pack_selected)}`;
+  await sendAndSave(contact.phone, ENLACE_SIN_CORREO_MSG(url));
+  db.updateContact(contact.phone, { enlace_acceso_enviado: 1 });
+  db.logAdminAction(contact.phone, 'enlace_sin_correo_bot', `pack=${contact.pack_selected}`);
+  console.log(`Enlace sin correo enviado [${contact.phone}] pack=${contact.pack_selected}`);
+  return true;
+}
+
+// Reenvia su enlace a una clienta ya entregada que dice que no puede abrir. Maximo uno cada 24h:
+// si vuelve a decir que no puede, ya no se le repite, la atiende Carol y se avisa a Jorge.
+function reenviadoHaceMenosDe24h(contact) {
+  if (!contact.enlace_reenviado_at) return false;
+  const t = new Date(contact.enlace_reenviado_at.replace(' ', 'T') + 'Z').getTime();
+  return !isNaN(t) && Date.now() - t < 24 * 3600 * 1000;
+}
+
+async function reenviarEnlaceAcceso(contact) {
+  if (!contact.pack_selected) return false;
+  const url = `${BOT_URL}/acceso/${generateAccessToken(contact.phone, contact.pack_selected)}`;
+  await sendAndSave(contact.phone, REENVIO_ENLACE_MSG(url, contact.email));
+  db.updateContact(contact.phone, { enlace_reenviado_at: db.now(), ayuda_acceso_avisada: 0 });
+  db.logAdminAction(contact.phone, 'enlace_reenviado_bot', `pack=${contact.pack_selected}`);
+  console.log(`Enlace reenviado [${contact.phone}] pack=${contact.pack_selected}`);
+  return true;
+}
+
+// Aviso UNICO por clienta cuando una que ya pago esta claramente molesta. Jorge pidio que no le
+// llegaran avisos todo el tiempo: una sola vez por contacto, sin importar cuanto siga escribiendo.
+async function avisarClientaMolesta(contact, text, estadoLabel) {
+  if (contact.molesta_avisada) return;
+  db.updateContact(contact.phone, { molesta_avisada: 1 });
+  await notifyJorge(contact,
+    `CLIENTA MOLESTA (ya pago)\nNombre: ${contact.name || '-'}\nTel: ${contact.phone}\nPack: ${contact.pack_selected || '-'}\nEstado: ${estadoLabel}\nUltimo mensaje: "${String(text).slice(0, 200)}"\nEntra tu al chat. Este aviso llega una sola vez por clienta.`
+  );
+}
+
+const NOTA_CLIENTA_MOLESTA = '\n[CONTEXTO INTERNO: LA CLIENTA ESTA MOLESTA. Pidele disculpas UNA sola vez, corto y sincero, asegurale que su compra y su plata estan seguras y que una persona del equipo la va a ayudar por aqui. No le discutas ni le repitas instrucciones que ya le diste.]';
+
 const YES_WORDS = ['si', 'sí', 'dale', 'listo', 'ok', 'claro', 'confirmo', 'confirmado', 'voy', 'perfecto', 'hagalo', 'hagámoslo', 'quiero', 'de una'];
 const NO_WORDS  = ['no', 'nop', 'nope', 'negativo', 'paso'];
 
@@ -1037,7 +1113,7 @@ async function tryEmailFallback(contact, result) {
     if (emailRes.data?.found) {
       const packFb = (normalizedMontoFb ? AMOUNT_TO_PACK[normalizedMontoFb] : null) || contact.pack_selected;
       if (packFb) {
-        db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
+        db.updateContact(phone, { state: 'awaiting_email', pack_selected: packFb, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
         await notifyJorge(contact,
           `PAGO VERIFICADO POR EMAIL:\nPack: ${packFb}\nMonto: $${montoFb.toLocaleString('es-CO')}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
@@ -1151,7 +1227,7 @@ async function handleComprobante(contact, mediaContent) {
     } else if (razon_rechazo === 'imagen_no_legible') {
       if (contact.pack_selected) {
         // Entregar el pack y notificar a Jorge para verificacion manual
-        db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
+        db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
         await notifyJorge(contact,
           `IMAGEN ILEGIBLE - entrega automatica pendiente verificacion:\nPack: ${contact.pack_selected}\nTel: ${phone}\nNombre: ${contact.name || '-'}\nVerifica manualmente que el pago es real antes de que entre el correo.${archivoInfo}`
@@ -1219,7 +1295,7 @@ async function handleComprobante(contact, mediaContent) {
     return;
   }
 
-  db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
+  db.updateContact(phone, { state: 'awaiting_email', pack_selected: pack, awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
 
   const destino = result.destino || '';
@@ -1254,53 +1330,35 @@ async function handleEmail(contact, emailText) {
     const CLOSING_EMAIL = ['listo', 'ok', 'gracias', 'perfecto', 'entendido', 'dale', 'claro'];
     if (CLOSING_EMAIL.some(w => rawText === w)) return; // ignorar silenciosamente
 
-    // Tiene correo no-Gmail (hotmail, outlook, yahoo, etc.)
-    // NO se le manda a crear un Gmail nuevo: se le guia a encontrar el que ya tiene.
-    // Ver comentario de FIND_GMAIL_MSG en content.js para la evidencia real detras de esto.
-    const noGmailProviders = ['hotmail', 'outlook', 'yahoo', 'icloud', 'live.com', 'proton', 'aol'];
-    if (noGmailProviders.some(p => rawText.includes(p))) {
-      await sendAndSave(phone,
-        'Ese correo no nos sirve para el acceso porque la carpeta vive en Google Drive y Drive solo abre con una cuenta de Google 📧\n\n' + FIND_GMAIL_MSG
-      );
-      return;
-    }
+    // 10 sep 2026: la primera vez que la clienta responde SIN un Gmail (dice que no tiene, da un
+    // Hotmail, pide que se lo manden por aqui, tiene iPhone, esta en otro celular...) se le manda
+    // su enlace para entrar con "Continuar con Google", sin escribir nada. No hace falta adivinar
+    // por palabras: cualquier respuesta sin Gmail ya es señal de dificultad. Antes se le repetia
+    // el pedido del correo (y las instrucciones de la Play Store, aunque tuviera iPhone) hasta que
+    // se molestaba: casos Paula 573223534427 y Bibiana 573016506566.
+    const historyLarga = db.getRecentMessages(phone, 12);
+    const clsEmail = await clasificarMensajePostPago(historyLarga, emailText);
+    if (clsEmail.molesta) await avisarClientaMolesta(contact, emailText, 'pago y no ha dado el correo');
 
-    // Dice explícitamente que no tiene Gmail o que está lleno
-    const sinGmail = ['no tengo gmail', 'no tengo correo', 'no tengo email', 'no hay espacio',
-      'sin espacio', 'esta lleno', 'está lleno', 'llena de correo', 'no cabe', 'lleno de correo',
-      'no tengo cuenta', 'no me llega correo'];
-    if (sinGmail.some(p => rawText.includes(p))) {
-      // "esta lleno" / "no hay espacio" es una preocupacion distinta (bandeja llena), se aclara aparte
-      const esEspacio = ['no hay espacio', 'sin espacio', 'esta lleno', 'está lleno',
-        'llena de correo', 'no cabe', 'lleno de correo'].some(p => rawText.includes(p));
-      if (esEspacio) {
-        await sendAndSave(phone,
-          'No te preocupes! El acceso no ocupa espacio en tu Gmail, el material vive en nuestro Google Drive, no en tu bandeja de entrada. Solo necesitamos el correo para registrar tu acceso.\n\nEscribenos tu Gmail completo:\ntunombre@gmail.com 📩'
-        );
-      } else {
-        await sendAndSave(phone, FIND_GMAIL_MSG);
-      }
-      return;
-    }
+    const yaTieneEnlace = yaTieneEnlaceAcceso(contact, historyLarga);
+    if (!yaTieneEnlace && await enviarEnlaceSinCorreo(contact)) return;
 
-    // Tiene @ pero no es Gmail válido
-    if (email.includes('@') && !isValidGmail(email)) {
-      await sendAndSave(phone, INVALID_EMAIL_MSG);
-      return;
-    }
-
-    // Todo lo demás (deferral, confusión, preguntas, etc.) → Carol con historial completo
-    // Contexto invisible: recordarle a Carol que la clienta ya pagó y solo necesita el Gmail
+    // Ya tiene su enlace (o no hay pack para armarlo): responde Carol, sin volver a pedir el Gmail
     const history = db.getRecentMessages(phone, 8);
     // La regla del correo tiene que estar TAMBIEN aqui, no solo en el contexto post-entrega.
     // Caso real 8 sep 2026 (Mary, 573171594370): en este punto exacto Carol improviso "tu carpeta
     // personal con TODO el material llega al Gmail que me des", la clienta se fue a buscarla a su
     // Gmail y termino en la pantalla de redactar un correo. Es el mismo error del 14-15 jul, que se
     // habia corregido solo en ctxDelivered y dejo esta ventana sin cubrir.
-    const ctxEmail = '[CONTEXTO INTERNO: Esta clienta YA PAGÓ su pack. Está en el paso final de dar su Gmail. NO ofrezcas packs ni preguntes qué pack quiere. Solo ayúdala a conseguir o escribir su correo Gmail.\n' +
-      'VERDAD QUE NUNCA PUEDES CONTRADECIR: a su correo NO le va a llegar absolutamente nada. El Gmail es solo la LLAVE con la que Google Drive la deja abrir su carpeta. El enlace de la carpeta se lo mandamos por WhatsApp, en este mismo chat, apenas nos dé el correo.\n' +
-      'PROHIBIDO decirle que el material, la carpeta, el acceso o el enlace le llegan al correo o al Gmail. PROHIBIDO mandarla a revisar su bandeja de entrada, su spam o sus promociones. Si te pregunta si le llega al correo, aclárale que no, que le llega aquí mismo en el chat.\n' +
-      'Si no sabe cuál es su Gmail o dice que no tiene, guíala a ENCONTRAR el que ya tiene: abrir la Play Store y tocar su foto arriba a la derecha, o entrar a Ajustes y buscar Cuentas de Google. Casi todas ya tienen uno porque el celular Android lo exige.]';
+    const ctxEmail = '[CONTEXTO INTERNO: Esta clienta YA PAGÓ su pack. NO ofrezcas packs ni preguntes qué pack quiere.\n' +
+      'VERDAD QUE NUNCA PUEDES CONTRADECIR: a su correo NO le va a llegar absolutamente nada. El Gmail es solo la LLAVE con la que Google Drive la deja abrir su carpeta. El enlace de la carpeta va por WhatsApp, en este mismo chat.\n' +
+      'PROHIBIDO decirle que el material, la carpeta, el acceso o el enlace le llegan al correo o al Gmail. PROHIBIDO mandarla a revisar su bandeja de entrada, su spam o sus promociones.\n' +
+      (yaTieneEnlace
+        ? 'YA SE LE MANDO SU ENLACE PERSONAL en este chat. Con ese enlace entra tocando "Continuar con Google" y eligiendo su cuenta, sin escribir ningún correo. NO le vuelvas a pedir el Gmail. Ayúdala a usar ese enlace: que lo abra en Chrome o Safari si dentro de WhatsApp no la deja, y que entre con SU propia cuenta de Google, porque el material queda en la cuenta con la que entre. Si ella igual quiere darte su Gmail, perfecto, recíbelo. Si da un correo que no es Gmail (Hotmail, Outlook), explícale con calma que ese no abre la carpeta y recuérdale el enlace.\n'
+        : 'Si no sabe cuál es su Gmail y tiene Android, puede verlo en la Play Store tocando su foto arriba a la derecha.\n') +
+      'SI TIENE IPHONE no existe la Play Store: NUNCA le des instrucciones de Play Store ni de Ajustes de Android.\n' +
+      'TACTO, OBLIGATORIO: no repitas una instrucción que ya le diste en esta conversación. Nunca le discutas ni le digas "no funciona así". Nunca uses "te lo juro", "te apuesto" ni porcentajes como "el 99%". Mensajes cortos y cálidos.]' +
+      (clsEmail.molesta ? NOTA_CLIENTA_MOLESTA : '');
     const reply = await carol(history, ctxEmail + '\n\nMensaje de la clienta: ' + emailText);
     await sendAndSave(phone, reply);
     return;
@@ -1331,23 +1389,43 @@ async function deliverPack(contact, email) {
 
   const accessToken = generateAccessToken(phone, pack);
   const accessUrl = `${BOT_URL}/acceso/${accessToken}`;
-  await sendAndSave(phone, deliveryMessage(pack, accessUrl, email));
+  // El registro de la venta NO puede depender de que salga el mensaje de WhatsApp. Antes, si el
+  // mensaje fallaba (WhatsApp caido, o la clienta entra con Google dias despues, fuera de la
+  // ventana de 24h), la clienta ya tenia acceso a Drive pero la venta no se marcaba, no se
+  // reportaba a Meta, no quedaba en el Sheet y a Jorge no le llegaba aviso. El 12 jun 2026 se
+  // perdieron asi 20 ventas del Sheet. Ahora se registra todo pase lo que pase con el mensaje.
+  let mensajeEnviado = true;
+  try {
+    await sendAndSave(phone, deliveryMessage(pack, accessUrl, email));
+  } catch (e) {
+    mensajeEnviado = false;
+    console.error(`Entrega: no salio el mensaje de WhatsApp [${phone}]:`, e.response?.data ? JSON.stringify(e.response.data) : e.message);
+  }
   db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email, folder_id: driveFolderId });
   const updatedContact = db.getContact(phone);
 
-  await fireCapi(updatedContact, pack);
+  if (updatedContact.capi_omitir_proxima) {
+    // Entrega que se deshizo con "liberar venta": esta compra ya se le reporto a Meta antes.
+    console.log(`CAPI omitido [${phone}]: esta compra ya se reporto a Meta en la entrega anterior`);
+    db.updateContact(phone, { capi_omitir_proxima: 0 });
+  } else {
+    await fireCapi(updatedContact, pack);
+  }
   await logSaleToSheets(contact, pack, email);
   await notifyJorge(contact,
-    `ENTREGA completada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}`
+    `ENTREGA completada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}` +
+    (mensajeEnviado ? '' : `\n\nOJO: la venta quedo registrada pero NO se le pudo mandar el mensaje de WhatsApp con su enlace. Mandaselo tu (boton "Enlace acceso" del panel).`)
   );
 
   // Si ya habia elegido su regalo antes de pagar (respondiendo al Bono Relampago de R1), entregarlo
   // de una vez junto con el acceso — no hace falta que vuelva a preguntar por el
-  if (pack === 'diamante' && updatedContact.gift_choice && !updatedContact.gift_sent) {
-    const gMsg = GIFT_MSGS[updatedContact.gift_choice];
-    const gUrl = GIFT_URLS[updatedContact.gift_choice];
-    await sendAndSave(phone, `${gMsg}\n\n${gUrl}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
-    db.updateContact(phone, { gift_sent: 1 });
+  if (mensajeEnviado && pack === 'diamante' && updatedContact.gift_choice && !updatedContact.gift_sent) {
+    try {
+      const gMsg = GIFT_MSGS[updatedContact.gift_choice];
+      const gUrl = GIFT_URLS[updatedContact.gift_choice];
+      await sendAndSave(phone, `${gMsg}\n\n${gUrl}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
+      db.updateContact(phone, { gift_sent: 1 });
+    } catch (e) { console.error(`Regalo no enviado [${phone}]:`, e.message); }
   }
 
   // Upsell post-entrega — solo para basico y oro, 2 minutos despues
@@ -1390,6 +1468,33 @@ async function handlePostDelivery(contact, text) {
       `CAMBIO DE CORREO SOLICITADO:\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nCorreo actual: ${contact.email || '-'}\nEntregado: ${contact.delivered_at || '-'}\nRevisa el tiempo transcurrido antes de hacer el cambio (limite 2 horas).`
     );
     return;
+  }
+
+  // Revisor con contexto (10 sep 2026): antes de cualquier otra regla de post-entrega se mira si la
+  // clienta dice que no puede abrir su material, o si esta claramente molesta. Solo se salta con
+  // cierres de una palabra ("gracias", "ok") para no gastar una consulta en eso.
+  const CIERRES_SIMPLES = ['gracias', 'ok', 'listo', 'perfecto', 'de nada', 'dale', 'bien', 'bueno',
+    'entendido', 'claro', 'jajaja', 'jaja', '👍', 'si', 'sí', 'amen', 'amén'];
+  let notaMolesta = '';
+  if (text && !CIERRES_SIMPLES.includes(text)) {
+    const clsPost = await clasificarMensajePostPago(db.getRecentMessages(phone, 8), text);
+    if (clsPost.molesta) {
+      notaMolesta = NOTA_CLIENTA_MOLESTA;
+      await avisarClientaMolesta(contact, text, 'ya entregada');
+    }
+    if (clsPost.no_puede_abrir) {
+      // Caso Alexandra 573244127150: dijo que no podia abrir y Carol le respondio "mira arriba",
+      // donde estaba un enlace viejo. Ahora se le manda su enlace de nuevo con los pasos.
+      if (!reenviadoHaceMenosDe24h(contact) && await reenviarEnlaceAcceso(contact)) return;
+      // Ya se le reenvio hace poco y sigue sin poder: no se le repite, la atiende Carol y se
+      // le avisa a Jorge una sola vez.
+      if (!contact.ayuda_acceso_avisada) {
+        db.updateContact(phone, { ayuda_acceso_avisada: 1 });
+        await notifyJorge(contact,
+          `CLIENTA SIGUE SIN PODER ABRIR (ya se le reenvio su enlace):\nNombre: ${contact.name || '-'}\nTel: ${phone}\nPack: ${contact.pack_selected || '-'}\nCorreo registrado: ${contact.email || '-'}\nUltimo mensaje: "${text.slice(0, 200)}"\nCarol la esta atendiendo, entra tu si no avanza.`
+        );
+      }
+    }
   }
 
   // Pre-upsell: cierre cortés post-entrega — evitar que Carol responda varias veces a "Gracias"
@@ -1469,12 +1574,12 @@ async function handlePostDelivery(contact, text) {
       // correo (mandaba a revisar spam/promociones) -- NUNCA se envia ningun email, ver
       // caso real 573022497665 (14 jul 2026)
       const ctxNoLlego = '[CONTEXTO INTERNO: El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp, ya se le envio antes en esta conversacion. NUNCA se manda ningun correo electronico -- el Gmail que dio es solo la llave para poder abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada, dile que revise arriba en este mismo chat de WhatsApp (busca el mensaje con el link de Google Drive), NUNCA le digas que revise su bandeja de Gmail, spam o promociones -- ahi nunca va a encontrar nada porque no se envia ningun correo.]';
-      await sendAndSave(phone, await carol(history, ctxNoLlego + '\n\nMensaje de la clienta: ' + text));
+      await sendAndSave(phone, await carol(history, ctxNoLlego + notaMolesta + '\n\nMensaje de la clienta: ' + text));
       return;
     }
-    // NO_WORDS (token suelto "no") solo cuenta en mensajes cortos — evita que "no tengo ninguna
-    // duda, me encanta todo" se lea como rechazo por tener el token "no" en medio de la frase
-    const rejectsUpgrade = (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS)) ||
+    // Rechazo solo si el mensaje es UNICAMENTE un "no" (ver esSoloRechazo). Antes bastaba un
+    // mensaje corto con la palabra "no" y "No lo puedo abrir" se leia como "no gracias".
+    const rejectsUpgrade = esSoloRechazo(text) ||
       ['no gracias', 'no quiero', 'no por ahora', 'asi estoy bien', 'estoy bien asi', 'no me interesa'].some(w => text.includes(w));
     if (rejectsUpgrade) {
       if (yaSemilla) {
@@ -1558,7 +1663,7 @@ async function handlePostDelivery(contact, text) {
     contact.pack_selected === 'basico' ? 'PACK BASICO' : 'su pack';
   const packPriceDelivered = PACK_AMOUNTS[contact.pack_selected];
   const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. NO le pidas que pague ni le des datos de pago de nuevo — su compra esta completa. Ayudala con su duda o solicitud actual.]`;
-  const reply = await carol(history, ctxDelivered + '\n\nMensaje de la clienta: ' + text);
+  const reply = await carol(history, ctxDelivered + notaMolesta + '\n\nMensaje de la clienta: ' + text);
   await sendAndSave(phone, reply);
 }
 
@@ -1638,8 +1743,8 @@ async function handleUpgradeComprobante(contact, msgType, content) {
       return;
     }
 
-    const isNo = (text.split(/\s+/).filter(Boolean).length <= 4 && hasWord(text, NO_WORDS)) ||
-      text.includes('no quiero') || text.includes('mejor no');
+    // Mismo criterio que en post-entrega: "no lo puedo abrir" no es cancelar el upgrade
+    const isNo = esSoloRechazo(text) || text.includes('no quiero') || text.includes('mejor no');
     const isDelaying = text.split(/\s+/).filter(Boolean).length <= 6 &&
       ['despues', 'después', 'luego', 'mas tarde', 'más tarde',
       'otro dia', 'otro día', 'mañana', 'ahorita', 'ahoritica', 'pensarlo'].some(w => text.includes(w));
@@ -1759,7 +1864,15 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
   const accessToken = generateAccessToken(phone, upgradeTarget);
   const accessUrl   = `${BOT_URL}/acceso/${accessToken}`;
-  await sendAndSave(phone, deliveryMessage(upgradeTarget, accessUrl, contact.email));
+  // Igual que en deliverPack: si el mensaje de WhatsApp falla, el upgrade igual se registra
+  let mensajeUpgEnviado = true;
+  try {
+    await sendAndSave(phone, deliveryMessage(upgradeTarget, accessUrl, contact.email));
+  } catch (e) {
+    mensajeUpgEnviado = false;
+    console.error(`Upgrade: no salio el mensaje de WhatsApp [${phone}]:`, e.response?.data ? JSON.stringify(e.response.data) : e.message);
+    await notifyJorge(contact, `OJO: el upgrade a ${upgradeTarget} quedo registrado pero NO se le pudo mandar el mensaje de WhatsApp con su enlace.\nTel: ${phone}\nMandaselo tu (boton "Enlace acceso" del panel).`);
+  }
 
   db.updateContact(phone, { pack_selected: upgradeTarget, upgrade_target: '', state: 'delivered', tag: 'Facturado', folder_id: upgradeFolderId });
 
@@ -1829,7 +1942,16 @@ const BANNED_PHRASE_REPLACEMENTS = [
   [/\bjoder\b/gi, ''],
   [/\bcojonudo\b/gi, ''],
   [/\bmazo\b/gi, ''],
-  [/\bflipar\b/gi, '']
+  [/\bflipar\b/gi, ''],
+  // Frases de vendedor insistente con clientas que ya pagaron (10 sep 2026, Bibiana 573016506566:
+  // "te lo juro", "casi el 99% de las personas", "no funciona asi"). Estaban pedidas en el prompt
+  // y aun asi aparecieron, por eso se garantizan aqui.
+  [/\bte lo juro\b/gi, m => (m[0] === 'T' ? 'De verdad' : 'de verdad')],
+  [/\bte juro\b/gi, m => (m[0] === 'T' ? 'De verdad' : 'de verdad')],
+  [/\b(casi\s+)?el\s+99\s*%\s+de\s+las\s+personas/gi, 'muchas personas'],
+  [/\bpero no funciona as[ií]\b/gi, 'pero funciona de otra forma'],
+  // WhatsApp marca negrita con UN asterisco; con dos (formato de otras apps) se ven los asteriscos
+  [/\*\*([^*\n]+)\*\*/g, '*$1*']
 ];
 
 const AI_ADMISSION_PATTERNS = [

@@ -76,6 +76,17 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN email_alert_2 INTEGER DEFAULT 0`)
 // que son de un caso distinto (pago sin correo). Una sola alerta por contacto, no spam.
 try { db.exec(`ALTER TABLE contacts ADD COLUMN otra_cuenta_avisada INTEGER DEFAULT 0`); } catch (_) {}
 
+// 10 sep 2026: enlace de acceso mandado a quien pago y no dio (o no tiene) Gmail; reenvio de
+// enlace a clientas entregadas que no pueden abrir (maximo uno cada 24h, y un solo aviso a Jorge
+// si aun asi no pueden); y aviso UNICO de clienta molesta, para no llenar a Jorge de alertas.
+try { db.exec(`ALTER TABLE contacts ADD COLUMN enlace_acceso_enviado INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN enlace_reenviado_at TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN ayuda_acceso_avisada INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN molesta_avisada INTEGER DEFAULT 0`); } catch (_) {}
+// Cuando se deshace una entrega (accion "liberar venta"), la compra ya se reporto a Meta: la
+// siguiente entrega de ese contacto no debe reportarla de nuevo.
+try { db.exec(`ALTER TABLE contacts ADD COLUMN capi_omitir_proxima INTEGER DEFAULT 0`); } catch (_) {}
+
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_wamid ON messages(wamid)`); } catch (_) {}

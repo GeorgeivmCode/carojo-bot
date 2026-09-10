@@ -258,16 +258,20 @@ PROHIBICIÓN CRÍTICA — ENTREGA DE ARCHIVOS POR WHATSAPP:
 NUNCA ofrezcas enviar los archivos directamente por WhatsApp. Ni como ZIP, ni uno por uno, ni de ninguna otra forma. El material se entrega EXCLUSIVAMENTE a través del enlace de Google Drive que el sistema ya envió al cliente.
 
 Si el cliente dice "no me lo puedes dar por WhatsApp", "enviamelo por WhatsApp", "no puedo abrir el link", "no me funciona el correo" o cualquier variación:
-DEBES responder algo como: "El acceso ya está listo en el enlace de Drive que te envié. Para abrirlo necesitas estar conectada al Gmail que nos diste — abre ese Gmail en tu celular o computador, luego toca el enlace y todo aparece ahí. Si el link no abre desde ese Gmail escríbeme y lo revisamos."
-NUNCA ofrezcas una alternativa de envío directo. La única solución es guiarla a usar el enlace con su Gmail.
+El sistema ya le envía o le reenvía automáticamente su enlace personal en este chat. Tú guíala a usar ESE enlace: que lo abra en Chrome o Safari si dentro de WhatsApp no la deja, y que tenga abierta en el celular la cuenta de Google con la que se registró. NUNCA la mandes a abrir su Gmail ni su bandeja de correo: ahí no hay nada que buscar.
+NUNCA ofrezcas una alternativa de envío directo de los archivos.
 
-REGLA CRÍTICA — CUANDO NO TIENE GMAIL O TIENE HOTMAIL:
-NUNCA le digas "crea un Gmail nuevo" como primera respuesta. Es el consejo equivocado y hace perder horas.
-La verdad: casi todas YA tienen un Gmail sin saberlo, porque todo celular Android lo exige para usar la Play Store. Muchas dicen "tengo hotmail" o "no tengo gmail" simplemente porque no saben cuál es o no recuerdan la contraseña.
-Tu primer movimiento SIEMPRE es ayudarla a ENCONTRAR el que ya tiene:
-"Abre la Play Store, toca tu foto o la letra del círculo arriba a la derecha, y ahí aparece tu correo que termina en @gmail.com. También lo ves en Ajustes buscando Cuentas o Google."
-Solo si ella confirma que revisó y de verdad no le aparece ninguno, ahí sí le ofreces crear uno.
-Si dice que olvidó la contraseña, NO necesita recordarla para darte la dirección: el correo aparece en la Play Store igual. Y para entrar al material solo necesita que su celular ya esté conectado a esa cuenta, que normalmente ya lo está.
+REGLA CRÍTICA — CUANDO NO TIENE GMAIL, TIENE HOTMAIL O NO QUIERE DAR EL CORREO:
+NUNCA le digas "crea un Gmail nuevo" como primera respuesta.
+Si ya pagó, el sistema le manda su enlace personal: con ese enlace entra tocando "Continuar con Google" y eligiendo su cuenta, sin escribir ningún correo. Apóyate en ese enlace y NO le sigas pidiendo el Gmail. Si ella igual quiere darte su Gmail, perfecto, recíbelo.
+Si tiene Android y quiere encontrar su Gmail: "Abre la Play Store, toca tu foto o la letra del círculo arriba a la derecha, y ahí aparece tu correo que termina en @gmail.com."
+Si tiene iPhone NO existe la Play Store: NUNCA le des esas instrucciones.
+Si dice que olvidó la contraseña, NO necesita recordarla para darte la dirección.
+
+REGLA CRÍTICA — TACTO CON CLIENTAS QUE YA PAGARON:
+Nunca repitas una instrucción que ya le diste en la conversación. Si no le funcionó, cambia de camino o dile que una persona del equipo la ayuda.
+Si está molesta ("mala atención", "me robaron", "hubiera sabido no pagaba"): pídele disculpas UNA sola vez, corto y sincero, asegúrale que su plata no se pierde y que una persona del equipo la va a ayudar por aquí. No le discutas.
+PROHIBIDO con estas clientas: "te lo juro", "te apuesto", porcentajes como "el 99% de las personas", y responder "no, no funciona así".
 
 ---
 REGLA CRITICA — PREGUNTAS DE CONTENIDO vs ELECCION DE PACK:
@@ -1082,6 +1086,43 @@ Responde UNICAMENTE con JSON, sin texto adicional:
   }
 }
 
+// Revisor de mensajes de clientas que YA PAGARON (esperando dar el correo o ya entregadas).
+// Responde dos cosas: si dice que no puede abrir su material (para reenviarle su enlace) y si esta
+// claramente molesta (para avisarle a Jorge una sola vez y que Carol le hable con tacto).
+// Casos reales 10 sep 2026: Brend 573209005984 ("No lo puedo abrir" se leyo como "no gracias"),
+// Paula 573223534427 y Bibiana 573016506566 (terminaron molestas sin que nadie se enterara a tiempo).
+// Ante cualquier falla devuelve false/false, que es el comportamiento de antes.
+async function clasificarMensajePostPago(history, text) {
+  const historyText = history.slice(-8).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const prompt = `Esta clienta YA PAGO un curso digital que se entrega como un enlace a una carpeta de Google Drive. Conversacion reciente:
+
+${historyText}
+Cliente: ${text}
+
+Responde dos preguntas sobre ESE ULTIMO mensaje de la clienta:
+
+1. "no_puede_abrir": true si dice que no puede abrir, entrar, ver o descargar su material o su enlace, que el enlace no le funciona, que le pide permiso o contraseña, o pregunta como abrirlo porque no ha podido. false si habla de otra cosa: agradecer, despedirse, preguntar por otro curso, dudas del contenido, o cuenta que YA pudo abrir ("ya me abrio", "ya pude", "ya entre").
+
+2. "molesta": true SOLO si hay enojo o desconfianza clara: dice que la estafaron o le robaron, pide que le devuelvan la plata, dice "mala atencion", dice que si hubiera sabido no habria pagado o consignado, insulta, o amenaza con denunciar o reportar. false si solo esta confundida, impaciente, pregunta varias veces lo mismo o se despide. Ante la duda, false.
+
+Responde UNICAMENTE con JSON: {"no_puede_abrir": true, "molesta": false}`;
+
+  try {
+    const res = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 40,
+      temperature: 0,
+      messages: [{ role: 'user', content: prompt }]
+    }), 'clasificarMensajePostPago');
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const parsed = JSON.parse(raw);
+    return { no_puede_abrir: parsed.no_puede_abrir === true, molesta: parsed.molesta === true };
+  } catch (e) {
+    console.error('clasificarMensajePostPago error:', e.message);
+    return { no_puede_abrir: false, molesta: false };
+  }
+}
+
 // Curso de regalo (Bordados/Resina/Globoflexia) — solo aplica a clientas elegibles (ver flows.js).
 // Lee contexto real en vez de substrings: soluciona el caso donde "?" hacia que cualquier
 // mensaje se tratara como consulta generica aunque nombrara un solo regalo sin ambiguedad.
@@ -1121,4 +1162,4 @@ Responde UNICAMENTE con JSON: {"intencion": "elige"|"pregunta"|"ver_opciones"|"n
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta };
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago };

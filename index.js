@@ -691,6 +691,7 @@ app.patch('/api/contacts/:phone', adminAuth, (req, res) => {
       fields.awaiting_email_at = db.now();
       fields.email_alert_1 = 0;
       fields.email_alert_2 = 0;
+      fields.enlace_acceso_enviado = 0;
     }
   }
   db.updateContact(req.params.phone, fields);
@@ -768,7 +769,7 @@ app.post('/api/contacts/:phone/approve-payment', adminAuth, async (req, res) => 
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
   const { PAYMENT_RECEIVED_ASK_EMAIL } = require('./content');
-  db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0 });
+  db.updateContact(phone, { state: 'awaiting_email', awaiting_email_at: db.now(), email_alert_1: 0, email_alert_2: 0, enlace_acceso_enviado: 0 });
   db.logAdminAction(phone, 'approve_payment', `pack=${c.pack_selected || '-'}`);
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
   const updated = db.getContact(phone);
@@ -900,6 +901,37 @@ app.post('/api/contacts/:phone/revoke-access', adminAuth, async (req, res) => {
   } else {
     res.json({ ok: true });
   }
+});
+
+// Deshacer una entrega hecha al correo equivocado. Caso real 10 sep 2026: la prueba del boton de
+// Google se hizo con el enlace de Bibiana (573016506566) y su compra quedo entregada al correo de
+// Jorge. Quita el acceso de ese correo, saca la venta del contador y deja la compra otra vez
+// "esperando correo" para que la clienta entre con su propia cuenta. El pago sigue aprobado.
+// Si Drive no responde no se cambia nada, para no dejar un correo con acceso y la venta borrada.
+// La fila del Google Sheet NO se borra desde aqui (el script del Sheet no tiene esa accion).
+app.post('/api/contacts/:phone/liberar-venta', adminAuth, async (req, res) => {
+  if (!initialized) return res.status(503).json({ error: 'starting' });
+  const phone = req.params.phone;
+  const c = db.getContact(phone);
+  if (!c) return res.status(404).json({ error: 'not found' });
+  if (!c.delivered_at || !c.email || !c.pack_selected) {
+    return res.status(400).json({ error: 'Este contacto no tiene una entrega para deshacer' });
+  }
+  const { revokeAccess } = require('./drive');
+  try {
+    await revokeAccess(c.email, c.pack_selected, c.folder_id || null);
+  } catch (e) {
+    console.error(`liberar-venta Drive error [${phone}]:`, e.message);
+    return res.status(502).json({ ok: false, error: 'Drive no respondio, no se cambio nada: ' + e.message });
+  }
+  db.updateContact(phone, {
+    state: 'awaiting_email', tag: 'Sin etiqueta', email: '', delivered_at: '', folder_id: '',
+    enlace_acceso_enviado: 0, otra_cuenta_avisada: 0, capi_omitir_proxima: 1
+  });
+  db.logAdminAction(phone, 'liberar_venta', `correo_quitado=${c.email}, pack=${c.pack_selected}, entregado_antes=${c.delivered_at}`);
+  const updated = db.getContact(phone);
+  broadcast('refresh', { phone, contact: updated });
+  res.json({ ok: true, correo_quitado: c.email, pack: c.pack_selected });
 });
 
 app.post('/api/contacts/:phone/unblock-access', adminAuth, async (req, res) => {
@@ -1516,7 +1548,12 @@ function verifyAccessToken(token) {
     if (parts.length !== 4) return null;
     const [phone, pack, amount, tsStr] = parts;
     const ts = parseInt(tsStr);
-    if (isNaN(ts) || Date.now() / 1000 - ts > 90 * 24 * 3600) return null;
+    // Sin vencimiento a proposito: el acceso se vende "de por vida". Antes caducaba a los 90 dias
+    // y desde el 26 ago 2026 empezo a romperle el enlace a las compras de finales de mayo en
+    // adelante (~420 clientas al 10 sep). Caso real Alexandra 573244127150, Diamante del 11 jun.
+    // Sigue siendo seguro: la firma impide inventar enlaces, y Drive solo abre a quien este en
+    // la lista del pack, asi que un enlace reenviado no le sirve a otra persona.
+    if (isNaN(ts)) return null;
     const secret = VERIFY_TOKEN || 'carojo_verify_2026';
     const expectedSig = crypto.createHmac('sha256', secret).update(data).digest('hex').substring(0, 16);
     if (sig !== expectedSig) return null;
@@ -1540,7 +1577,17 @@ function escapeHtml(s) {
 
 app.get('/acceso/:token', async (req, res) => {
   const info = verifyAccessToken(req.params.token);
-  if (!info) return res.redirect(DRIVE_URLS_PIXEL.basico);
+  // Antes un enlace invalido redirigia a la carpeta del Pack Basico: a una clienta Diamante le
+  // abria una carpeta ajena donde no tenia permiso, sin ninguna explicacion. Ahora se le dice
+  // que escriba por WhatsApp.
+  if (!info) {
+    console.log(`Enlace de acceso invalido: ${String(req.params.token).slice(0, 40)}`);
+    return res.status(404).send(paginaPublica('Enlace no valido', `
+<h1>Este enlace no funciona</h1>
+<p style="text-align:center">Puede que se haya copiado incompleto. No te preocupes, tu compra esta segura.</p>
+<p style="text-align:center">Escribenos por WhatsApp y te mandamos tu enlace de nuevo en un momento.</p>
+<p style="text-align:center"><a class="cta" href="https://wa.me/573244971371">Escribir por WhatsApp</a></p>`));
+  }
   const { phone, pack } = info;
   const contact = initialized ? db.getContact(phone) : null;
   // El pack manda: para quien todavia no tiene folder_id (aun no se le entrego) hay que usar la
@@ -1585,6 +1632,7 @@ app.get('/acceso/:token', async (req, res) => {
   <h1>Ya casi, falta un paso</h1>
   <p>Tu pago del ${escapeHtml(packName)} esta confirmado. Para abrirte la carpeta solo necesitamos saber con que cuenta de Google entras.</p>
   ${GOOGLE_CLIENT_ID ? `<p class="sub">Toca el boton y elige la cuenta que ya usas en este celular. No tienes que escribir nada ni recordar contrasenas.</p>` : `<p class="sub">Escribenos tu correo de Google por WhatsApp y te activamos el acceso al instante.</p>`}
+  ${GOOGLE_CLIENT_ID ? `<p class="note" style="margin:0 0 8px"><b>Importante:</b> tu material queda guardado en la cuenta que elijas. Elige la tuya, no la de otra persona.</p>` : ''}
   ${bloqueGoogle}
   <div id="listo" class="hidden">
     <p class="ok">Listo! Tu acceso quedo activo 🎉</p>

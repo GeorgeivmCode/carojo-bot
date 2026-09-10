@@ -250,6 +250,34 @@ Cual te aparece?`;
 
 const INVALID_EMAIL_MSG = FIND_GMAIL_MSG;
 
+// Para la clienta que YA PAGO y no quiere, no puede o no sabe dar su Gmail (10 sep 2026).
+// Casos reales: Paula 573223534427 (celular de la abuela, "lo necesito x aqui x WhatsApp") y
+// Bibiana 573016506566 (iPhone + Hotmail). Carol les pidio el Gmail 8-10 veces y terminaron
+// diciendo "mala atencion" y "perdi la plata". Con este enlace entran con "Continuar con Google"
+// sin escribir nada. Solo sirve si el pago ya esta aprobado (lo valida la pagina de acceso).
+const ENLACE_SIN_CORREO_MSG = url => `No te preocupes, no tienes que escribirme ningún correo 💛
+
+1️⃣ Toca este enlace:
+${url}
+2️⃣ Dale al botón *Continuar con Google* y elige tu cuenta
+3️⃣ Listo, tu material se abre solito
+
+⚠️ *Importante:* tu material queda guardado en la cuenta con la que entres. Si entras con la cuenta de otra persona, solo esa persona lo va a poder abrir. Por eso entra con la tuya 🔑
+
+💡 Si lo tocas aquí en WhatsApp y no te deja entrar, cópialo y pégalo en Chrome o Safari.
+
+Y si prefieres, también puedes escribirme tu Gmail por aquí.`;
+
+// Para la clienta YA ENTREGADA que dice que no puede abrir. Antes Carol le decia "mira arriba",
+// y arriba podia estar un enlace viejo (caso Alexandra 573244127150, 10 sep 2026).
+const REENVIO_ENLACE_MSG = (url, email) => `Tranquila, aquí tienes tu enlace otra vez 💛
+
+${url}
+
+1️⃣ Tócalo y dale al botón naranja
+2️⃣ Si te dice que necesitas permiso, es porque tienes otra cuenta de Google abierta. Toca tu foto arriba a la derecha y cambia a ${email ? `*${email}*` : 'la cuenta de Google que nos diste'}
+3️⃣ Si lo abriste desde WhatsApp y no te deja, toca los tres puntitos y elige "Abrir en el navegador"`;
+
 const SEND_COMPROBANTE_MSG = `Para confirmar tu pago necesito ver el comprobante. 📸
 
 Abre tu app (Nequi, Daviplata, Bancolombia, etc.), busca el comprobante de ese pago y enviamelo aqui como imagen o PDF.`;
@@ -466,7 +494,7 @@ module.exports = {
   DELIVERY_BASICO, DELIVERY_ORO, DELIVERY_DIAMANTE,
   PLANTILLA_ACCESO,
   R1_MESSAGE, R2_MESSAGE,
-  INVALID_EMAIL_MSG, FIND_GMAIL_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
+  INVALID_EMAIL_MSG, FIND_GMAIL_MSG, ENLACE_SIN_CORREO_MSG, REENVIO_ENLACE_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
