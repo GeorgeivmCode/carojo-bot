@@ -352,17 +352,6 @@ Con esto sientes mas tranquilidad para dar el paso, o todavia te queda alguna du
   images: [`${BASE_URL}/testimonio1.png`, `${BASE_URL}/testimonio2.png`]
 };
 
-// Foto que acompaña la bienvenida (10 sep 2026, pedido de Jorge). El 48% de las clientas nuevas
-// leia la bienvenida y se iba sin elegir pack: ver el material por dentro desde el primer
-// mensaje le da prueba real a trafico frio. Se usa la de "Que encontraras?" porque muestra todo
-// el contenido (incluida la lista de videos); la de Lettering y Timoteo queda para el mostrario.
-const WELCOME_IMAGE = `${BASE_URL}/mostrario1.jpeg`;
-// Pie de foto (10 sep 2026): Jorge noto que el titulo "Que encontraras?" con pocas cosas puede
-// leerse como "esto es todo lo que trae", justo antes de ver los precios. El texto la presenta
-// como una muestra. Cifras reales de los packs: 2.400 paginas (Basico), videos del taller de
-// Timoteo (se ven en la foto) y 85.000 diseños de Canva (Diamante).
-const WELCOME_IMAGE_CAPTION = `👀 Esto es solo una probadita de lo que hay adentro. Según el pack que elijas: más de 2.400 páginas de cartillas, clases en video paso a paso y hasta 85.000 diseños editables.`;
-
 // Datos de pago del pack ELEGIDO para quien no contesta la oferta de subir de pack (10 sep 2026).
 // En 10 dias, 48 clientas (33 que eligieron Basico y 15 Oro) nunca contestaron el "Te animas?" y
 // quedaron sin datos para pagar: 0 ventas. Quien si contesta paga ~47%. Se manda a los 10 min de
@@ -564,6 +553,6 @@ module.exports = {
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
   MOSTRARIO, TESTIMONIOS,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
-  WELCOME_IMAGE, WELCOME_IMAGE_CAPTION, DATOS_PACK_ELEGIDO_MSG, R1_PACK_MSG, CHECK_ACCESO_MSG,
+  DATOS_PACK_ELEGIDO_MSG, R1_PACK_MSG, CHECK_ACCESO_MSG,
   deliveryMessage
 };

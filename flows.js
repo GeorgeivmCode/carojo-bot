@@ -33,7 +33,7 @@ const {
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
   deliveryMessage,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
-  NEQUI_DOWN_TRIGGERS, WELCOME_IMAGE, WELCOME_IMAGE_CAPTION
+  NEQUI_DOWN_TRIGGERS
 } = require('./content');
 
 async function checkNequiStatus() {
@@ -821,17 +821,9 @@ async function handleNew(contact, text) {
     db.updateContact(phone, { state: 'awaiting_comprobante' });
     await sendAndSave(phone, SEND_COMPROBANTE_MSG);
   } else {
-    // Bienvenida con foto del material en medio (10 sep 2026): intro, foto, y el menu al final
-    // para que la pregunta de elegir pack quede como lo ultimo que ve. Si la foto falla, el menu
-    // sale igual: la bienvenida nunca se puede quedar a medias.
-    await sendAndSave(phone, WELCOME_MESSAGE[0]);
-    try {
-      // Con pie de foto que la presenta como una muestra, y guardando el id de WhatsApp para que el
-      // panel le muestre los chulitos de entregado/leido como a los demas mensajes
-      const wamidFoto = await sendImage(phone, WELCOME_IMAGE, WELCOME_IMAGE_CAPTION);
-      db.saveMessage(phone, 'out', 'image', WELCOME_IMAGE, wamidFoto || '');
-    } catch (e) { console.error(`Foto de bienvenida no enviada [${phone}]:`, e.message); }
-    await sendAndSave(phone, WELCOME_MESSAGE[1]);
+    // Bienvenida sin foto (10 sep 2026, noche): la version con la foto "Que encontraras?" en medio
+    // se quito a pedido de Jorge porque desde que salio no hubo ventas. Vuelve a ser la original.
+    await sendAndSave(phone, WELCOME_MESSAGE);
     db.updateContact(phone, { state: 'awaiting_choice' });
   }
 }

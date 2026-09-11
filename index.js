@@ -1903,25 +1903,8 @@ function startScheduler() {
       }
     }
 
-    // Alerta de clientes que YA PAGARON y siguen sin dar su correo.
-    // NO le manda nada al cliente, es solo aviso interno a Jorge/Carol por Telegram.
-    // awaiting_email esta excluido de R1 y R2 a proposito, asi que antes de esto nadie se
-    // enteraba: 10 casos reales en 45 dias (~$90.000 COP), ver sesion 8 sep 2026.
-    for (const [minutes, field, etiqueta] of [[60, 'email_alert_1', '1 hora'], [720, 'email_alert_2', '12 horas']]) {
-      for (const c of db.getStuckAwaitingEmail(minutes, field)) {
-        try {
-          await notifyTelegram(
-            `PAGO SIN CORREO (${etiqueta} esperando)\n` +
-            `Nombre: ${c.name || '-'}\n` +
-            `Tel: ${c.phone}\n` +
-            `Pack: ${c.pack_selected || '-'}\n` +
-            `Bot activo: ${c.bot_active ? 'si' : 'NO'}\n` +
-            `Ya pago y nunca dio su Gmail. Abre el chat en el panel y usa el boton "Enlace acceso" para que ella entre con Google, o registra la venta a mano si ya tienes su correo.`
-          );
-          db.updateContact(c.phone, { [field]: 1 });
-          console.log(`Alerta pago-sin-correo enviada [${c.phone}] ${etiqueta}`);
-        } catch (e) { console.error('Alerta pago-sin-correo error', c.phone, e.message); }
-      }
-    }
+    // La alerta "PAGO SIN CORREO" por Telegram (1 h y 12 h) se quito el 10 sep 2026 a pedido de
+    // Jorge: el celular debe sonar por ventas, no por soporte. Esos casos se revisan en el filtro
+    // "Pendientes" del panel.
   }, 2 * 60 * 1000);
 }
