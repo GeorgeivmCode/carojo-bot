@@ -494,6 +494,15 @@ app.post('/webhook', verifySignature, async (req, res) => {
 
   const value = body?.entry?.[0]?.changes?.[0]?.value;
 
+  // Solo lo que llega al numero de este bot (10 sep 2026). La app de Meta tambien esta suscrita a
+  // la cuenta del numero de Anigurumis (el futuro numero de Creciendo con Fe): sin este filtro,
+  // Carol de Timoteo le contestaba a esas personas desde el numero de Timoteo.
+  const numeroDestino = value?.metadata?.phone_number_id;
+  if (numeroDestino && process.env.WA_PHONE_ID && numeroDestino !== process.env.WA_PHONE_ID) {
+    console.log(`Webhook de otro numero (${numeroDestino}), ignorado`);
+    return;
+  }
+
   // Status updates (enviado/entregado/leido/fallido)
   if (value?.statuses?.length) {
     for (const s of value.statuses) {
