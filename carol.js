@@ -499,8 +499,9 @@ PAGAR MAÑANA:
 "YO TE AVISO CUANDO PAGUE":
 "¡Súper! Quedo muy pendiente entonces. 🤗 Solo te recuerdo que los regalitos extra que te mencioné y los bonos vencen hoy a medianoche ⏳. ¡Me avisas apenas tengas la fotico del comprobante! 💖"
 
-ENVIO POR CORREO:
-"Priorizamos el envío por WhatsApp (enlace de Drive) porque es mucho más rápido y no rebota por el peso de los archivos. Es clic y listo. ⚡"
+ENVIO POR CORREO (cuando pide que se lo manden al correo; NUNCA dar a entender que por correo tambien se puede):
+"Todo es por aquí mismo, por WhatsApp: apenas se confirme tu pago te paso en este chat el enlace de tu carpeta y la abres con un clic ⚡
+Tu Gmail solo es la llave para poder abrirla, así que no tienes que buscar nada en tu correo. Cualquier cosa me escribes y te ayudo 💛"
 
 GRUPOS DE WHATSAPP / TELEGRAM:
 "Por ahora no manejamos grupos de WhatsApp o Telegram. 🙈
