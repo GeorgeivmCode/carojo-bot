@@ -70,6 +70,10 @@ const AD_MAP = {
   '120251413596020501': { name: 'F4 - Messi',              campaign: 'Messi' },
   '120251413833410501': { name: 'F5 - Messi',              campaign: 'Messi' },
   '120251413833400501': { name: 'F6 - Messi',              campaign: 'Messi' },
+  // Prueba "Interaccion > compras por mensajes" (11 sep 2026): mismo creativo que F1/F4/F5 de Messi
+  '120251746864710501': { name: 'F1 - TEST Compras',       campaign: 'TEST Compras' },
+  '120251746866230501': { name: 'F4 - TEST Compras',       campaign: 'TEST Compras' },
+  '120251746869520501': { name: 'F5 - TEST Compras',       campaign: 'TEST Compras' },
   '120245983517370501': { name: 'Tu propio dinero - LAL',  campaign: 'Carojo LAL' },
   '120245712723010501': { name: 'Emprende desde casa - LAL', campaign: 'Carojo LAL' },
   '120245712720490501': { name: '3200 mujeres - LAL',      campaign: 'Carojo LAL' },
