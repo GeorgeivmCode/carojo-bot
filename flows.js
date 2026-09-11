@@ -979,14 +979,6 @@ function detallePackEntregado(pack) {
     `puedes contarle UNA vez y sin presionar que puede completar ${completar[pack]}. No le des datos de pago tu: si dice que quiere, el sistema se los manda.`;
 }
 
-// Respuesta corta afirmativa a "Pudiste abrir tu material?" ("si", "si gracias", "ya pude").
-// Despues de una pregunta de si/no un "si" corto no es ambiguo; lo largo lo decide el revisor.
-function esAfirmacionCorta(text) {
-  const limpio = String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  return /^(s+i+|ya|claro|listo|ok|okey|perfecto|excelente|genial|todo bien|gracias|muchas gracias|mil gracias|ya pude|si pude|ya abri|ya entre|ya me abrio|si ya|ya si|si senora|si senor)( (gracias|muchas gracias|mil gracias|ya pude|todo bien|perfecto|senora|amiga|pude|ya|claro|excelente))*$/.test(limpio);
-}
-
 // ¿Ya tiene su enlace de acceso para esta compra? Cuenta el que manda el bot y tambien el que
 // manda Jorge a mano con el boton "Enlace acceso" del panel (caso Paula 573223534427: Jorge le
 // mando el enlace y Carol le siguio pidiendo el Gmail como si no existiera).
@@ -1026,14 +1018,14 @@ async function reenviarEnlaceAcceso(contact) {
   return true;
 }
 
-// Aviso UNICO por clienta cuando una que ya pago esta claramente molesta. Jorge pidio que no le
-// llegaran avisos todo el tiempo: una sola vez por contacto, sin importar cuanto siga escribiendo.
+// Clienta que ya pago y esta claramente molesta. Desde el 10 sep 2026 (noche) NO se le avisa a
+// Jorge al celular (pidio que suene solo por ventas): queda anotado en el historial del contacto
+// y Carol la atiende con tacto (NOTA_CLIENTA_MOLESTA).
 async function avisarClientaMolesta(contact, text, estadoLabel) {
   if (contact.molesta_avisada) return;
   db.updateContact(contact.phone, { molesta_avisada: 1 });
-  await notifyJorge(contact,
-    `CLIENTA MOLESTA (ya pago)\nNombre: ${contact.name || '-'}\nTel: ${contact.phone}\nPack: ${contact.pack_selected || '-'}\nEstado: ${estadoLabel}\nUltimo mensaje: "${String(text).slice(0, 200)}"\nEntra tu al chat. Este aviso llega una sola vez por clienta.`
-  );
+  db.logAdminAction(contact.phone, 'clienta_molesta', `${estadoLabel}: ${String(text).slice(0, 150)}`);
+  console.log(`Clienta molesta [${contact.phone}] (${estadoLabel})`);
 }
 
 // Android o iPhone, segun lo que la clienta haya escrito (gana la ultima mencion). '' si no dijo.
@@ -1046,7 +1038,9 @@ function detectarCelular(texto) {
   return iph ? 'iphone' : andr ? 'android' : '';
 }
 
-const NOTA_CLIENTA_MOLESTA = '\n[CONTEXTO INTERNO: LA CLIENTA ESTA MOLESTA. Pidele disculpas UNA sola vez, corto y sincero, asegurale que su compra y su plata estan seguras y que una persona del equipo la va a ayudar por aqui. No le discutas ni le repitas instrucciones que ya le diste.]';
+const NOTA_CLIENTA_MOLESTA = '\n[CONTEXTO INTERNO: LA CLIENTA ESTA MOLESTA. Pidele disculpas UNA sola vez, corto y sincero, asegurale que su compra y su plata estan seguras y que tu la ayudas a resolverlo ya mismo. NO le digas que otra persona del equipo la va a atender. No le discutas ni le repitas instrucciones que ya le diste.]';
+// Ya se le reenvio su enlace y sigue sin poder abrir: Carol la sigue ayudando ella misma.
+const NOTA_SIGUE_SIN_PODER_ABRIR = '\n[CONTEXTO INTERNO: ESTA CLIENTA SIGUE SIN PODER ABRIR SU MATERIAL aunque ya se le reenvio su enlace. Ayudala TU misma, sin decirle que otra persona la va a ayudar y sin repetirle los pasos que ya le diste. Preguntale UNA cosa para destrabarla: que le aparece exactamente en la pantalla cuando toca el enlace, o que te mande una captura. Las causas mas comunes: abrio el enlace dentro de WhatsApp (debe copiarlo y pegarlo en Chrome o Safari) o tiene abierta en el celular otra cuenta de Google distinta al correo que dio.]';
 
 const YES_WORDS = ['si', 'sí', 'dale', 'listo', 'ok', 'claro', 'confirmo', 'confirmado', 'voy', 'perfecto', 'hagalo', 'hagámoslo', 'quiero', 'de una'];
 const NO_WORDS  = ['no', 'nop', 'nope', 'negativo', 'paso'];
@@ -1395,8 +1389,9 @@ async function handleEmail(contact, emailText) {
     // pasos 3 veces, le dijo "No necesitas Gmail para nada" (falso: sin cuenta de Google la carpeta
     // no abre) y nadie le aviso a Jorge. Ahora: al primer "no pude" Carol hace UNA pregunta (Android
     // o iPhone) sin repetir pasos; con Android le enseña a ver el Gmail que ya tiene en el celular;
-    // con iPhone o al segundo "no pude" se le avisa a Jorge UNA sola vez y Carol le dice que una
-    // persona del equipo la ayuda.
+    // con iPhone o al segundo "no pude" Carol la sigue ayudando ella misma (desde el 10 sep noche ya
+    // no se le avisa a Jorge al celular ni se le dice que otra persona la ayuda: esas clientas
+    // aparecen en el filtro Pendientes del panel).
     let fallos = contact.enlace_fallos || 0;
     if (yaTieneEnlace && clsEmail.no_puede_abrir) {
       fallos++;
@@ -1408,20 +1403,11 @@ async function handleEmail(contact, emailText) {
       .map(m => m.content).concat(emailText).join('\n');
     const celular = detectarCelular(textoClienta);
     const escalar = yaTieneEnlace && (fallos >= 2 || celular === 'iphone');
-    if (escalar && !contact.ayuda_correo_avisada) {
-      db.updateContact(phone, { ayuda_correo_avisada: 1 });
-      // Si ya se le aviso a Jorge que esta molesta, no le llega un segundo aviso por la misma clienta
-      if (!clsEmail.molesta && !contact.molesta_avisada) {
-        await notifyJorge(contact,
-          `PAGO Y NO LOGRA ENTRAR (no ha dado su Gmail)\nNombre: ${contact.name || '-'}\nTel: ${phone}\nPack: ${contact.pack_selected || '-'}\nCelular: ${celular === 'iphone' ? 'iPhone' : celular === 'android' ? 'Android' : 'no ha dicho'}\nUltimo mensaje: "${String(emailText).slice(0, 200)}"\nYa tiene su enlace de acceso. Carol le dijo que una persona del equipo la ayuda por aqui: entra tu al chat. Este aviso llega una sola vez por clienta.`
-        );
-      }
-    }
     let guiaEnlace;
     if (!yaTieneEnlace) {
       guiaEnlace = 'Si no sabe cuál es su Gmail y tiene Android, puede verlo en la Play Store tocando su foto arriba a la derecha.\n';
     } else if (escalar) {
-      guiaEnlace = 'ESTA CLIENTA NO HA PODIDO ENTRAR CON SU ENLACE y ya se le avisó a una persona del equipo. En UN solo mensaje corto y cálido: que no se preocupe, que su compra está segura y que una persona del equipo la va a ayudar por aquí en un momento. NO le des pasos ni instrucciones y NO le vuelvas a explicar el enlace ni el botón de Google.\n';
+      guiaEnlace = 'ESTA CLIENTA YA INTENTÓ ENTRAR CON SU ENLACE Y NO HA PODIDO. Ayúdala TÚ misma: NO le digas que otra persona del equipo la va a ayudar. NO le repitas los pasos del enlace ni del botón de Google. En UN mensaje corto y cálido: tranquilízala (su compra está segura) y hazle UNA pregunta para destrabarla: qué le aparece exactamente en la pantalla cuando toca el enlace, o que te mande una captura. Si tiene iPhone: pregúntale si tiene algún correo que termine en @gmail.com (por ejemplo el que usa en YouTube o en otro celular) y que te lo escriba aquí para activarle el acceso; si no tiene ninguno, como último recurso ofrécele crear uno gratis en gmail.com en 2 minutos y escribírtelo aquí.\n';
     } else if (celular === 'android') {
       guiaEnlace = 'YA SE LE MANDO SU ENLACE y su celular es ANDROID. Un Android siempre tiene un Gmail abierto (sin eso no funciona la Play Store) y NO necesita contraseña para verlo. NO le repitas los pasos del enlace. Explícale corto: "Abre la Play Store, toca tu foto o la letra del círculo arriba a la derecha, y ahí aparece tu correo que termina en @gmail.com". Pídele que te lo escriba aquí y le activas el acceso.\n';
     } else if (clsEmail.no_puede_abrir) {
@@ -1514,9 +1500,20 @@ async function deliverPack(contact, email) {
     } catch (e) { console.error(`Regalo no enviado [${phone}]:`, e.message); }
   }
 
-  // La oferta de subir de pack ya NO sale a los 2 minutos (1 de 113 subio en 20 dias, llegaba
-  // antes de que abrieran el material). Ahora el programador pregunta a los 30 min si pudo abrir
-  // (CHECK_ACCESO_MSG) y la oferta sale en handlePostDelivery cuando responde que si.
+  // Upsell post-entrega — solo para basico y oro, 2 minutos despues.
+  // (10 sep 2026 noche: se devolvio a como estaba; se quito la pregunta "Pudiste abrir tu material?")
+  if (pack !== 'diamante') {
+    setTimeout(async () => {
+      try {
+        const fresh = db.getContact(phone);
+        if (fresh && fresh.state === 'delivered' && !fresh.upsell_sent) {
+          const msg = pack === 'basico' ? UPSELL_BASICO : UPSELL_ORO;
+          await sendAndSave(phone, msg);
+          db.updateContact(phone, { upsell_sent: 1 });
+        }
+      } catch (e) { console.error('Upsell error:', e.message); }
+    }, 2 * 60 * 1000);
+  }
 
   return { ok: true, folderId: driveFolderId, pack };
 }
@@ -1546,20 +1543,6 @@ async function handlePostDelivery(contact, text) {
     return;
   }
 
-  // 10 sep 2026: la oferta de subir de pack sale cuando responde que SI pudo abrir su material a la
-  // pregunta de los 30 min ("Pudiste abrir tu material?"), ya no a los 2 min de la entrega.
-  const recentPost = db.getRecentMessages(phone, 6);
-  const ultimoBotPost = recentPost.filter(m => m.direction === 'out').pop();
-  const respondeCheck = !!contact.check_acceso_sent && !contact.upsell_sent &&
-    ['basico', 'oro'].includes(contact.pack_selected) && !!ultimoBotPost &&
-    String(ultimoBotPost.content || '').includes('Pudiste abrir tu material');
-  const mandarUpsellTrasCheck = async () => {
-    await sendAndSave(phone, contact.pack_selected === 'basico' ? UPSELL_BASICO : UPSELL_ORO);
-    db.updateContact(phone, { upsell_sent: 1 });
-    console.log(`Upsell tras confirmar que abrio [${phone}] pack=${contact.pack_selected}`);
-  };
-  if (respondeCheck && esAfirmacionCorta(text)) { await mandarUpsellTrasCheck(); return; }
-
   // Revisor con contexto (10 sep 2026): antes de cualquier otra regla de post-entrega se mira si la
   // clienta dice que no puede abrir su material, o si esta claramente molesta. Solo se salta con
   // cierres de una palabra ("gracias", "ok") para no gastar una consulta en eso.
@@ -1572,22 +1555,13 @@ async function handlePostDelivery(contact, text) {
       notaMolesta = NOTA_CLIENTA_MOLESTA;
       await avisarClientaMolesta(contact, text, 'ya entregada');
     }
-    if (respondeCheck && clsPost.ya_abrio && !clsPost.no_puede_abrir && !clsPost.molesta) {
-      await mandarUpsellTrasCheck();
-      return;
-    }
     if (clsPost.no_puede_abrir) {
       // Caso Alexandra 573244127150: dijo que no podia abrir y Carol le respondio "mira arriba",
       // donde estaba un enlace viejo. Ahora se le manda su enlace de nuevo con los pasos.
       if (!reenviadoHaceMenosDe24h(contact) && await reenviarEnlaceAcceso(contact)) return;
-      // Ya se le reenvio hace poco y sigue sin poder: no se le repite, la atiende Carol y se
-      // le avisa a Jorge una sola vez.
-      if (!contact.ayuda_acceso_avisada) {
-        db.updateContact(phone, { ayuda_acceso_avisada: 1 });
-        await notifyJorge(contact,
-          `CLIENTA SIGUE SIN PODER ABRIR (ya se le reenvio su enlace):\nNombre: ${contact.name || '-'}\nTel: ${phone}\nPack: ${contact.pack_selected || '-'}\nCorreo registrado: ${contact.email || '-'}\nUltimo mensaje: "${text.slice(0, 200)}"\nCarol la esta atendiendo, entra tu si no avanza.`
-        );
-      }
+      // Ya se le reenvio hace poco y sigue sin poder: no se le repite, la sigue ayudando Carol.
+      // Sin aviso al celular de Jorge (10 sep 2026 noche): el celular suena solo por ventas.
+      notaMolesta += NOTA_SIGUE_SIN_PODER_ABRIR;
     }
   }
 

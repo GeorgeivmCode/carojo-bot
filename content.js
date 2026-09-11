@@ -20,45 +20,51 @@ de forma fácil, práctica y muy divertida 💕`,
 👉 ¿Cuál te gustaría elegir? Solo escríbeme el número (1, 2 o 3) y te envío todos los detalles al instante 💌`
 ];
 
-// Dos lineas que van en todo mensaje con datos de pago (10 sep 2026). De 170 clientas que
-// recibieron los datos y no compraron, las que escribieron preguntaban casi siempre lo mismo:
-// "quien me garantiza que me envian el pack", "como lo hacen llegar", "es virtual". El mensaje
-// de pago no respondia nada de eso.
-const LINEAS_CONFIANZA = `📲 Apenas me mandes la foto del comprobante lo verifico al instante y te paso aquí mismo el acceso a tu carpeta.
-💻 Es 100% digital: lo descargas e imprimes cuando quieras, y es tuyo para siempre.`;
-
-// 10 sep 2026: antes eran 3 mensajes largos y el Diamante directo era el camino que MENOS compraba
-// (20,6% de 165 clientas en 10 dias, contra ~47% de quien elegia Basico u Oro). Ademas repetia
-// cosas: la Papeleria Creativa salia como curso 4 Y como bono 1, las Agendas como curso 5 Y bono 3.
-// Mismo contenido y mismas cifras (5 cursos + 11 bonos), en 2 mensajes y sin repetir.
+// 10 sep 2026 (noche): vuelve a la version larga original a pedido de Jorge.
 // OJO: "Quedo atenta a tu comprobante" lo usa handleChoice para no reenviar este mensaje.
 const DIAMANTE_DETAILS = [
-`🚀 Excelente elección! Es el pack más completo y el más vendido 💎
+`🚀 Excelente eleccion! Esta es, sin duda, la MEJOR opcion.
+Es un verdadero arsenal para emprender.
 
-*MEGA PACK DIAMANTE* (precio promo: $15.000)
+💎✨ 💎✨ 💎✨ 💎✨ 💎✨
+💎 MEGA PACK DIAMANTE 💎
+💎✨ 💎✨ 💎✨ 💎✨ 💎✨
+(Precio Promo: $15.000)
 
-📚 *5 cursos completos:*
-1. Lettering y Letra Timoteo
-2. Marcado de Cuadernos
-3. Moldes 3D (cajas, flores y letras)
-4. Papelería Creativa
-5. Agendas Personalizadas
+Incluye los 5 CURSOS COMPLETOS:
+✔ 1. Curso de Lettering y Letra Timoteo
+✔ 2. Curso de Marcado de Cuadernos
+✔ 3. Curso de Moldes 3D (Cajas, Flores, Letras)
+✔ 4. Pack Papeleria Creativa
+✔ 5. Pack Agendas Personalizadas`,
 
-🎁 *11 bonos de regalo:*
-• 85.000 diseños editables en Canva para fiestas y eventos
-• 6 regalos premium: +130 moldes de cajas, flores de papel, kits escolares, libritos para colorear, invitaciones editables y pizarras
-• 3 bonos de agendas: 100 diseños para cuadros, 50 plantillas de Bullet Journal y guía de productividad
-• 500 dibujos para colorear
+`✨ Y ahora, mira todos los REGALOS que se activan GRATIS ✨
 
-Todo es tuyo de por vida 🎉`,
+🎁 BONO 1: El Pack de Papeleria Creativa
+Mas de 85.000 diseños editables en Canva! Listos para usar en fiestas, eventos y celebraciones.
 
-`Para asegurar tu MEGA PACK DIAMANTE envía $15.000 a nuestras cuentas autorizadas:
+🎁 BONO 2: Los 6 Regalos Premium Exclusivos
+  1. +130 moldes de cajas exclusivas
+  2. Flores de papel editables
+  3. Kits escolares + etiquetas
+  4. Libritos para colorear + cajitas
+  5. Invitaciones editables (Canva/PPT)
+  6. Pizarras y plantillas creativas
+
+🎁 BONO 3: Bonos del Pack de Agendas
+  1. 100 Diseños para Cuadros Fotograficos
+  2. 50 Plantillas de Bullet Journal
+  3. Guia de Productividad + Intro a PowerPoint
+
+🎁 BONO 4: 500 Dibujos para Colorear!
+
+Es acceso de por vida a todo! 🎉`,
+
+`Para asegurar tu MEGA PACK DIAMANTE, puedes enviar tu pago de $15.000 a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 
-${LINEAS_CONFIANZA}
-
-Quedo atenta a tu comprobante por aqui 🚀`
+Quedo atenta a tu comprobante por aqui. 📲🚀`
 ];
 
 const ORO_UPSELL = [
@@ -88,9 +94,6 @@ Te gustaria aprovechar y subir al MEGA PACK DIAMANTE por $15.000 en total? 💬`
 const ORO_DETAILS = `¡Perfecto! Has mejorado tu pedido al SUPERPACK ORO completo. El total a pagar es $10.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
-
-${LINEAS_CONFIANZA}
-
 Quedo atenta a tu comprobante por aqui. 📲`;
 
 const BASICO_UPSELL = [
@@ -119,9 +122,6 @@ Te animas? 💬`
 const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con el PACK BASICO. El total a pagar es solo $5.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
-
-${LINEAS_CONFIANZA}
-
 Quedo atenta a tu comprobante por aqui. 📲`;
 
 // OJO con la redaccion de este mensaje. La version vieja decia "A que *Gmail* te lo enviamos?",
@@ -362,46 +362,13 @@ const DATOS_PACK_ELEGIDO_MSG = pack => pack === 'oro'
 🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Carol Apolinar)
 
-Y si te animas al 💎 *MEGA PACK DIAMANTE*, son $15.000 a las mismas cuentas.
-
-${LINEAS_CONFIANZA}`
+Y si te animas al 💎 *MEGA PACK DIAMANTE*, son $15.000 a las mismas cuentas.`
   : `Te dejo los datos por si prefieres quedarte con tu 📖 *PACK BÁSICO* ($5.000) 💛
 
 🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Carol Apolinar)
 
-Y si te animas al ✨ *SUPERPACK ORO*, son $10.000 a las mismas cuentas.
-
-${LINEAS_CONFIANZA}`;
-
-// Primer remarketing para quien eligio Basico u Oro (10 sep 2026). Antes les llegaba el mismo
-// R1 del Diamante con el bono relampago de $15.000, a alguien que habia elegido el de $5.000.
-// Mantiene el regalo del Diamante como alternativa, asi que la regla del regalo no cambia.
-const R1_PACK_MSG = pack => {
-  const nombre = pack === 'oro' ? '✨ *SUPERPACK ORO* ($10.000)' : '📖 *PACK BÁSICO* ($5.000)';
-  return `Veo que nuestro chat quedó en pausa 🫣 Tu ${nombre} sigue con el precio especial de hoy.
-
-Tienes alguna dudita que te pueda resolver rapidito?
-
-Para pagarlo:
-🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
-🔴 Daviplata: 3217239198 (Carol Apolinar)
-
-📲 Apenas me mandes la foto del comprobante te paso aquí mismo el acceso a tu carpeta.
-
-🎁 Y si prefieres el 💎 *MEGA PACK DIAMANTE* ($15.000), hoy te regalo un curso completo adicional: Bordados, Resina o Globoflexia.
-
-_(PD: Si ya no deseas recibir más info, solo escríbeme *Salir* y no te molestaré más 🌸)_`;
-};
-
-// Reemplaza la oferta de subir de pack que salia 2 minutos despues de la entrega (10 sep 2026):
-// 113 compradoras la recibieron en 20 dias y solo 1 subio de pack. Llegaba cuando ni habian
-// abierto el material y casi todas respondian con problemas de acceso. Ahora a los 30 min se
-// pregunta si pudo abrir; la oferta se manda solo cuando dice que si.
-// OJO: "Pudiste abrir tu material" lo usa handlePostDelivery para reconocer la respuesta.
-const CHECK_ACCESO_MSG = `Hola 💛 Pudiste abrir tu material sin problema?
-
-Si algo no te abre, cuéntame qué te aparece y te ayudo ahorita.`;
+Y si te animas al ✨ *SUPERPACK ORO*, son $10.000 a las mismas cuentas.`;
 
 // Triggers de Nequi caido/con fallas — dispara verificacion real del estado
 const NEQUI_DOWN_TRIGGERS = [
@@ -553,6 +520,6 @@ module.exports = {
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
   MOSTRARIO, TESTIMONIOS,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
-  DATOS_PACK_ELEGIDO_MSG, R1_PACK_MSG, CHECK_ACCESO_MSG,
+  DATOS_PACK_ELEGIDO_MSG,
   deliveryMessage
 };

@@ -311,7 +311,7 @@ app.listen(PORT, () => {
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
 let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave, transcribeAudio;
 let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken, notifyTelegram, handleEmail, deliverPack;
-let R1_MESSAGE, R2_MESSAGE, R1_PACK_MSG, DATOS_PACK_ELEGIDO_MSG, CHECK_ACCESO_MSG;
+let R1_MESSAGE, R2_MESSAGE, DATOS_PACK_ELEGIDO_MSG;
 let initialized = false;
 
 async function init() {
@@ -341,9 +341,7 @@ async function init() {
     const content = require('./content');
     R1_MESSAGE = content.R1_MESSAGE;
     R2_MESSAGE = content.R2_MESSAGE;
-    R1_PACK_MSG = content.R1_PACK_MSG;
     DATOS_PACK_ELEGIDO_MSG = content.DATOS_PACK_ELEGIDO_MSG;
-    CHECK_ACCESO_MSG = content.CHECK_ACCESO_MSG;
     console.log('content OK');
 
     transcribeAudio = require('./transcribe').transcribeAudio;
@@ -1868,11 +1866,8 @@ function startScheduler() {
 
     for (const c of db.getContactsForR1()) {
       try {
-        // Quien eligio Basico u Oro recibe un R1 de SU pack (con sus datos de pago); el resto el de siempre
-        const R1_A_ENVIAR = ['basico', 'oro'].includes(c.pack_selected) && c.state !== 'awaiting_choice'
-          ? R1_PACK_MSG(c.pack_selected) : R1_MESSAGE;
-        await sendText(c.phone, R1_A_ENVIAR);
-        db.saveMessage(c.phone, 'out', 'text', R1_A_ENVIAR, '');
+        await sendText(c.phone, R1_MESSAGE);
+        db.saveMessage(c.phone, 'out', 'text', R1_MESSAGE, '');
         db.updateContact(c.phone, { r1_sent: 1, r1_sent_at: db.now() });
         broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('R1 error', c.phone, e.message); }
@@ -1885,22 +1880,6 @@ function startScheduler() {
         db.updateContact(c.phone, { r2_sent: 1, r2_sent_at: db.now() });
         broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('R2 error', c.phone, e.message); }
-    }
-
-    // "Pudiste abrir tu material?" a los 30 min de la entrega. Reemplaza la oferta de subir de pack
-    // de los 2 minutos (1 de 113 subio). La oferta ahora sale cuando responde que si pudo abrir.
-    for (const c of db.getForCheckAcceso()) {
-      try {
-        await sendText(c.phone, CHECK_ACCESO_MSG);
-        db.saveMessage(c.phone, 'out', 'text', CHECK_ACCESO_MSG, '');
-        db.updateContact(c.phone, { check_acceso_sent: 1 });
-        console.log(`Pregunta de acceso enviada [${c.phone}] pack=${c.pack_selected}`);
-        broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
-      } catch (e) {
-        // Si falla (ej. fuera de la ventana de 24h) no se reintenta en cada vuelta
-        db.updateContact(c.phone, { check_acceso_sent: 1 });
-        console.error('Pregunta de acceso error', c.phone, e.message);
-      }
     }
 
     // La alerta "PAGO SIN CORREO" por Telegram (1 h y 12 h) se quito el 10 sep 2026 a pedido de
