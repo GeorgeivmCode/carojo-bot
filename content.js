@@ -388,26 +388,6 @@ Y si te animas al ✨ *SUPERPACK ORO*, son $10.000 a las mismas cuentas.
 
 ${LINEAS_CONFIANZA}`;
 
-// Primer remarketing para quien eligio Basico u Oro (10 sep 2026). Antes les llegaba el mismo
-// R1 del Diamante con el bono relampago de $15.000, a alguien que habia elegido el de $5.000.
-// Mantiene el regalo del Diamante como alternativa, asi que la regla del regalo no cambia.
-const R1_PACK_MSG = pack => {
-  const nombre = pack === 'oro' ? '✨ *SUPERPACK ORO* ($10.000)' : '📖 *PACK BÁSICO* ($5.000)';
-  return `Veo que nuestro chat quedó en pausa 🫣 Tu ${nombre} sigue con el precio especial de hoy.
-
-Tienes alguna dudita que te pueda resolver rapidito?
-
-Para pagarlo:
-🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
-🔴 Daviplata: 3217239198 (Carol Apolinar)
-
-📲 Apenas me mandes la foto del comprobante te paso aquí mismo el acceso a tu carpeta.
-
-🎁 Y si prefieres el 💎 *MEGA PACK DIAMANTE* ($15.000), hoy te regalo un curso completo adicional: Bordados, Resina o Globoflexia.
-
-_(PD: Si ya no deseas recibir más info, solo escríbeme *Salir* y no te molestaré más 🌸)_`;
-};
-
 // Reemplaza la oferta de subir de pack que salia 2 minutos despues de la entrega (10 sep 2026):
 // 113 compradoras la recibieron en 20 dias y solo 1 subio de pack. Llegaba cuando ni habian
 // abierto el material y casi todas respondian con problemas de acceso. Ahora a los 30 min se
@@ -567,6 +547,6 @@ module.exports = {
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
   MOSTRARIO, TESTIMONIOS,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
-  DATOS_PACK_ELEGIDO_MSG, R1_PACK_MSG, CHECK_ACCESO_MSG,
+  DATOS_PACK_ELEGIDO_MSG, CHECK_ACCESO_MSG,
   deliveryMessage
 };

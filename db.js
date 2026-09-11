@@ -321,7 +321,7 @@ function getContactsForR1() {
 
 // Eligieron Basico u Oro, recibieron la oferta de subir de pack y llevan 10 min sin contestar.
 // Se les mandan los datos del pack que eligieron. Solo entre los 10 y 35 minutos: despues le toca
-// al R1, que ahora tambien lleva los datos de su pack (asi a las 7am no les llegan dos mensajes).
+// al R1 (asi a las 7am no les llegan dos mensajes seguidos).
 function getStuckInUpsell() {
   const hace10 = new Date(Date.now() - 10 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
   const hace35 = new Date(Date.now() - 35 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
