@@ -389,7 +389,8 @@ Aquí tienes nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
 
-Cuando hagas la transferencia me envías la foto del comprobante por aquí y lo verifico de inmediato. 📲"
+Cuando hagas la transferencia me envías la foto del comprobante por aquí: lo verifico al instante y te paso aquí mismo el acceso a tu carpeta. 📲
+Es 100% digital: lo descargas e imprimes cuando quieras, y es tuyo para siempre."
 
 PACK MASTER ESCOLAR (solo si preguntan por portadas, escolar o etiquetas):
 "¡Hola! 👋 Claro que sí. El Pack de Portadas Escolares es la sensación de la temporada. 💕
@@ -1107,7 +1108,9 @@ Responde dos preguntas sobre ESE ULTIMO mensaje de la clienta:
 
 2. "molesta": true SOLO si hay enojo o desconfianza clara: dice que la estafaron o le robaron, pide que le devuelvan la plata, dice "mala atencion", dice que si hubiera sabido no habria pagado o consignado, insulta, o amenaza con denunciar o reportar. false si solo esta confundida, impaciente, pregunta varias veces lo mismo o se despide. Ante la duda, false.
 
-Responde UNICAMENTE con JSON: {"no_puede_abrir": true, "molesta": false}`;
+3. "ya_abrio": true si cuenta que YA pudo abrir, entrar o ver su material ("si ya pude", "ya me abrio", "si, todo bien"). false en cualquier otro caso.
+
+Responde UNICAMENTE con JSON: {"no_puede_abrir": false, "molesta": false, "ya_abrio": true}`;
 
   try {
     const res = await withRetry(() => client.messages.create({
@@ -1118,10 +1121,10 @@ Responde UNICAMENTE con JSON: {"no_puede_abrir": true, "molesta": false}`;
     }), 'clasificarMensajePostPago');
     const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(raw);
-    return { no_puede_abrir: parsed.no_puede_abrir === true, molesta: parsed.molesta === true };
+    return { no_puede_abrir: parsed.no_puede_abrir === true, molesta: parsed.molesta === true, ya_abrio: parsed.ya_abrio === true };
   } catch (e) {
     console.error('clasificarMensajePostPago error:', e.message);
-    return { no_puede_abrir: false, molesta: false };
+    return { no_puede_abrir: false, molesta: false, ya_abrio: false };
   }
 }
 

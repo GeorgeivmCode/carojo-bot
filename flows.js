@@ -979,6 +979,14 @@ function detallePackEntregado(pack) {
     `puedes contarle UNA vez y sin presionar que puede completar ${completar[pack]}. No le des datos de pago tu: si dice que quiere, el sistema se los manda.`;
 }
 
+// Respuesta corta afirmativa a "Pudiste abrir tu material?" ("si", "si gracias", "ya pude").
+// Despues de una pregunta de si/no un "si" corto no es ambiguo; lo largo lo decide el revisor.
+function esAfirmacionCorta(text) {
+  const limpio = String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(s+i+|ya|claro|listo|ok|okey|perfecto|excelente|genial|todo bien|gracias|muchas gracias|mil gracias|ya pude|si pude|ya abri|ya entre|ya me abrio|si ya|ya si|si senora|si senor)( (gracias|muchas gracias|mil gracias|ya pude|todo bien|perfecto|senora|amiga|pude|ya|claro|excelente))*$/.test(limpio);
+}
+
 // ¿Ya tiene su enlace de acceso para esta compra? Cuenta el que manda el bot y tambien el que
 // manda Jorge a mano con el boton "Enlace acceso" del panel (caso Paula 573223534427: Jorge le
 // mando el enlace y Carol le siguio pidiendo el Gmail como si no existiera).
@@ -1500,20 +1508,9 @@ async function deliverPack(contact, email) {
     } catch (e) { console.error(`Regalo no enviado [${phone}]:`, e.message); }
   }
 
-  // Upsell post-entrega — solo para basico y oro, 2 minutos despues.
-  // (10 sep 2026 noche: se devolvio a como estaba; se quito la pregunta "Pudiste abrir tu material?")
-  if (pack !== 'diamante') {
-    setTimeout(async () => {
-      try {
-        const fresh = db.getContact(phone);
-        if (fresh && fresh.state === 'delivered' && !fresh.upsell_sent) {
-          const msg = pack === 'basico' ? UPSELL_BASICO : UPSELL_ORO;
-          await sendAndSave(phone, msg);
-          db.updateContact(phone, { upsell_sent: 1 });
-        }
-      } catch (e) { console.error('Upsell error:', e.message); }
-    }, 2 * 60 * 1000);
-  }
+  // La oferta de subir de pack ya NO sale a los 2 minutos (1 de 113 subio en 20 dias, llegaba
+  // antes de que abrieran el material). Ahora el programador pregunta a los 30 min si pudo abrir
+  // (CHECK_ACCESO_MSG) y la oferta sale en handlePostDelivery cuando responde que si.
 
   return { ok: true, folderId: driveFolderId, pack };
 }
@@ -1543,6 +1540,20 @@ async function handlePostDelivery(contact, text) {
     return;
   }
 
+  // 10 sep 2026: la oferta de subir de pack sale cuando responde que SI pudo abrir su material a la
+  // pregunta de los 30 min ("Pudiste abrir tu material?"), ya no a los 2 min de la entrega.
+  const recentPost = db.getRecentMessages(phone, 6);
+  const ultimoBotPost = recentPost.filter(m => m.direction === 'out').pop();
+  const respondeCheck = !!contact.check_acceso_sent && !contact.upsell_sent &&
+    ['basico', 'oro'].includes(contact.pack_selected) && !!ultimoBotPost &&
+    String(ultimoBotPost.content || '').includes('Pudiste abrir tu material');
+  const mandarUpsellTrasCheck = async () => {
+    await sendAndSave(phone, contact.pack_selected === 'basico' ? UPSELL_BASICO : UPSELL_ORO);
+    db.updateContact(phone, { upsell_sent: 1 });
+    console.log(`Upsell tras confirmar que abrio [${phone}] pack=${contact.pack_selected}`);
+  };
+  if (respondeCheck && esAfirmacionCorta(text)) { await mandarUpsellTrasCheck(); return; }
+
   // Revisor con contexto (10 sep 2026): antes de cualquier otra regla de post-entrega se mira si la
   // clienta dice que no puede abrir su material, o si esta claramente molesta. Solo se salta con
   // cierres de una palabra ("gracias", "ok") para no gastar una consulta en eso.
@@ -1554,6 +1565,10 @@ async function handlePostDelivery(contact, text) {
     if (clsPost.molesta) {
       notaMolesta = NOTA_CLIENTA_MOLESTA;
       await avisarClientaMolesta(contact, text, 'ya entregada');
+    }
+    if (respondeCheck && clsPost.ya_abrio && !clsPost.no_puede_abrir && !clsPost.molesta) {
+      await mandarUpsellTrasCheck();
+      return;
     }
     if (clsPost.no_puede_abrir) {
       // Caso Alexandra 573244127150: dijo que no podia abrir y Carol le respondio "mira arriba",

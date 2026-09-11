@@ -20,7 +20,15 @@ de forma fácil, práctica y muy divertida 💕`,
 👉 ¿Cuál te gustaría elegir? Solo escríbeme el número (1, 2 o 3) y te envío todos los detalles al instante 💌`
 ];
 
-// 10 sep 2026 (noche): vuelve a la version larga original a pedido de Jorge.
+// Dos lineas que van en todo mensaje con datos de pago (10 sep 2026). De 170 clientas que
+// recibieron los datos y no compraron, las que escribieron preguntaban casi siempre lo mismo:
+// "quien me garantiza que me envian el pack", "como lo hacen llegar", "es virtual". El mensaje
+// de pago no respondia nada de eso.
+const LINEAS_CONFIANZA = `📲 Apenas me mandes la foto del comprobante lo verifico al instante y te paso aquí mismo el acceso a tu carpeta.
+💻 Es 100% digital: lo descargas e imprimes cuando quieras, y es tuyo para siempre.`;
+
+// 10 sep 2026 (noche): vuelve a la version larga original a pedido de Jorge, tal cual estaba
+// (3 mensajes, sin las lineas de confianza). El resto del flujo nuevo del 10 sep se mantiene.
 // OJO: "Quedo atenta a tu comprobante" lo usa handleChoice para no reenviar este mensaje.
 const DIAMANTE_DETAILS = [
 `🚀 Excelente eleccion! Esta es, sin duda, la MEJOR opcion.
@@ -94,6 +102,9 @@ Te gustaria aprovechar y subir al MEGA PACK DIAMANTE por $15.000 en total? 💬`
 const ORO_DETAILS = `¡Perfecto! Has mejorado tu pedido al SUPERPACK ORO completo. El total a pagar es $10.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
+
+${LINEAS_CONFIANZA}
+
 Quedo atenta a tu comprobante por aqui. 📲`;
 
 const BASICO_UPSELL = [
@@ -122,6 +133,9 @@ Te animas? 💬`
 const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con el PACK BASICO. El total a pagar es solo $5.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
 🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
+
+${LINEAS_CONFIANZA}
+
 Quedo atenta a tu comprobante por aqui. 📲`;
 
 // OJO con la redaccion de este mensaje. La version vieja decia "A que *Gmail* te lo enviamos?",
@@ -362,13 +376,46 @@ const DATOS_PACK_ELEGIDO_MSG = pack => pack === 'oro'
 🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Carol Apolinar)
 
-Y si te animas al 💎 *MEGA PACK DIAMANTE*, son $15.000 a las mismas cuentas.`
+Y si te animas al 💎 *MEGA PACK DIAMANTE*, son $15.000 a las mismas cuentas.
+
+${LINEAS_CONFIANZA}`
   : `Te dejo los datos por si prefieres quedarte con tu 📖 *PACK BÁSICO* ($5.000) 💛
 
 🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
 🔴 Daviplata: 3217239198 (Carol Apolinar)
 
-Y si te animas al ✨ *SUPERPACK ORO*, son $10.000 a las mismas cuentas.`;
+Y si te animas al ✨ *SUPERPACK ORO*, son $10.000 a las mismas cuentas.
+
+${LINEAS_CONFIANZA}`;
+
+// Primer remarketing para quien eligio Basico u Oro (10 sep 2026). Antes les llegaba el mismo
+// R1 del Diamante con el bono relampago de $15.000, a alguien que habia elegido el de $5.000.
+// Mantiene el regalo del Diamante como alternativa, asi que la regla del regalo no cambia.
+const R1_PACK_MSG = pack => {
+  const nombre = pack === 'oro' ? '✨ *SUPERPACK ORO* ($10.000)' : '📖 *PACK BÁSICO* ($5.000)';
+  return `Veo que nuestro chat quedó en pausa 🫣 Tu ${nombre} sigue con el precio especial de hoy.
+
+Tienes alguna dudita que te pueda resolver rapidito?
+
+Para pagarlo:
+🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
+🔴 Daviplata: 3217239198 (Carol Apolinar)
+
+📲 Apenas me mandes la foto del comprobante te paso aquí mismo el acceso a tu carpeta.
+
+🎁 Y si prefieres el 💎 *MEGA PACK DIAMANTE* ($15.000), hoy te regalo un curso completo adicional: Bordados, Resina o Globoflexia.
+
+_(PD: Si ya no deseas recibir más info, solo escríbeme *Salir* y no te molestaré más 🌸)_`;
+};
+
+// Reemplaza la oferta de subir de pack que salia 2 minutos despues de la entrega (10 sep 2026):
+// 113 compradoras la recibieron en 20 dias y solo 1 subio de pack. Llegaba cuando ni habian
+// abierto el material y casi todas respondian con problemas de acceso. Ahora a los 30 min se
+// pregunta si pudo abrir; la oferta se manda solo cuando dice que si.
+// OJO: "Pudiste abrir tu material" lo usa handlePostDelivery para reconocer la respuesta.
+const CHECK_ACCESO_MSG = `Hola 💛 Pudiste abrir tu material sin problema?
+
+Si algo no te abre, cuéntame qué te aparece y te ayudo ahorita.`;
 
 // Triggers de Nequi caido/con fallas — dispara verificacion real del estado
 const NEQUI_DOWN_TRIGGERS = [
@@ -520,6 +567,6 @@ module.exports = {
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
   MOSTRARIO, TESTIMONIOS,
   UPSELL_BASICO, UPSELL_ORO, UPGRADE_CHOICE_BASICO, UPGRADE_PAYMENT_DETAILS,
-  DATOS_PACK_ELEGIDO_MSG,
+  DATOS_PACK_ELEGIDO_MSG, R1_PACK_MSG, CHECK_ACCESO_MSG,
   deliveryMessage
 };
