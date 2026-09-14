@@ -99,6 +99,13 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN ayuda_correo_avisada INTEGER DEFA
 try { db.exec(`ALTER TABLE contacts ADD COLUMN acceso_pendiente_email TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN acceso_reintentos INTEGER DEFAULT 0`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN acceso_proximo_intento TEXT DEFAULT ''`); } catch (_) {}
+// 14 sep 2026: ad_id/ad_name guardan el PRIMER anuncio y no se pisan (historico de Messi). Estas
+// guardan el ULTIMO anuncio desde el que volvio a escribir, que es el que usa Meta para atribuir.
+// Caso Sandra 573106369669: llego por F5 Messi el 10 sep, volvio por F5 de la prueba y compro; Meta
+// le dio la venta a la prueba y el Sheet decia Messi.
+try { db.exec(`ALTER TABLE contacts ADD COLUMN ultimo_ad_id TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN ultimo_ad_name TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN ultimo_ad_at TEXT DEFAULT ''`); } catch (_) {}
 
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}

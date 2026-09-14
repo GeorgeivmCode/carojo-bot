@@ -537,10 +537,17 @@ app.post('/webhook', verifySignature, async (req, res) => {
     const c = db.getContact(phone);
     const updates = {};
     if (referral.ctwa_clid && !c?.ctwa_clid) updates.ctwa_clid = referral.ctwa_clid;
+    const nombreAnuncio = AD_MAP[referral.source_id]?.name || referral.headline || referral.source_id || '';
     if (referral.source_id && !c?.ad_id) {
       updates.ad_id        = referral.source_id;
-      updates.ad_name      = AD_MAP[referral.source_id]?.name || referral.headline || referral.source_id || '';
+      updates.ad_name      = nombreAnuncio;
       updates.ad_image_url = referral.image_url || '';
+    }
+    // El primer anuncio no se toca; el ultimo se actualiza cada vez (es el que usa Meta para atribuir)
+    if (referral.source_id) {
+      updates.ultimo_ad_id   = referral.source_id;
+      updates.ultimo_ad_name = nombreAnuncio;
+      updates.ultimo_ad_at   = db.now();
     }
     if (Object.keys(updates).length) db.updateContact(phone, updates);
   }

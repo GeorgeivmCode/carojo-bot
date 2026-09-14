@@ -366,8 +366,9 @@ async function logSaleToSheets(contact, pack, email) {
       monto:     PACK_PRICES[pack] || 0,
       email,
       ctwa_clid: contact.ctwa_clid || '',
-      ad_id:     contact.ad_id     || '',
-      ad_name:   contact.ad_name   || ''
+      // Ultimo anuncio desde el que escribio (el que usa Meta); si no hay, el primero
+      ad_id:     contact.ultimo_ad_id   || contact.ad_id   || '',
+      ad_name:   contact.ultimo_ad_name || contact.ad_name || ''
     }, { timeout: 10000 });
   } catch (e) {
     console.error('Sheets error:', e.message);
