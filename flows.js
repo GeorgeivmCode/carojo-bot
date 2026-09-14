@@ -769,13 +769,36 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         break;
       }
       const history = db.getRecentMessages(phone, 8);
-      // Inyectar contexto del pack ya seleccionado para que Carol no pregunte de nuevo
-      const packLabel = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE ($15.000)' :
-                        contact.pack_selected === 'oro' ? 'SUPERPACK ORO ($10.000)' :
-                        contact.pack_selected === 'basico' ? 'PACK BÁSICO ($5.000)' : null;
-      const carolText = packLabel
-        ? `[CONTEXTO INTERNO: Esta clienta YA eligió el ${packLabel}. Solo necesita enviar el comprobante de pago. NO preguntes qué pack quiere — ya está confirmado. Responde en ese contexto.]\n\n${text}`
-        : text;
+      // Si en su ultima respuesta Carol le ofrecio subir al pack de arriba y la clienta acepta
+      // ("si", "dale, ese"), se cambia el pack y salen los datos del pack nuevo. Solo se mira la
+      // ultima respuesta del bot, y nunca el Remarketing 1 (ese ofrece el Diamante a todas).
+      const anterior = history.slice(0, -1);
+      const turnoBot = [];
+      for (let i = anterior.length - 1; i >= 0 && anterior[i].direction === 'out'; i--) turnoBot.unshift(String(anterior[i].content || ''));
+      const ofertaBot = turnoBot.join(' ');
+      if (['basico', 'oro'].includes(contact.pack_selected) && ofertaBot && !/BONO RELAMPAGO/i.test(ofertaBot)) {
+        // El destino es el pack nombrado en la pregunta de cierre (la ultima parte del turno); si
+        // nombra los dos, el que aparece de ultimo. Carol cierra nombrando un solo pack.
+        const cierre = turnoBot[turnoBot.length - 1];
+        const posOro = cierre.search(/\bORO\b(?![\s\S]*\bORO\b)/i);
+        const posDiamante = cierre.search(/DIAMANTE(?![\s\S]*DIAMANTE)/i);
+        let destino = null;
+        if (contact.pack_selected === 'basico' && (posOro >= 0 || posDiamante >= 0)) destino = posDiamante > posOro ? 'diamante' : 'oro';
+        if (contact.pack_selected === 'oro' && posDiamante >= 0) destino = 'diamante';
+        if (destino) {
+          const etiqueta = destino === 'oro' ? 'SUPERPACK ORO' : 'MEGA PACK DIAMANTE';
+          const acepta = await detectUpgradeIntent(history, text, etiqueta, PACK_AMOUNTS[destino] - PACK_AMOUNTS[contact.pack_selected]);
+          if (acepta) {
+            db.updateContact(phone, { pack_selected: destino });
+            console.log(`Subio de pack antes de pagar [${phone}] ${contact.pack_selected} -> ${destino}`);
+            await sendAndSave(phone, destino === 'oro' ? ORO_DETAILS : DIAMANTE_DETAILS);
+            break;
+          }
+        }
+      }
+      // Contexto del pack elegido: lo que trae, lo que no trae y el pack de arriba (ver contextoPackElegido)
+      const ctxPack = contextoPackElegido(contact.pack_selected);
+      const carolText = ctxPack ? `${ctxPack}\n\n${text}` : text;
       await sendAndSave(phone, await carol(history, carolText));
       break;
     }
@@ -986,6 +1009,44 @@ function detallePackEntregado(pack) {
     `puedes contarle UNA vez y sin presionar que puede completar ${completar[pack]}. No le des datos de pago tu: si dice que quiere, el sistema se los manda.`;
 }
 
+// Contexto para Carol cuando la clienta YA eligio pack y todavia no paga (14 sep 2026).
+// Antes decia solo "ya eligio el PACK BASICO, solo falta el comprobante": caso Juli 573237998457
+// pregunto por el curso de Moldes 3D y "que otros cursos tienes?" y Carol le mando los datos de
+// pago del Basico, que no trae moldes. Pedido de Jorge: si pregunta que mas vendemos o por algo que
+// su pack no trae, hablarle del pack de arriba para subir el ticket, no cerrarla con el que eligio.
+function contextoPackElegido(pack) {
+  if (pack === 'basico') {
+    return '[CONTEXTO INTERNO: Esta clienta eligio el PACK BASICO ($5.000) y todavia no ha pagado. ' +
+      'El BASICO trae: Curso de Lettering y Letra Timoteo (34 cartillas, +2.400 paginas) y 500 dibujos para colorear. ' +
+      'NO trae: Marcado de Cuadernos, Moldes 3D (cajas, flores, letras), Papeleria Creativa (85.000 diseños en Canva), Agendas Personalizadas ni los regalos premium. ' +
+      'El SUPERPACK ORO ($10.000, solo $5.000 mas) suma Marcado de Cuadernos y Moldes 3D. El MEGA PACK DIAMANTE ($15.000, $10.000 mas) trae los 5 cursos y 11 bonos (Canva, agendas, 6 regalos premium). ' +
+      'OJO: Papeleria Creativa (Canva) y Agendas SOLO vienen en el DIAMANTE, NUNCA digas que vienen en el ORO. ' +
+      'OJO CON LOS PRECIOS: ella eligio el Basico de $5.000, asi que para ELLA el DIAMANTE es $10.000 MAS ($15.000 en total) y el ORO es $5.000 MAS ($10.000 en total). ' +
+      'NUNCA le digas "por solo $5.000 mas te llevas el Diamante"; los $5.000 de diferencia son solo entre el ORO y el DIAMANTE, y si lo dices tiene que decir "que el ORO". ' +
+      'NO le preguntes que pack quiere desde cero. ' +
+      'TU OBJETIVO COMO VENDEDORA: que se lleve el MEGA PACK DIAMANTE; como minimo el SUPERPACK ORO. ' +
+      'SI PREGUNTA QUE MAS VENDEMOS, QUE OTROS CURSOS HAY, O POR UN CURSO QUE EL BASICO NO TRAE: NO le mandes los datos de pago del Basico ni le digas que con el Basico ya tiene todo. ' +
+      'Recomiendale el MEGA PACK DIAMANTE: por $10.000 mas se lleva TODO (el curso que pregunta, los 5 cursos y los 11 bonos). Si lo que pregunta es Moldes 3D o Marcado de Cuadernos, puedes decirle que tambien vienen en el ORO, pero que por solo $5.000 mas que el Oro el Diamante trae ademas Canva y Agendas. ' +
+      'Cierra con UNA sola pregunta nombrando SOLO el pack que le recomiendas (el MEGA PACK DIAMANTE). Si en su respuesta duda por el precio, ahi ofrecele el SUPERPACK ORO como minimo, nombrandolo. ' +
+      'Si dice claramente que solo quiere el Basico, respetalo sin insistir y recuerdale suave que falta el comprobante de $5.000.]';
+  }
+  if (pack === 'oro') {
+    return '[CONTEXTO INTERNO: Esta clienta eligio el SUPERPACK ORO ($10.000) y todavia no ha pagado. ' +
+      'El ORO trae: Curso de Lettering y Letra Timoteo (34 cartillas), Curso de Marcado de Cuadernos, Curso de Moldes 3D (cajas, flores, letras) y 500 dibujos para colorear. ' +
+      'NO trae: Papeleria Creativa (85.000 diseños en Canva), Agendas Personalizadas, los bonos de agendas ni los 6 regalos premium. ' +
+      'El MEGA PACK DIAMANTE ($15.000, solo $5.000 mas) trae los 5 cursos y 11 bonos. ' +
+      'NO le preguntes que pack quiere desde cero. ' +
+      'TU OBJETIVO COMO VENDEDORA: que se lleve el MEGA PACK DIAMANTE. ' +
+      'SI PREGUNTA QUE MAS VENDEMOS, QUE OTROS CURSOS HAY, O POR ALGO QUE EL ORO NO TRAE: NO le mandes los datos de pago del Oro. ' +
+      'Cuentale corto y con entusiasmo que eso viene en el MEGA PACK DIAMANTE por solo $5.000 mas y cierra con UNA pregunta nombrando el MEGA PACK DIAMANTE. ' +
+      'Si dice claramente que se queda con el Oro, respetalo sin insistir y recuerdale suave que falta el comprobante de $10.000.]';
+  }
+  if (pack === 'diamante') {
+    return '[CONTEXTO INTERNO: Esta clienta YA eligio el MEGA PACK DIAMANTE ($15.000), el pack mas completo. Solo necesita enviar el comprobante de pago. NO preguntes que pack quiere, ya esta confirmado. Responde en ese contexto.]';
+  }
+  return '';
+}
+
 // Respuesta corta afirmativa a "Pudiste abrir tu material?" ("si", "si gracias", "ya pude").
 // Despues de una pregunta de si/no un "si" corto no es ambiguo; lo largo lo decide el revisor.
 function esAfirmacionCorta(text) {
@@ -1148,7 +1209,9 @@ async function handleOfferedBasico(contact, text) {
       await sendAndSave(phone, ORO_DETAILS);
     } else {
       db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'basico' });
-      await sendAndSave(phone, await carol(history, text));
+      // Antes Carol respondia sin contexto y la clienta quedaba en Basico aunque preguntara por un
+      // curso que solo trae el Oro (caso Juli 573237998457, moldes 3D). Ahora sabe que trae cada pack.
+      await sendAndSave(phone, await carol(history, contextoPackElegido('basico') + '\n\n' + text));
     }
   }
 }
