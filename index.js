@@ -314,7 +314,7 @@ app.listen(PORT, () => {
 
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
 let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave, transcribeAudio;
-let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken, notifyTelegram, handleEmail, deliverPack;
+let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken, notifyTelegram, handleEmail, deliverPack, reintentarAccesosPendientes;
 let R1_MESSAGE, R2_MESSAGE, DATOS_PACK_ELEGIDO_MSG, CHECK_ACCESO_MSG;
 let initialized = false;
 
@@ -339,6 +339,7 @@ async function init() {
     notifyTelegram = flows.notifyTelegram;
     handleEmail    = flows.handleEmail;
     deliverPack    = flows.deliverPack;
+    reintentarAccesosPendientes = flows.reintentarAccesosPendientes;
     generateAccessToken = flows.generateAccessToken;
     console.log('flows OK');
 
@@ -726,12 +727,27 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   const c = db.getContact(phone);
   if (!c) return res.status(404).json({ error: 'not found' });
 
-  const { grantDriveAccess } = require('./drive');
+  const { grantDriveAccess, esErrorDeEspera } = require('./drive');
   const { deliveryMessage } = require('./content');
 
   // 1. Dar acceso Drive
+  // 14 sep 2026: si Google fallaba, este boton igual marcaba la venta y el panel decia "acceso Drive
+  // enviado" (Brigith 573157131018, 12 sep: fallo por demora y nadie se entero). Ahora avisa en el
+  // panel y, si fue demora, reintenta solo en segundo plano con el mismo correo.
   let regFolderId = '';
-  try { const dr = await grantDriveAccess(email, pack); regFolderId = dr.folderId || ''; } catch (e) { console.error('Drive error register-sale:', e.message); }
+  let driveWarning = '';
+  try {
+    const dr = await grantDriveAccess(email, pack); regFolderId = dr.folderId || '';
+  } catch (e) {
+    console.error('Drive error register-sale:', e.message);
+    if (e.espera || esErrorDeEspera(e)) {
+      driveWarning = 'Google se demoro en dar el acceso. El bot lo sigue reintentando solo en los proximos minutos.';
+      reintentarAccesoEnSegundoPlano(phone, email, pack);
+    } else {
+      driveWarning = `Google no dio el acceso: ${e.message}. Revisa el correo y usa Restaurar acceso.`;
+      db.logAdminAction(phone, 'acceso_error', `register_sale email=${email} error=${e.message}`);
+    }
+  }
   // 2. Enviar mensaje de entrega con pixel URL
   try {
     const token = generateAccessToken(phone, pack);
@@ -747,8 +763,29 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   try { await notifyJorge(updated, `VENTA MANUAL registrada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${updated.name || '-'}`); } catch {}
   broadcast('sale', { pack, name: updated.name || 'Cliente' });
   broadcast('refresh', { phone, contact: db.getContact(phone) });
-  res.json({ ok: true });
+  res.json(driveWarning ? { ok: true, warning: driveWarning } : { ok: true });
 });
+
+// Reintento del acceso a Drive para ventas registradas a mano cuando Google se demoro. La venta ya
+// quedo marcada: aqui solo se insiste en darle el permiso. Queda anotado en el historial del contacto.
+function reintentarAccesoEnSegundoPlano(phone, email, pack) {
+  const { grantDriveAccess } = require('./drive');
+  const esperas = [30e3, 2 * 60e3, 5 * 60e3, 15 * 60e3];
+  (async () => {
+    for (let i = 0; i < esperas.length; i++) {
+      await new Promise(r => setTimeout(r, esperas[i]));
+      try {
+        await grantDriveAccess(email, pack);
+        db.logAdminAction(phone, 'acceso_activado_tras_reintento', `register_sale email=${email} intento=${i + 1}`);
+        console.log(`Acceso activado tras reintento (registro manual) [${phone}] ${email}`);
+        return;
+      } catch (e) {
+        console.error(`Reintento acceso registro manual [${phone}] intento ${i + 1}:`, e.message);
+      }
+    }
+    db.logAdminAction(phone, 'acceso_fallo_definitivo', `register_sale email=${email}`);
+  })();
+}
 
 // Enlace de acceso correcto para ESTE contacto. Existe porque pegar en el chat el enlace de otra
 // clienta (workaround manual de la "trampa" de solicitar acceso) apunta al contacto equivocado:
@@ -768,13 +805,13 @@ app.get('/api/contacts/:phone/access-link', adminAuth, (req, res) => {
       mensaje: 'Este contacto no tiene pack registrado. Ponle el pack correcto primero (boton Cambiar pack o Registrar venta) y vuelve a generar el enlace.'
     });
   }
-  const { getFolderUrl } = require('./drive');
+  const { carpetaDeContacto } = require('./drive');
   const token = generateAccessToken(phone, pack);
   res.json({
     url: `https://bot.carojo.uk/acceso/${token}`,
     pack,
     email: c.email || '',
-    carpeta: getFolderUrl(pack, c.folder_id || null) || ''
+    carpeta: carpetaDeContacto(c, pack) || ''
   });
 });
 
@@ -1606,13 +1643,14 @@ app.get('/acceso/:token', async (req, res) => {
   }
   const { phone, pack } = info;
   const contact = initialized ? db.getContact(phone) : null;
-  // El pack manda: para quien todavia no tiene folder_id (aun no se le entrego) hay que usar la
-  // carpeta ACTIVA de su pack. OJO: DRIVE_URLS_PIXEL.diamante apunta a la carpeta vieja
-  // (1t3qNys..., la de los ~600 accesos individuales), no a la que usa el sistema de grupos.
-  // getFolderUrl de drive.js si devuelve la correcta, por eso se usa esa y no la lista de aqui.
-  const { getFolderUrl } = require('./drive');
+  // El pack manda. La carpeta la decide carpetaDeContacto (drive.js): la guardada si existe; la
+  // carpeta vieja del Diamante para quien se le entrego antes del sistema de grupos (sin folder_id,
+  // ~600 clientas con permiso individual ahi); y la del grupo para las demas. Desde el 8 sep todas
+  // las clientas sin folder_id iban a la carpeta nueva y a las antiguas les salia "no tienes
+  // acceso" (Diana 573206050781, Isabella 573178497549, Alexandra 573244127150).
+  const { carpetaDeContacto } = require('./drive');
   const packEfectivo = contact?.pack_selected || pack;
-  const driveUrl = getFolderUrl(packEfectivo, contact?.folder_id || null)
+  const driveUrl = carpetaDeContacto(contact, packEfectivo)
     || DRIVE_URLS_PIXEL[packEfectivo] || DRIVE_URLS_PIXEL.basico;
   const packName = PACK_NAMES_PIXEL[packEfectivo] || 'Pack';
 
@@ -1718,7 +1756,11 @@ function onGoogle(resp){
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ credential: resp.credential })
   }).then(function(r){ return r.json(); }).then(function(d){
-    if (d && d.ok) {
+    if (d && d.pendiente) {
+      var gp = document.getElementById('gwrap'); if (gp) gp.style.display = 'none';
+      est.className = 'estado';
+      est.textContent = d.mensaje;
+    } else if (d && d.ok) {
       var g = document.getElementById('gwrap'); if (g) g.style.display = 'none';
       est.textContent = '';
       var listo = document.getElementById('listo');
@@ -1775,10 +1817,10 @@ app.post('/acceso/:token/google', async (req, res) => {
   const contact = db.getContact(phone);
   if (!contact) return res.status(404).json({ ok: false, mensaje: 'No encontramos tu compra. Escribenos por WhatsApp.' });
 
-  const { getFolderUrl } = require('./drive');
+  const { carpetaDeContacto } = require('./drive');
   const driveUrlDe = c => {
     const p = c?.pack_selected || info.pack;
-    return getFolderUrl(p, c?.folder_id || null) || DRIVE_URLS_PIXEL[p] || DRIVE_URLS_PIXEL.basico;
+    return carpetaDeContacto(c, p) || DRIVE_URLS_PIXEL[p] || DRIVE_URLS_PIXEL.basico;
   };
 
   // Ya entregada y entra con la MISMA cuenta: solo mandarla al material.
@@ -1822,6 +1864,11 @@ app.post('/acceso/:token/google', async (req, res) => {
   // y te avisa por Telegram y WhatsApp. Es la misma entrega de siempre, no una version aparte.
   try {
     const r = await deliverPack(contact, email);
+    // Google tardo (o ya se esta activando por otro intento): el bot reintenta solo y le manda el
+    // enlace por WhatsApp. No es un error para la clienta, no hace falta que vuelva a tocar el boton.
+    if (r && (r.pendiente || r.enCurso)) {
+      return res.json({ ok: false, pendiente: true, mensaje: 'Estamos activando tu acceso, Google se esta demorando un poquito. En un minuto te llega el enlace por WhatsApp, no tienes que tocar nada mas.' });
+    }
     if (!r || !r.ok) {
       return res.status(500).json({ ok: false, mensaje: 'Tuvimos un problema al activarlo. Ya avisamos a nuestro equipo, te escribimos por WhatsApp en minutos.' });
     }
@@ -1845,8 +1892,29 @@ function colombiaDateStr() {
 }
 
 let lastKeepaliveDate = '';
+let ultimoDespertarGrupos = 0;
 
 function startScheduler() {
+  // Accesos a Drive que Google tardo en dar: se reintentan cada 30 s, a cualquier hora (una clienta
+  // que ya pago no tiene que esperar a la mañana). Y cada 5 min se despierta el script de grupos de
+  // Google para que no se duerma y la proxima entrega no tarde.
+  let reintentandoAccesos = false;
+  setInterval(async () => {
+    if (!initialized || reintentandoAccesos) return;
+    reintentandoAccesos = true;
+    try {
+      await reintentarAccesosPendientes();
+      if (Date.now() - ultimoDespertarGrupos > 5 * 60 * 1000) {
+        ultimoDespertarGrupos = Date.now();
+        require('./drive').despertarGrupos();
+      }
+    } catch (e) {
+      console.error('Reintento accesos error:', e.message);
+    } finally {
+      reintentandoAccesos = false;
+    }
+  }, 30 * 1000);
+
   setInterval(async () => {
     if (!initialized) return;
     const h = colombiaHour();

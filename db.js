@@ -92,6 +92,13 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN check_acceso_sent INTEGER DEFAULT
 // lo ha dicho, y aviso UNICO a Jorge al segundo intento o si tiene iPhone (caso Sandra 573134520181).
 try { db.exec(`ALTER TABLE contacts ADD COLUMN enlace_fallos INTEGER DEFAULT 0`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ayuda_correo_avisada INTEGER DEFAULT 0`); } catch (_) {}
+// 14 sep 2026: Google (el script que agrega a la clienta al grupo del pack) a veces tarda mas de lo
+// que el bot esperaba y la clienta que ya dio su Gmail quedaba colgada hasta que Jorge la registraba
+// a mano (Anita 573146673346, Brigith 573157131018, Johanna 573003384659). Ahora el bot guarda el
+// correo y reintenta solo: estas columnas dicen con que correo, cuantas veces y cuando es el proximo.
+try { db.exec(`ALTER TABLE contacts ADD COLUMN acceso_pendiente_email TEXT DEFAULT ''`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN acceso_reintentos INTEGER DEFAULT 0`); } catch (_) {}
+try { db.exec(`ALTER TABLE contacts ADD COLUMN acceso_proximo_intento TEXT DEFAULT ''`); } catch (_) {}
 
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
@@ -340,6 +347,17 @@ function getStuckInUpsell() {
 // Entregadas hace entre 30 min y 10 horas a las que todavia no se les pregunto si pudieron abrir.
 // El tope de 10h evita que al desplegar le llegue la pregunta a todas las compradoras viejas, y
 // cubre a quien compro de noche (el programador no manda nada entre las 11pm y las 7am).
+// Clientas que ya pagaron y dieron su Gmail, pero Google tardo en darles el acceso: el bot
+// reintenta con ese mismo correo cuando llega la hora del proximo intento.
+function getAccesosPendientes() {
+  return db.prepare(`
+    SELECT * FROM contacts
+    WHERE COALESCE(acceso_pendiente_email, '') != ''
+    AND COALESCE(acceso_proximo_intento, '') != ''
+    AND acceso_proximo_intento <= ?
+  `).all(now());
+}
+
 function getForCheckAcceso() {
   const hace30 = new Date(Date.now() - 30 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
   const hace10h = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
@@ -458,7 +476,7 @@ module.exports = {
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
   getPendientes, countPendientes,
   saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
-  getContactsForR1, getContactsForR2, getStuckAwaitingEmail, getStuckInUpsell, getForCheckAcceso,
+  getContactsForR1, getContactsForR2, getStuckAwaitingEmail, getStuckInUpsell, getForCheckAcceso, getAccesosPendientes,
   getStats, getSetting, setSetting, now,
   markGolden, getGoldenExamples,
   saveHotmartEvent, markHotmartEventCapiSent, getHotmartEvents,

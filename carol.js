@@ -1103,11 +1103,11 @@ async function clasificarMensajePostPago(history, text) {
 ${historyText}
 Cliente: ${text}
 
-Responde dos preguntas sobre ESE ULTIMO mensaje de la clienta:
+Responde estas preguntas sobre ESE ULTIMO mensaje de la clienta:
 
 1. "no_puede_abrir": true si dice que no puede abrir, entrar, ver o descargar su material o su enlace, que el enlace no le funciona, que le pide permiso o contraseña, que no le sale nada, que no puede entrar o dar su cuenta de Google o su correo ("no pude", "no sale", "no puedo dar mi cuenta de Google"), o pregunta como abrirlo porque no ha podido. false si habla de otra cosa: agradecer, despedirse, preguntar por otro curso, dudas del contenido, o cuenta que YA pudo abrir ("ya me abrio", "ya pude", "ya entre").
 
-2. "molesta": true SOLO si hay enojo o desconfianza clara: dice que la estafaron o le robaron, pide que le devuelvan la plata, dice "mala atencion", dice que si hubiera sabido no habria pagado o consignado, insulta, o amenaza con denunciar o reportar. false si solo esta confundida, impaciente, pregunta varias veces lo mismo o se despide. Ante la duda, false.
+2. "molesta": true SOLO si hay enojo o desconfianza clara: dice que la estafaron o le robaron, pide que le devuelvan la plata, dice "mala atencion", dice que si hubiera sabido no habria pagado o consignado, insulta, o amenaza con denunciar o reportar. false si solo esta confundida, impaciente, pregunta varias veces lo mismo, se despide, o manda solo un emoji de susto o sorpresa (😱, 😮, 😢). Ante la duda, false.
 
 3. "ya_abrio": true si cuenta que YA pudo abrir, entrar o ver su material ("si ya pude", "ya me abrio", "si, todo bien"). false en cualquier otro caso.
 
@@ -1126,6 +1126,37 @@ Responde UNICAMENTE con JSON: {"no_puede_abrir": false, "molesta": false, "ya_ab
   } catch (e) {
     console.error('clasificarMensajePostPago error:', e.message);
     return { no_puede_abrir: false, molesta: false, ya_abrio: false };
+  }
+}
+
+// ¿La clienta que ya pago dice que NO va a dar correo? (no tiene, no quiere, no sabe cual, o pide que
+// se lo manden por aqui). Solo ahi se le manda el enlace con "Continuar con Google" (pedido de Jorge,
+// 14 sep 2026). Va aparte y corto a proposito: metido como cuarta pregunta del revisor post-pago
+// marcaba "Mira", "Envio comprobante" y "No tranquilo" como si no quisiera dar el correo.
+// Ante cualquier falla devuelve false: se le sigue pidiendo el Gmail como siempre.
+async function detectarNoDaCorreo(ultimoMensajeBot, text) {
+  const prompt = `Una clienta ya pago un curso digital. El bot le pidio su correo Gmail para darle acceso a su carpeta.
+
+Ultimo mensaje del bot: ${String(ultimoMensajeBot || '').slice(0, 300)}
+Mensaje de la clienta: ${text}
+
+¿La clienta DICE en su mensaje que no tiene Gmail, correo o cuenta de Google, que no quiere o no puede dar su correo, que no sabe o no recuerda cual es, o pide que le manden el material por WhatsApp o "por aqui" en vez de dar un correo?
+
+Si su mensaje NO habla de su correo ni de como recibir el material, la respuesta es false aunque todavia no haya dado el correo. Ejemplos que son false: "Mira", "Envio comprobante, muchas gracias", "Porfa valida", "No tranquilo", "Espere", "Yo espero a que me den el acceso", un emoji. Ejemplos que son true: "No tengo Gmail", "No tengo correo", "No puede ser por WhatsApp", "Enviamelo por aqui", "No me gusta dar esa informacion", "Y si no tengo gmail?". Ante la duda, false.
+
+Responde UNICAMENTE con JSON: {"no_da_correo": false}`;
+  try {
+    const res = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 20,
+      temperature: 0,
+      messages: [{ role: 'user', content: prompt }]
+    }), 'detectarNoDaCorreo');
+    const raw = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    return JSON.parse(raw).no_da_correo === true;
+  } catch (e) {
+    console.error('detectarNoDaCorreo error:', e.message);
+    return false;
   }
 }
 
@@ -1168,4 +1199,4 @@ Responde UNICAMENTE con JSON: {"intencion": "elige"|"pregunta"|"ver_opciones"|"n
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago };
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago, detectarNoDaCorreo };

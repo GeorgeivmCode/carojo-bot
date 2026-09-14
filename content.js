@@ -294,6 +294,22 @@ ${url}
 2️⃣ Si te dice que necesitas permiso, es porque tienes otra cuenta de Google abierta. Toca tu foto arriba a la derecha y cambia a ${email ? `*${email}*` : 'la cuenta de Google que nos diste'}
 3️⃣ Si lo abriste desde WhatsApp y no te deja, toca los tres puntitos y elige "Abrir en el navegador"`;
 
+// 14 sep 2026: cuando Google tarda en activar el acceso. Antes decia "Hubo un problema... ya le
+// avise a nuestro equipo" y nadie se enteraba: la clienta quedaba asustada y colgada (Anne
+// 573213994224 intento 4 veces; Anita 573146673346 respondio "😱").
+const ACCESO_ACTIVANDO_MSG = `Ya casi 💛 Estoy terminando de activar tu acceso, Google se está demorando un poquito.
+
+Dame un minutico y te mando aquí mismo el enlace de tu carpeta. No tienes que hacer nada más.`;
+
+const ACCESO_DEMORADO_MSG = `Tu pago está confirmado y tu compra está 100% segura 💛
+
+Google se está demorando más de lo normal en activar tu acceso. Apenas quede listo te mando aquí mismo el enlace de tu carpeta.`;
+
+// Google responde que ese correo no existe como cuenta (caso Lay 573003172873: escribio mal su Gmail).
+const CORREO_NO_ES_GOOGLE_MSG = email => `Mmm, el correo *${email}* no me aparece como una cuenta de Google 🤔
+
+Revisa que esté bien escrito y escríbemelo de nuevo. Si no sabes cuál es tu Gmail, en Android abre la Play Store y toca tu foto arriba a la derecha, ahí aparece.`;
+
 const SEND_COMPROBANTE_MSG = `Para confirmar tu pago necesito ver el comprobante. 📸
 
 Abre tu app (Nequi, Daviplata, Bancolombia, etc.), busca el comprobante de ese pago y enviamelo aqui como imagen o PDF.`;
@@ -543,6 +559,7 @@ module.exports = {
   R1_MESSAGE, R2_MESSAGE,
   INVALID_EMAIL_MSG, FIND_GMAIL_MSG, ENLACE_SIN_CORREO_MSG, REENVIO_ENLACE_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
+  ACCESO_ACTIVANDO_MSG, ACCESO_DEMORADO_MSG, CORREO_NO_ES_GOOGLE_MSG,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG, PAYMENT_OLD_DATE_MSG,
   STOPPED_MSG, OLD_CLIENT_TRIGGERS, NEQUI_DOWN_TRIGGERS,
   MOSTRARIO, TESTIMONIOS,

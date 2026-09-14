@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago, detectarNoDaCorreo } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -29,6 +29,7 @@ const {
   PLANTILLA_ACCESO, STOPPED_MSG, OLD_CLIENT_TRIGGERS,
   INVALID_EMAIL_MSG, FIND_GMAIL_MSG, ENLACE_SIN_CORREO_MSG, REENVIO_ENLACE_MSG, PAYMENT_REJECTED_MSG, PAYMENT_WRONG_AMOUNT,
   PAYMENT_WRONG_RECIPIENT, PAYMENT_NOT_SUCCESSFUL,
+  ACCESO_ACTIVANDO_MSG, ACCESO_DEMORADO_MSG, CORREO_NO_ES_GOOGLE_MSG,
   SEND_COMPROBANTE_MSG, GIFT_OFFER_MSG, COMPROBANTE_FALSO_MSG,
   PAYMENT_OLD_DATE_MSG, MOSTRARIO, TESTIMONIOS,
   deliveryMessage,
@@ -585,9 +586,14 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       // No se leyo ningun correo en la imagen. Si todavia no tiene su enlace se le manda; si ya lo
       // tiene, no se le vuelve a pedir el Gmail (eso fue lo que desespero a Paula y a Bibiana).
       const histImg = db.getRecentMessages(phone, 12);
-      if (yaTieneEnlaceAcceso(contact, histImg)) {
+      if (contact.acceso_pendiente_email) {
+        // Ya dio su Gmail y el bot esta reintentando activarle el acceso
+        await sendAndSave(phone, ACCESO_ACTIVANDO_MSG);
+      } else if (yaTieneEnlaceAcceso(contact, histImg)) {
         await sendAndSave(phone, 'Recibí tu imagen 💛 Para entrar no tienes que mandarme nada más: toca el enlace que te envié arriba, dale a *Continuar con Google* y elige tu cuenta. Si no te deja, cuéntame qué te aparece y te ayudo.');
-      } else if (!(await enviarEnlaceSinCorreo(contact))) {
+      } else {
+        // 14 sep 2026: una imagen sin correo ya no dispara el enlace con el boton de Google (ese
+        // enlace es solo para quien dice que no tiene o no quiere dar correo). Se le pide el Gmail.
         await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
       }
       return;
@@ -1000,6 +1006,9 @@ function yaTieneEnlaceAcceso(contact, history) {
 // Manda el enlace a la clienta que YA PAGO y no da (o no tiene) Gmail. Una sola vez por compra.
 async function enviarEnlaceSinCorreo(contact) {
   if (!contact.pack_selected) return false;
+  // Solo para quien esta esperando dar el correo de una compra ya pagada. Nunca a una clienta
+  // entregada o antigua: a ellas se les reenvia su enlace de siempre (reenviarEnlaceAcceso).
+  if (contact.state !== 'awaiting_email') return false;
   const url = `${BOT_URL}/acceso/${generateAccessToken(contact.phone, contact.pack_selected)}`;
   await sendAndSave(contact.phone, ENLACE_SIN_CORREO_MSG(url));
   db.updateContact(contact.phone, { enlace_acceso_enviado: 1 });
@@ -1379,18 +1388,53 @@ async function handleEmail(contact, emailText) {
     const CLOSING_EMAIL = ['listo', 'ok', 'gracias', 'perfecto', 'entendido', 'dale', 'claro'];
     if (CLOSING_EMAIL.some(w => rawText === w)) return; // ignorar silenciosamente
 
-    // 10 sep 2026: la primera vez que la clienta responde SIN un Gmail (dice que no tiene, da un
-    // Hotmail, pide que se lo manden por aqui, tiene iPhone, esta en otro celular...) se le manda
-    // su enlace para entrar con "Continuar con Google", sin escribir nada. No hace falta adivinar
-    // por palabras: cualquier respuesta sin Gmail ya es señal de dificultad. Antes se le repetia
-    // el pedido del correo (y las instrucciones de la Play Store, aunque tuviera iPhone) hasta que
-    // se molestaba: casos Paula 573223534427 y Bibiana 573016506566.
+    // 10 sep 2026 se creo el enlace con "Continuar con Google" para quien pago y no da Gmail
+    // (casos Paula 573223534427 y Bibiana 573016506566). 14 sep 2026, pedido de Jorge: ese enlace
+    // es SOLO para quien dice que no tiene correo, que no quiere darlo, pide que se lo manden por
+    // aqui, o escribe "problema". Antes salia con CUALQUIER respuesta sin Gmail y se mando mal 5 de
+    // 17 veces: "Mira" y "Porfa valida" escritos junto con el comprobante, "Envio comprobante,
+    // muchas gracias", y a Anita 573146673346, que YA habia dado su Gmail y fallo la activacion.
     const historyLarga = db.getRecentMessages(phone, 12);
+    const desdePago = contact.awaiting_email_at || '';
+
+    // Ya dio su Gmail y el bot esta reintentando activarle el acceso: no se le pide nada mas.
+    if (contact.acceso_pendiente_email) {
+      const ctxPendiente = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA DIO su Gmail (${contact.acceso_pendiente_email}). Google se está demorando en activarle el acceso y el sistema lo está reintentando solo: apenas quede, le llega AQUÍ MISMO en este chat el enlace de su carpeta. NO le pidas el correo otra vez, NO le mandes enlaces ni pasos, NO le digas que otra persona del equipo la ayuda. En UN mensaje corto y cálido: su compra está segura y en unos minutos le llega su enlace por este chat. NUNCA digas que algo le llega al correo.]`;
+      await sendAndSave(phone, await carol(db.getRecentMessages(phone, 8), ctxPendiente + '\n\nMensaje de la clienta: ' + emailText));
+      return;
+    }
+
+    // Texto escrito junto con el comprobante ("Mira", "Porfa valida"): llega segundos antes o justo
+    // despues del "Pago recibido" que ya le pidio el Gmail. No es una respuesta a ese pedido.
+    const aMs = s => new Date(String(s || '').replace(' ', 'T') + 'Z').getTime();
+    const ultimoTexto = historyLarga.filter(m => m.direction === 'in' && m.type === 'text').pop();
+    if (desdePago && ultimoTexto && aMs(ultimoTexto.created_at) - aMs(desdePago) <= 5000) {
+      console.log(`Texto escrito junto con el comprobante, se ignora [${phone}]: ${String(emailText).slice(0, 60)}`);
+      return;
+    }
+
     const clsEmail = await clasificarMensajePostPago(historyLarga, emailText);
     if (clsEmail.molesta) await avisarClientaMolesta(contact, emailText, 'pago y no ha dado el correo');
 
     const yaTieneEnlace = yaTieneEnlaceAcceso(contact, historyLarga);
-    if (!yaTieneEnlace && await enviarEnlaceSinCorreo(contact)) return;
+    const enEstaCompra = m => !desdePago || (m.created_at || '') >= desdePago;
+    const yaDioGmail = historyLarga.some(m => m.direction === 'in' && enEstaCompra(m) &&
+      typeof m.content === 'string' && /[\w._%+\-]+@gmail\.com/i.test(m.content));
+    const dioOtroCorreo = /[\w._%+\-]+@(?!gmail\.com)[a-z0-9\-]+(\.[a-z0-9\-]+)+/i.test(emailText);
+    const yaSeLeEnsenoGmail = historyLarga.some(m => m.direction === 'out' && enEstaCompra(m) &&
+      typeof m.content === 'string' && m.content.includes('YA tengas un Gmail'));
+    if (!yaTieneEnlace && !yaDioGmail) {
+      const ultimoBot = historyLarga.filter(m => m.direction === 'out' && typeof m.content === 'string').pop();
+      const pideEnlace = /\bproblema/i.test(emailText) || (dioOtroCorreo && yaSeLeEnsenoGmail) ||
+        (!dioOtroCorreo && await detectarNoDaCorreo(ultimoBot?.content, emailText));
+      if (pideEnlace && await enviarEnlaceSinCorreo(contact)) return;
+      // Dio un Hotmail/Outlook por primera vez: primero se le enseña a encontrar el Gmail que ya
+      // tiene en el celular. Si vuelve a dar un correo que no es Gmail, ahi si va el enlace.
+      if (dioOtroCorreo) {
+        await sendAndSave(phone, FIND_GMAIL_MSG);
+        return;
+      }
+    }
 
     // 10 sep 2026 (tarde), caso Sandra 573134520181: pago, dio un Hotmail, recibio su enlace y
     // escribio "No pude", "No puedo dar mi cuenta de Google", "No sale". Carol le repitio los mismos
@@ -1405,7 +1449,6 @@ async function handleEmail(contact, emailText) {
       fallos++;
       db.updateContact(phone, { enlace_fallos: fallos });
     }
-    const desdePago = contact.awaiting_email_at || '';
     const textoClienta = historyLarga
       .filter(m => m.direction === 'in' && typeof m.content === 'string' && (!desdePago || (m.created_at || '') >= desdePago))
       .map(m => m.content).concat(emailText).join('\n');
@@ -1444,7 +1487,15 @@ async function handleEmail(contact, emailText) {
     return;
   }
 
-  await deliverPack(contact, email);
+  const r = await deliverPack(contact, email);
+  if (r?.enCurso) await sendAndSave(phone, ACCESO_ACTIVANDO_MSG);
+}
+
+// Si Google tarda, se reintenta con el mismo correo a los 30 s, 2, 5, 15 y 30 minutos.
+const REINTENTOS_ACCESO_MS = [30e3, 2 * 60e3, 5 * 60e3, 15 * 60e3, 30 * 60e3];
+const entregasEnCurso = new Set();
+function fechaDentroDe(ms) {
+  return new Date(Date.now() + ms).toISOString().replace('T', ' ').substring(0, 19);
 }
 
 // Entrega real del pack: da acceso a Drive, manda el enlace por WhatsApp, marca la venta,
@@ -1452,7 +1503,22 @@ async function handleEmail(contact, emailText) {
 // Extraida de handleEmail (8 sep 2026) para poder reusarla desde la pagina de acceso cuando la
 // clienta entra con Google en vez de escribir su correo. NO duplicar esta logica en otro lado:
 // ese fue exactamente el origen del bug del mostrario triplicado (ver memoria 10 jul 2026).
-async function deliverPack(contact, email) {
+// Una sola entrega a la vez por clienta: Anne 573213994224 toco el boton de Google 4 veces seguidas.
+async function deliverPack(contact, email, opciones = {}) {
+  const phone = contact.phone;
+  if (entregasEnCurso.has(phone)) {
+    console.log(`Entrega ya en curso [${phone}], se ignora el intento repetido`);
+    return { ok: false, enCurso: true };
+  }
+  entregasEnCurso.add(phone);
+  try {
+    return await entregarPack(contact, email, opciones);
+  } finally {
+    entregasEnCurso.delete(phone);
+  }
+}
+
+async function entregarPack(contact, email, { reintento = false } = {}) {
   const phone = contact.phone;
   const pack = contact.pack_selected || 'basico';
 
@@ -1462,8 +1528,36 @@ async function deliverPack(contact, email) {
     driveFolderId = dr.folderId || '';
   } catch (e) {
     console.error('Drive access error:', e.message);
-    await sendAndSave(phone, 'Hubo un problema al darte acceso. Ya le avise a nuestro equipo y lo resuelven en minutos!');
-    await notifyJorge(contact, `ERROR acceso Drive:\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nError: ${e.message}`);
+    // 14 sep 2026: antes decia "Hubo un problema al darte acceso. Ya le avise a nuestro equipo" y
+    // nadie volvia a intentar: la clienta quedaba pagada y colgada hasta que Jorge la registraba a
+    // mano. Sin aviso al celular (suena solo por ventas): lo que no se resuelva queda en Pendientes.
+    if (e.espera) {
+      const hechos = reintento ? (db.getContact(phone)?.acceso_reintentos || 0) : 0;
+      if (hechos < REINTENTOS_ACCESO_MS.length) {
+        db.updateContact(phone, {
+          acceso_pendiente_email: email,
+          acceso_reintentos: hechos + 1,
+          acceso_proximo_intento: fechaDentroDe(REINTENTOS_ACCESO_MS[hechos])
+        });
+        db.logAdminAction(phone, 'acceso_reintento_programado', `email=${email} intento=${hechos + 1} error=${e.message}`);
+        if (!reintento) await sendAndSave(phone, ACCESO_ACTIVANDO_MSG);
+        return { ok: false, pendiente: true, error: e.message };
+      }
+      db.updateContact(phone, { acceso_pendiente_email: '', acceso_proximo_intento: '' });
+      db.logAdminAction(phone, 'acceso_fallo_definitivo', `email=${email} error=${e.message}`);
+      console.error(`Acceso sin activar tras ${hechos} reintentos [${phone}] ${email}: queda en Pendientes`);
+      await sendAndSave(phone, ACCESO_DEMORADO_MSG);
+      return { ok: false, error: e.message };
+    }
+    db.updateContact(phone, { acceso_pendiente_email: '', acceso_proximo_intento: '' });
+    if (/not found|invalid/i.test(e.message)) {
+      // Google dice que ese correo no es una cuenta (caso Lay 573003172873: Gmail mal escrito)
+      db.logAdminAction(phone, 'acceso_correo_no_es_google', `email=${email}`);
+      await sendAndSave(phone, CORREO_NO_ES_GOOGLE_MSG(email));
+    } else {
+      db.logAdminAction(phone, 'acceso_error', `email=${email} error=${e.message}`);
+      await sendAndSave(phone, ACCESO_DEMORADO_MSG);
+    }
     return { ok: false, error: e.message };
   }
 
@@ -1481,7 +1575,8 @@ async function deliverPack(contact, email) {
     mensajeEnviado = false;
     console.error(`Entrega: no salio el mensaje de WhatsApp [${phone}]:`, e.response?.data ? JSON.stringify(e.response.data) : e.message);
   }
-  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email, folder_id: driveFolderId });
+  db.updateContact(phone, { state: 'delivered', tag: 'Facturado', delivered_at: db.now(), email, folder_id: driveFolderId,
+    acceso_pendiente_email: '', acceso_reintentos: 0, acceso_proximo_intento: '' });
   const updatedContact = db.getContact(phone);
 
   if (updatedContact.capi_omitir_proxima) {
@@ -1531,7 +1626,9 @@ async function handlePostDelivery(contact, text) {
     'cambiar el gmail', 'cambiar mi gmail', 'cambiar de gmail', 'otro correo', 'otro gmail',
     'correo diferente', 'gmail diferente', 'me equivoque de correo', 'puse mal el correo',
     'correo equivocado', 'correo esta mal', 'correo está mal', 'cambio de correo'].some(w => text.includes(w));
-  if (wantsEmailChange) {
+  // Si pide cambiar el correo porque su Canva esta con otro, no hace falta cambiar nada: los diseños
+  // de Canva abren con cualquier cuenta de Canva. Lo explica Carol (caso 573187506079, 14 sep 2026).
+  if (wantsEmailChange && !/canva/i.test(text)) {
     await sendAndSave(phone, 'Claro! Dejame consultar con nuestro equipo para hacer ese cambio con cuidado. En un momento te ayudan por aqui mismo 💛');
     db.updateContact(phone, { bot_active: 0, tag: 'Soporte' });
     await notifyJorge(contact,
@@ -1745,7 +1842,7 @@ async function handlePostDelivery(contact, text) {
     contact.pack_selected === 'oro' ? 'SUPERPACK ORO' :
     contact.pack_selected === 'basico' ? 'PACK BASICO' : 'su pack';
   const packPriceDelivered = PACK_AMOUNTS[contact.pack_selected];
-  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. ${detallePackEntregado(contact.pack_selected)} Ayudala con su duda o solicitud actual.]`;
+  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. CANVA: los diseños de Canva del pack abren con CUALQUIER cuenta de Canva, aunque tenga un correo distinto al registrado. El correo registrado (${contact.email || 'el que dio'}) solo sirve para abrir la carpeta de Google Drive. Si su Canva esta con otro correo, NO hace falta cambiar nada: abre la carpeta de Drive con el correo registrado y, cuando toque un diseño de Canva, entra a Canva con la cuenta que ya usa. NUNCA le digas que entre a Drive con el correo de Canva ni con otro correo distinto al registrado. ${detallePackEntregado(contact.pack_selected)} Ayudala con su duda o solicitud actual.]`;
   const reply = await carol(history, ctxDelivered + notaMolesta + '\n\nMensaje de la clienta: ' + text);
   await sendAndSave(phone, reply);
   // Si Carol le conto que puede completar su pack, se anota como oferta hecha: asi, si responde
@@ -2077,7 +2174,15 @@ Tu material no se manda por correo electronico. El enlace de tu carpeta te lo pa
 
 Mira arriba en esta conversacion el mensaje que dice "Tu carpeta personal" y toca ese enlace. Si no lo encuentras o no te abre, escribeme y lo resolvemos ya mismo 💛`;
 
-function sanitizeOutboundText(text) {
+// Para quien todavia NO tiene su entrega: no se le puede decir "mira arriba el mensaje de tu
+// carpeta" porque ese mensaje no existe (Anita 573146673346, 12 sep 2026, se quedo buscandolo).
+const EMAIL_DELIVERY_CORRECTION_PENDIENTE_MSG = `Ojo con esto, que es importante 📲
+
+Tu material no se manda por correo electronico. El enlace de tu carpeta te lo paso *aqui mismo, en este chat de WhatsApp*, apenas quede activo tu acceso.
+
+🔑 Tu Gmail solo sirve como llave para poder abrir la carpeta 💛`;
+
+function sanitizeOutboundText(text, estado = '') {
   if (typeof text !== 'string' || !text) return text;
 
   if (AI_ADMISSION_PATTERNS.some(p => p.test(text))) {
@@ -2088,7 +2193,7 @@ function sanitizeOutboundText(text) {
   if (patronCorreo) {
     console.error('BLOQUEADO mensaje que prometia entrega por correo. Texto original: ' +
       JSON.stringify(text.slice(0, 300)));
-    return EMAIL_DELIVERY_CORRECTION_MSG;
+    return estado === 'delivered' ? EMAIL_DELIVERY_CORRECTION_MSG : EMAIL_DELIVERY_CORRECTION_PENDIENTE_MSG;
   }
 
   let clean = text.replace(/[—–]/g, ',');
@@ -2118,7 +2223,8 @@ function wasRecentlySent(phone, text) {
 }
 
 async function sendAndSave(phone, textOrParts) {
-  const parts = (Array.isArray(textOrParts) ? textOrParts : [textOrParts]).map(sanitizeOutboundText);
+  const estado = db.getContact(phone)?.state || '';
+  const parts = (Array.isArray(textOrParts) ? textOrParts : [textOrParts]).map(t => sanitizeOutboundText(t, estado));
   for (let i = 0; i < parts.length; i++) {
     if (wasRecentlySent(phone, parts[i])) {
       console.log(`sendAndSave: parte repetida omitida para ${phone} (ya se le mando hace menos de 6 min)`);
@@ -2133,4 +2239,29 @@ async function sendAndSave(phone, textOrParts) {
   }
 }
 
-module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, notifyTelegram, generateAccessToken, handleEmail, deliverPack };
+// Reintenta activar el acceso de las clientas que ya dieron su Gmail y a las que Google les tardo.
+// Lo llama el programador cada 30 segundos, tambien de noche (una clienta pagada no espera al dia).
+async function reintentarAccesosPendientes() {
+  for (const c of db.getAccesosPendientes()) {
+    if (c.state !== 'awaiting_email' || !c.pack_selected) {
+      db.updateContact(c.phone, { acceso_pendiente_email: '', acceso_proximo_intento: '' });
+      continue;
+    }
+    // Se vacia la hora antes de intentar para que la siguiente vuelta no lo tome de nuevo
+    db.updateContact(c.phone, { acceso_proximo_intento: '' });
+    try {
+      const r = await deliverPack(c, c.acceso_pendiente_email, { reintento: true });
+      if (r?.ok) {
+        db.logAdminAction(c.phone, 'acceso_activado_tras_reintento', `email=${c.acceso_pendiente_email}`);
+        console.log(`Acceso activado tras reintento [${c.phone}] ${c.acceso_pendiente_email}`);
+      } else if (r?.enCurso) {
+        db.updateContact(c.phone, { acceso_proximo_intento: fechaDentroDe(30e3) });
+      }
+    } catch (e) {
+      console.error(`Reintento de acceso error [${c.phone}]:`, e.message);
+      db.updateContact(c.phone, { acceso_proximo_intento: fechaDentroDe(60e3) });
+    }
+  }
+}
+
+module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, notifyTelegram, generateAccessToken, handleEmail, deliverPack, reintentarAccesosPendientes };
