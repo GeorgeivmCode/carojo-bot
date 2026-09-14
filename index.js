@@ -513,7 +513,8 @@ app.post('/webhook', verifySignature, async (req, res) => {
     for (const s of value.statuses) {
       const wamid = s.id;
       const status = s.status; // sent, delivered, read, failed
-      const phone  = s.recipient_id;
+      // Usuarias con nombre de usuario de WhatsApp no traen numero: viene su id (BSUID)
+      const phone  = s.recipient_id || s.recipient_user_id;
       console.log(`[STATUS] ${status} | phone=${phone} | wamid=${wamid}`);
       if (initialized) {
         db.updateMessageStatus(wamid, status);
@@ -525,9 +526,25 @@ app.post('/webhook', verifySignature, async (req, res) => {
   if (!value?.messages?.length) return;
 
   const msg     = value.messages[0];
-  const phone   = msg.from;
+  // 14 sep 2026: WhatsApp ya deja usar nombre de usuario y ocultar el numero (como Telegram). En ese
+  // caso Meta NO manda `from` sino `from_user_id` (BSUID, ej. "CO.1234..."). El bot solo leia `from`:
+  // desde el 7 sep ~20-50 mensajes al dia de anuncios fallaban ("NOT NULL constraint failed:
+  // messages.phone"), la persona no recibia respuesta y quedaban chats fantasma en el contador.
+  // Ahora el id de WhatsApp hace de "telefono" de ese contacto y se le responde con ese id.
+  // Jorge (14 sep): "hay que hacer que si los reconozca de cualquier manera, con cualquier dato". Se
+  // prueba todo lo que Meta puede mandar para identificar a la persona, en este orden.
+  const contacto0 = value.contacts?.[0] || {};
+  const phone   = msg.from || contacto0.wa_id || msg.from_user_id || contacto0.user_id ||
+                  msg.from_parent_user_id || contacto0.parent_user_id;
   const wamid   = msg.id;
   const msgType = msg.type;
+  if (!phone) {
+    // No deberia pasar: Meta siempre manda al menos el id de usuario. Si pasa, NO se pierde en silencio:
+    // queda el mensaje completo en el log (con el anuncio de donde vino) para poder encontrarlo.
+    console.error(`MENSAJE SIN NINGUN ID (no se puede responder). Payload: ${JSON.stringify({ msg, contacts: value.contacts }).slice(0, 2000)}`);
+    return;
+  }
+  if (!msg.from) console.log(`[usuario sin numero] id=${phone} tipo=${msgType}`);
 
   // Referral y nombre se guardan antes de la cola (no afectan el estado del flujo)
   const referral = msg.referral;
@@ -1341,7 +1358,7 @@ async function fireCapiWebsitePurchase({ phone, pack, amount, ip, ua, eventId, f
   const ud = {};
   if (ip) ud.client_ip_address = ip;
   if (ua) ud.client_user_agent = ua;
-  ud.ph = [sha256(phone.replace(/\D/g, ''))];
+  if (/^\d+$/.test(String(phone || ''))) ud.ph = [sha256(phone)]; // sin numero (usuario de WhatsApp) no se inventa
   if (email) ud.em = [sha256(email)];
   if (fbc) ud.fbc = fbc;
   if (ctwaClid) ud.ctwa_clid = ctwaClid;

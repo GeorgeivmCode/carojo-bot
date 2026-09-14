@@ -9,10 +9,17 @@ const headers = () => ({
   'Content-Type': 'application/json'
 });
 
+// Destino del mensaje: numero de telefono (solo digitos) va en `to`; el id de una usuaria con nombre de
+// usuario de WhatsApp (BSUID, ej. "CO.1234...", no trae numero) va en `recipient` (14 sep 2026).
+function destinatario(id) {
+  const valor = String(id || '');
+  return /^\d+$/.test(valor) ? { to: valor } : { recipient: valor };
+}
+
 async function sendText(to, text) {
   const res = await axios.post(BASE, {
     messaging_product: 'whatsapp',
-    to,
+    ...destinatario(to),
     type: 'text',
     text: { body: text, preview_url: false }
   }, { headers: headers() });
@@ -37,7 +44,7 @@ async function downloadMedia(url) {
 async function sendImage(to, imageUrl, caption = '') {
   const body = {
     messaging_product: 'whatsapp',
-    to,
+    ...destinatario(to),
     type: 'image',
     image: { link: imageUrl }
   };
@@ -56,4 +63,4 @@ async function markRead(messageId) {
   } catch {}
 }
 
-module.exports = { sendText, sendImage, getMediaUrl, downloadMedia, markRead };
+module.exports = { sendText, sendImage, getMediaUrl, downloadMedia, markRead, destinatario };

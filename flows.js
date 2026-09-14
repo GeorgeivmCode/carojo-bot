@@ -267,8 +267,13 @@ async function fireCapi(contact, pack) {
   try {
     const sha256 = v => crypto.createHash('sha256').update(v.trim().toLowerCase()).digest('hex');
 
-    const rawPhone = contact.phone.replace(/\D/g, '');
-    const ud = { ph: [sha256(rawPhone)], external_id: [sha256(rawPhone)] };
+    // Usuaria con nombre de usuario de WhatsApp (sin numero): su id no es un telefono, no se manda
+    // como `ph`; va solo como external_id. Con numero, igual que siempre.
+    const tieneNumero = /^\d+$/.test(String(contact.phone || ''));
+    const rawPhone = tieneNumero ? contact.phone : '';
+    const ud = tieneNumero
+      ? { ph: [sha256(rawPhone)], external_id: [sha256(rawPhone)] }
+      : { external_id: [sha256(String(contact.phone))] };
 
     // Email mejora EMQ de ~4 a 8+ — es la señal mas fuerte despues de ctwa_clid
     if (contact.email) ud.em = [sha256(contact.email)];
@@ -298,7 +303,7 @@ async function fireCapi(contact, pack) {
     const eventId = `purchase_${contact.phone}_${Date.now()}`;
 
     const signals = [
-      'ph=si',
+      tieneNumero ? 'ph=si' : 'ph=NO (usuario sin numero)',
       contact.email     ? 'em=si' : 'em=NO',
       contact.name      ? 'fn=si' : 'fn=NO',
       contact.ctwa_clid ? 'ctwa_clid=si' : 'ctwa_clid=NO'

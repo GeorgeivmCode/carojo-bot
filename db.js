@@ -106,6 +106,12 @@ try { db.exec(`ALTER TABLE contacts ADD COLUMN acceso_proximo_intento TEXT DEFAU
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ultimo_ad_id TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ultimo_ad_name TEXT DEFAULT ''`); } catch (_) {}
 try { db.exec(`ALTER TABLE contacts ADD COLUMN ultimo_ad_at TEXT DEFAULT ''`); } catch (_) {}
+// Chats fantasma sin telefono ni id (mensajes de usuarias con nombre de usuario antes del 14 sep 2026).
+// No son clientas: no tienen mensajes ni se pueden abrir. Borrarlos es idempotente (despues ya no se crean).
+try {
+  const fantasmas = db.prepare(`DELETE FROM contacts WHERE phone IS NULL`).run().changes;
+  if (fantasmas) console.log(`Chats fantasma sin telefono borrados: ${fantasmas}`);
+} catch (_) {}
 
 // Migracion: status de mensaje (sent/delivered/read/failed)
 try { db.exec(`ALTER TABLE messages ADD COLUMN status TEXT DEFAULT ''`); } catch (_) {}
@@ -163,6 +169,9 @@ function getContact(phone) {
 }
 
 function createContact(phone, name = '') {
+  // Sin id no se crea nada: SQLite deja guardar NULL en la clave y cada mensaje de una usuaria sin
+  // numero creaba chats fantasma que inflaban "CONVS HOY" (14 sep 2026).
+  if (!phone) return;
   db.prepare(`
     INSERT OR IGNORE INTO contacts (phone, name) VALUES (?, ?)
   `).run(phone, name);
