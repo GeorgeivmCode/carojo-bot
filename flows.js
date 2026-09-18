@@ -1600,33 +1600,35 @@ async function entregarPack(contact, email, { reintento = false } = {}) {
     // 14 sep 2026: antes decia "Hubo un problema al darte acceso. Ya le avise a nuestro equipo" y
     // nadie volvia a intentar: la clienta quedaba pagada y colgada hasta que Jorge la registraba a
     // mano. Sin aviso al celular (suena solo por ventas): lo que no se resuelva queda en Pendientes.
-    if (e.espera) {
-      const hechos = reintento ? (db.getContact(phone)?.acceso_reintentos || 0) : 0;
-      if (hechos < REINTENTOS_ACCESO_MS.length) {
-        db.updateContact(phone, {
-          acceso_pendiente_email: email,
-          acceso_reintentos: hechos + 1,
-          acceso_proximo_intento: fechaDentroDe(REINTENTOS_ACCESO_MS[hechos])
-        });
-        db.logAdminAction(phone, 'acceso_reintento_programado', `email=${email} intento=${hechos + 1} error=${e.message}`);
-        if (!reintento) await sendAndSave(phone, ACCESO_ACTIVANDO_MSG);
-        return { ok: false, pendiente: true, error: e.message };
-      }
-      db.updateContact(phone, { acceso_pendiente_email: '', acceso_proximo_intento: '' });
-      db.logAdminAction(phone, 'acceso_fallo_definitivo', `email=${email} error=${e.message}`);
-      console.error(`Acceso sin activar tras ${hechos} reintentos [${phone}] ${email}: queda en Pendientes`);
-      await sendAndSave(phone, ACCESO_DEMORADO_MSG);
-      return { ok: false, error: e.message };
-    }
-    db.updateContact(phone, { acceso_pendiente_email: '', acceso_proximo_intento: '' });
+    // Google dice que ese correo no es una cuenta: reintentar no sirve de nada, hay que pedirle
+    // otro (caso Lay 573003172873: Gmail mal escrito). Este es el UNICO error que no se reintenta.
     if (/not found|invalid/i.test(e.message)) {
-      // Google dice que ese correo no es una cuenta (caso Lay 573003172873: Gmail mal escrito)
+      db.updateContact(phone, { acceso_pendiente_email: '', acceso_proximo_intento: '' });
       db.logAdminAction(phone, 'acceso_correo_no_es_google', `email=${email}`);
       await sendAndSave(phone, CORREO_NO_ES_GOOGLE_MSG(email));
-    } else {
-      db.logAdminAction(phone, 'acceso_error', `email=${email} error=${e.message}`);
-      await sendAndSave(phone, ACCESO_DEMORADO_MSG);
+      return { ok: false, error: e.message };
     }
+    // 18 sep 2026: cualquier otro fallo se reintenta. Antes solo se reintentaba cuando Google pedia
+    // esperar (e.espera); con cualquier otro error el bot le mandaba igual ACCESO_DEMORADO_MSG
+    // ("apenas quede listo te mando el enlace") y nadie volvia a intentar nunca. Caso Nath
+    // CO.1555902509092616 (17 sep 21:43, "Request failed with status code 404"): quedo pagada y
+    // colgada con esa promesa; Jorge la registro a mano 13 min despues y entro sin problema, o sea
+    // el error era pasajero y un reintento lo habria resuelto solo.
+    const hechos = reintento ? (db.getContact(phone)?.acceso_reintentos || 0) : 0;
+    if (hechos < REINTENTOS_ACCESO_MS.length) {
+      db.updateContact(phone, {
+        acceso_pendiente_email: email,
+        acceso_reintentos: hechos + 1,
+        acceso_proximo_intento: fechaDentroDe(REINTENTOS_ACCESO_MS[hechos])
+      });
+      db.logAdminAction(phone, 'acceso_reintento_programado', `email=${email} intento=${hechos + 1} error=${e.message}`);
+      if (!reintento) await sendAndSave(phone, ACCESO_ACTIVANDO_MSG);
+      return { ok: false, pendiente: true, error: e.message };
+    }
+    db.updateContact(phone, { acceso_pendiente_email: '', acceso_proximo_intento: '' });
+    db.logAdminAction(phone, 'acceso_fallo_definitivo', `email=${email} error=${e.message}`);
+    console.error(`Acceso sin activar tras ${hechos} reintentos [${phone}] ${email}: queda en Pendientes`);
+    await sendAndSave(phone, ACCESO_DEMORADO_MSG);
     return { ok: false, error: e.message };
   }
 

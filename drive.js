@@ -28,9 +28,13 @@ const INICIO_SISTEMA_GRUPOS = '2026-07-01 00:00:00';
 // (10 fallos entre el 10 y el 14 sep, ninguno antes). Ahora espera hasta 60 s y reintenta una vez.
 const ESPERA_GRUPOS_MS = 60000;
 
+// 18 sep 2026: se sumaron 404, 429 y 500. Apps Script responde 404 cuando el deployment esta
+// arrancando o bajo carga, aunque la URL este bien (caso Nath CO.1555902509092616, 17 sep 21:43:
+// fallo con 404 y minutos despues el mismo correo entro sin problema). Son pasajeros igual que un
+// timeout, asi que merecen el reintento inmediato de 5 segundos en vez de rendirse de una.
 function esErrorDeEspera(e) {
   if (e?.code === 'ECONNABORTED' || e?.code === 'ETIMEDOUT' || e?.code === 'ECONNRESET') return true;
-  if ([502, 503, 504].includes(e?.response?.status)) return true;
+  if ([404, 429, 500, 502, 503, 504].includes(e?.response?.status)) return true;
   return /timeout|socket hang up|EAI_AGAIN/i.test(e?.message || '');
 }
 

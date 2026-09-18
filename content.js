@@ -165,7 +165,7 @@ https://drive.google.com/drive/folders/11REC3PBrfb35NaGpShELpo5X0mekJLuw
 
 Gracias por confiar en nosotros 💛 Este es solo el comienzo de tu historia con el lettering. Disfruta cada trazo y recuerda que aqui siempre estamos para ti!
 
-— Carojo Aprende y Emprende 🌟`;
+Carojo Aprende y Emprende 🌟`;
 
 const DELIVERY_ORO = `Hola! 🎉✨
 
@@ -180,7 +180,7 @@ https://drive.google.com/drive/folders/1c41mpvOdASqG3am1uZ5eSQbZuc4gS2LX
 
 Gracias por confiar en nosotros 💛 Este es solo el comienzo de tu historia con el lettering. Disfruta cada trazo y recuerda que aqui siempre estamos para ti!
 
-— Carojo Aprende y Emprende 🌟`;
+Carojo Aprende y Emprende 🌟`;
 
 const DELIVERY_DIAMANTE = `Hola! 🎉✨
 
@@ -195,7 +195,7 @@ https://drive.google.com/drive/folders/1t3qNyssHh2UqQ9dIIH4dJl1TlkDDatT4
 
 Gracias por confiar en nosotros 💛 Este es solo el comienzo de tu historia con el lettering. Disfruta cada trazo y recuerda que aqui siempre estamos para ti!
 
-— Carojo Aprende y Emprende 🌟`;
+Carojo Aprende y Emprende 🌟`;
 
 const PLANTILLA_ACCESO = `Hola! Ya vimos tu mensaje. 🙏
 
