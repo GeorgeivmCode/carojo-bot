@@ -581,10 +581,30 @@ Si el cliente ha elegido o muestra intencion de quedarse con el PACK BASICO ($5.
 - No es que el Basico sea malo, es un excelente primer paso. Solo que si hay posibilidad de estirarse un poco, el salto de valor es enorme.
 Si despues de ese argumento el cliente sigue firme con el Basico, respetas su decision sin insistir mas y confirmas el pack con toda la energia.`;
 
+// 17 sep 2026: precios de Haiku 4.5 por millon de tokens, solo para poder ver en el registro en que
+// se va la plata de la API. No cambia ningun comportamiento del bot.
+const PRECIO_API = { entrada: 1, escribir5m: 1.25, escribir1h: 2, leer: 0.10, salida: 5 };
+
+function anotarCosto(label, u) {
+  if (!u) return;
+  try {
+    const escribe = u.cache_creation_input_tokens || 0;
+    const lee = u.cache_read_input_tokens || 0;
+    const es1h = (u.cache_creation?.ephemeral_1h_input_tokens || 0) > 0;
+    const usd = ((u.input_tokens || 0) * PRECIO_API.entrada
+      + escribe * (es1h ? PRECIO_API.escribir1h : PRECIO_API.escribir5m)
+      + lee * PRECIO_API.leer
+      + (u.output_tokens || 0) * PRECIO_API.salida) / 1e6;
+    console.log(`[costo ${label}] nuevo=${u.input_tokens || 0} escribe=${escribe}${es1h ? '(1h)' : ''} lee=${lee} salida=${u.output_tokens || 0} usd=${usd.toFixed(5)}`);
+  } catch (_) { /* el registro nunca puede tumbar una respuesta al cliente */ }
+}
+
 async function withRetry(fn, label = 'API') {
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
-      return await fn();
+      const res = await fn();
+      anotarCosto(label, res?.usage);
+      return res;
     } catch (e) {
       if (e.status === 429 && attempt < 4) {
         const wait = attempt * 20000;
@@ -651,7 +671,13 @@ Usa estas como referencia de tono, extension y argumentos que resonaron con clie
   const res = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1000,
-    system: [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral' } }],
+    // 17 sep 2026: la copia del prompt se guarda 1 HORA en vez de 5 minutos. Medido con las
+    // llamadas reales del 16 sep: entre una respuesta de Carol y la siguiente pasan mas de 5 min
+    // una de cada tres veces (mediana 115 s, pero p90 de 20 min y huecos de hasta 1h50), asi que
+    // con 5 minutos solo el 66% encontraba la copia viva y el resto pagaba el prompt entero de
+    // 15.038 tokens. Con 1 hora sube a 98%. Guardar por 1 hora cuesta 2x en vez de 1,25x, pero se
+    // paga de sobra: las escrituras pasan de ~45 al dia a ~3. NO cambia ni una palabra del prompt.
+    system: [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral', ttl: '1h' } }],
     messages
   }), 'carol');
 
