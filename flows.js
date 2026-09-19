@@ -545,7 +545,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         const packLabelAcc = contact.pack_selected === 'diamante' ? 'MEGA PACK DIAMANTE'
           : contact.pack_selected === 'oro' ? 'SUPERPACK ORO'
           : contact.pack_selected === 'basico' ? 'PACK BASICO' : 'tu pack';
-        const ctxAcceso = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE ACCESO activo a ${packLabelAcc}. Correo registrado: ${contact.email || 'no registrado'}. Acaba de mandar una CAPTURA DE PANTALLA de un problema para entrar al material (puede ser Google Drive, una pantalla de inicio de sesion de Google, que le pide contraseña, "solicitud enviada", o un error de que no tiene acceso).${loQueMuestra} Ayudala a resolverlo con pasos concretos y en orden, uno por mensaje. Lo mas comun y lo primero que debes revisar: que el celular tenga abierta la cuenta de Google correcta (la registrada), porque si tiene otra cuenta abierta Drive le niega el permiso. El segundo mas comun: que abrio el enlace dentro de WhatsApp, y ahi Google falla, tiene que abrirlo en Chrome. El acceso SOLO llega como enlace en este mismo chat, NUNCA por correo. Si la imagen muestra que esta metida en su Gmail o buscando un correo, lo PRIMERO que debes hacer es sacarla de ahi con cariño: explicarle que ahi no hay nada que buscar y llevarla al mensaje del chat que tiene el enlace de su carpeta. NO le pidas comprobante ni datos de pago. Cierra preguntandole que ve exactamente en la pantalla para poder seguir ayudandola.]`;
+        const ctxAcceso = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE ACCESO activo a ${packLabelAcc}. Correo registrado: ${contact.email || 'no registrado'}. Acaba de mandar una CAPTURA DE PANTALLA de un problema para entrar al material (puede ser Google Drive, una pantalla de inicio de sesion de Google, que le pide contraseña, "solicitud enviada", o un error de que no tiene acceso).${loQueMuestra} Ayudala a resolverlo con pasos concretos y en orden, uno por mensaje. Lo mas comun y lo primero que debes revisar: que el celular tenga abierta la cuenta de Google correcta (la registrada), porque si tiene otra cuenta abierta Drive le niega el permiso. El segundo mas comun: que abrio el enlace dentro de WhatsApp, y ahi Google falla, tiene que abrirlo en Chrome. SI LA IMAGEN ES LA PANTALLA DE GOOGLE PIDIENDOLE LA CONTRASEÑA (accounts.google.com, un campo "Ingresa tu contraseña"): eso NO es que este perdida en su Gmail, NO la mandes a buscar el enlace en el chat ni le digas que se olvide del correo, y sobre todo NUNCA le digas que no necesita la contraseña o que Drive abre solo. Guiala asi, en este orden: (1) que abra el enlace FUERA de WhatsApp, en Chrome o Safari, donde su cuenta suele estar ya iniciada; (2) si igual se la pide, que toque "Probar otro metodo" en esa misma pantalla, que suele mandarle un codigo al celular o pedirle la huella; (3) si tampoco puede, que te de otro correo de Google suyo que si tenga abierto y le pasamos el acceso a ese. El acceso SOLO llega como enlace en este mismo chat, NUNCA por correo. Si la imagen muestra que esta metida en su Gmail o buscando un correo, lo PRIMERO que debes hacer es sacarla de ahi con cariño: explicarle que ahi no hay nada que buscar y llevarla al mensaje del chat que tiene el enlace de su carpeta. NO le pidas comprobante ni datos de pago. Cierra preguntandole que ve exactamente en la pantalla para poder seguir ayudandola.]`;
         const reply = await carol(history, ctxAcceso + '\n\n(la clienta mando una captura de un problema de acceso)');
         await sendAndSave(phone, reply);
         await notifyJorge(contact,
@@ -2216,6 +2216,17 @@ const BANNED_PHRASE_REPLACEMENTS = [
   // ESCRIBIR su correo (10 sep 2026, Sandra 573134520181: "No necesitas Gmail para nada").
   [/\bno necesitas?\s+(un\s+|tu\s+|el\s+|ning[uú]n\s+)?(gmail|correo(\s+de\s+gmail)?|cuenta\s+de\s+google)(?!\s+nuevo)(\s+para\s+nada)?/gi,
     m => (m[0] === 'N' ? 'No tienes que escribirme tu Gmail' : 'no tienes que escribirme tu Gmail')],
+  // Igual de falso: para ABRIR la carpeta si hace falta tener la cuenta de Google iniciada en el
+  // celular. Carol le dijo a Karla 573173713456 (12 sep 2026) "no necesitas la contraseña, Drive te
+  // abre la carpeta automaticamente" mientras Google le pedia la contraseña en pantalla. Quedo 7
+  // dias sin poder abrir su Diamante. La regla esta en el prompt, aqui se garantiza.
+  [/\bno (la\s+)?necesitas?\s+(la\s+|tu\s+|ninguna\s+)?contrase[ñn]a\b/gi,
+    m => (m[0] === 'N' ? 'Si Google te pide la contraseña, abre el enlace en Chrome o Safari o toca "Probar otro método"'
+                       : 'si Google te pide la contraseña, abre el enlace en Chrome o Safari o toca "Probar otro método"')],
+  [/\bno\s+te\s+(va|van)\s+a\s+pedir\s+(la\s+|ninguna\s+|tu\s+)?contrase[ñn]a\b/gi,
+    m => (m[0] === 'N' ? 'Si te pide la contraseña, toca "Probar otro método"' : 'si te pide la contraseña, toca "Probar otro método"')],
+  [/\bsin\s+(escribir|poner|meter|recordar)\s+(ninguna\s+|la\s+|tu\s+)?contrase[ñn]a\b/gi, 'con tu cuenta de Google ya abierta en el celular'],
+  [/\bte abre la carpeta autom[aá]ticamente\b/gi, 'te abre la carpeta cuando entras con tu cuenta de Google'],
   // WhatsApp marca negrita con UN asterisco; con dos (formato de otras apps) se ven los asteriscos
   [/\*\*([^*\n]+)\*\*/g, '*$1*']
 ];
