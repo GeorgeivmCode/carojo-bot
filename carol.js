@@ -876,8 +876,25 @@ async function extractEmailFromImage(imageBuffer, mimeType) {
   return match ? match[0] : null;
 }
 
+// Historial en texto para los clasificadores.
+// Las fotos se guardan en la base de datos como un JSON con el buffer en base64 (hasta ~150.000
+// caracteres). Si eso entra crudo al prompt, UNA sola revision cuesta lo que 30 respuestas de Carol
+// (medido el 18 sep 2026: llamadas de 68.000 a 163.000 tokens, USD 2,61 de los 3,56 del dia) y a
+// veces revienta el limite de 200.000 tokens: fallaron 10 veces en 8 dias y al fallar devuelven
+// todo en false, asi que el bot no se entera de que la clienta no puede abrir o esta molesta.
+// carolRespond ya lo filtraba desde el 3 jun 2026 (commit b7b0e90); esto es lo mismo para los
+// clasificadores. Se deja la marca "[imagen enviada por el cliente]" porque al clasificador si le
+// sirve saber que hubo una foto; los audios se quedan como estan (ahi el content es la transcripcion).
+function textoHistorial(history, n) {
+  return (history || []).slice(-n).map(m => {
+    const esFoto = typeof m.content === 'string' && m.content.startsWith('{') && m.content.includes('buffer');
+    const contenido = esFoto ? '[imagen enviada por el cliente]' : m.content;
+    return `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${contenido}`;
+  }).join('\n');
+}
+
 async function detectUpgradeIntent(history, text, packLabel, montoAdicional) {
-  const historyText = history.slice(-8).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const historyText = textoHistorial(history, 8);
 
   const ofertaText = montoAdicional
     ? `Le ofrecimos a esta clienta subir a ${packLabel} pagando $${montoAdicional.toLocaleString('es-CO')} adicionales.`
@@ -917,7 +934,7 @@ Responde UNICAMENTE con JSON: {"acepta": true} o {"acepta": false}`;
 }
 
 async function detectDistrustIntent(history, text) {
-  const historyText = history.slice(-6).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const historyText = textoHistorial(history, 6);
 
   const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
 
@@ -962,7 +979,7 @@ Responde UNICAMENTE con JSON: {"desconfia": true} o {"desconfia": false}`;
 // Diseñada para ser conservadora: ante duda responde false, un falso positivo aqui
 // apagaria el bot a un prospecto real que SI esta comprando ahora.
 async function detectOldClientIntent(history, text) {
-  const historyText = history.slice(-8).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const historyText = textoHistorial(history, 8);
 
   const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
 
@@ -1000,7 +1017,7 @@ Responde UNICAMENTE con JSON: {"cliente_antiguo": true} o {"cliente_antiguo": fa
 // Reemplaza MOSTRARIO_TRIGGERS (lista de ~20 frases) — mismo patron que detectDistrustIntent/detectUpgradeIntent.
 // Riesgo bajo y asimetrico: un falso positivo aqui solo manda fotos de mas, nunca apaga el bot ni bloquea una venta.
 async function detectGalleryIntent(history, text) {
-  const historyText = history.slice(-6).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const historyText = textoHistorial(history, 6);
 
   const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
 
@@ -1034,7 +1051,7 @@ Responde UNICAMENTE con JSON: {"pide_ver": true} o {"pide_ver": false}`;
 // Ahora es UNA sola decision que ve el mensaje completo y elige como maximo una de las dos,
 // nunca las dos a la vez, aunque el mensaje toque un poco de ambas cosas.
 async function detectGalleryOrDistrustIntent(history, text) {
-  const historyText = history.slice(-6).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const historyText = textoHistorial(history, 6);
 
   const prompt = `Aqui esta una conversacion de ventas por WhatsApp de cursos digitales de lettering:
 
@@ -1135,7 +1152,7 @@ Responde UNICAMENTE con JSON, sin texto adicional:
 // Paula 573223534427 y Bibiana 573016506566 (terminaron molestas sin que nadie se enterara a tiempo).
 // Ante cualquier falla devuelve false/false, que es el comportamiento de antes.
 async function clasificarMensajePostPago(history, text) {
-  const historyText = history.slice(-8).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const historyText = textoHistorial(history, 8);
   const prompt = `Esta clienta YA PAGO un curso digital que se entrega como un enlace a una carpeta de Google Drive. Conversacion reciente:
 
 ${historyText}
@@ -1202,7 +1219,7 @@ Responde UNICAMENTE con JSON: {"no_da_correo": false}`;
 // Lee contexto real en vez de substrings: soluciona el caso donde "?" hacia que cualquier
 // mensaje se tratara como consulta generica aunque nombrara un solo regalo sin ambiguedad.
 async function detectGiftIntent(history, text) {
-  const historyText = history.slice(-15).map(m => `${m.direction === 'in' ? 'Cliente' : 'Carol'}: ${m.content}`).join('\n');
+  const historyText = textoHistorial(history, 15);
 
   const prompt = `Conversacion de ventas de cursos digitales de lettering por WhatsApp. Esta clienta tiene derecho a un curso de regalo gratis a elegir entre 3 opciones: Bordados Florales, Arte en Resina Epoxica, Globoflexia y Decoracion.
 
