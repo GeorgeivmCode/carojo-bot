@@ -803,7 +803,8 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       }
       // Contexto del pack elegido: lo que trae, lo que no trae y el pack de arriba (ver contextoPackElegido)
       const ctxPack = contextoPackElegido(contact.pack_selected);
-      const carolText = ctxPack ? `${ctxPack}\n\n${text}` : text;
+      const ctxReg = `[CONTEXTO INTERNO: ${contextoRegalo(contact)}]`;
+      const carolText = [ctxPack, ctxReg, text].filter(Boolean).join('\n\n');
       await sendAndSave(phone, await carol(history, carolText));
       break;
     }
@@ -1050,6 +1051,21 @@ function contextoPackElegido(pack) {
     return '[CONTEXTO INTERNO: Esta clienta YA eligio el MEGA PACK DIAMANTE ($15.000), el pack mas completo. Solo necesita enviar el comprobante de pago. NO preguntes que pack quiere, ya esta confirmado. Responde en ese contexto.]';
   }
   return '';
+}
+
+// El curso de regalo (Bordados Florales / Resina Epoxica / Globoflexia) NO es parte de ningun pack:
+// solo lo tienen las clientas que vienen del remarketing 1 o de un upgrade a Diamante (regla de
+// negocio de Jorge, ver la memoria project_regalo_diamante). El codigo ya lo respetaba, pero Carol
+// no tenia forma de saberlo y se lo prometio a una compra directa (Leidy 573242956372, 19 sep 2026:
+// "el sistema te deja elegir 1 curso adicional gratis"), una promesa que el sistema no iba a
+// cumplir. Este dato ahora se le pasa siempre, con el mismo criterio que usa el codigo.
+// Devuelve la frase suelta (sin el envoltorio [CONTEXTO INTERNO: ...]) para poder meterla dentro de
+// un bloque de contexto mas grande o sola, segun el sitio.
+function contextoRegalo(contact) {
+  if (contact.r1_sent || contact.gift_eligible) {
+    return 'REGALO: esta clienta SI tiene derecho a UN curso de regalo gratis a elegir entre Bordados Florales, Arte en Resina Epoxica y Globoflexia. Solo hablas de el si ella lo menciona primero; nunca lo ofrezcas tu.';
+  }
+  return 'REGALO: esta clienta NO tiene derecho al curso de regalo (Bordados Florales, Resina Epoxica, Globoflexia): ese curso es de otra promocion y el sistema NO se lo va a entregar. PROHIBIDO mencionarlo, prometerlo o insinuarlo, aunque ella escriba "regalo", "gratis" o "bonus". Si pregunta por "los regalos gratis" se refiere a los BONOS que YA vienen incluidos en el pack (los 85.000 diseños de Canva, los moldes, las agendas, los 500 dibujos para colorear): explicale SOLO eso, que ya son suyos con su pack, y no inventes ningun curso adicional.';
 }
 
 // Respuesta corta afirmativa a "Pudiste abrir tu material?" ("si", "si gracias", "ya pude").
@@ -1551,6 +1567,7 @@ async function handleEmail(contact, emailText) {
       'SI TIENE IPHONE no existe la Play Store: NUNCA le des instrucciones de Play Store ni de Ajustes de Android.\n' +
       'TACTO, OBLIGATORIO: no repitas una instrucción que ya le diste en esta conversación. Nunca le discutas ni le digas "no funciona así". Nunca uses "te lo juro", "te apuesto" ni porcentajes como "el 99%". Mensajes cortos y cálidos.\n' +
       'NUNCA te acuses a ti misma ni le des la razón sobre que el sistema falla: prohibido "fui confusa", "me equivoqué", "tienes razón, el mensaje está mal". Explica bien el dato UNA vez y sigue ayudándola.\n' +
+      contextoRegalo(contact) + '\n' +
       'TODAVÍA NO TIENE SU MATERIAL (falta su Gmail o que entre con el enlace). Si pide devolución o dice que se arrepiente: PROHIBIDO decirle que ya se le entregó, que ya tiene el acceso activo o que la entrega ya está hecha, y PROHIBIDO cerrarle con la política de no devoluciones. Dile que su pago y su plata están seguros, que el material está reservado y que solo falta activarlo, y llévala al siguiente paso: su Gmail o el enlace del botón de Google.]' +
       (clsEmail.molesta ? NOTA_CLIENTA_MOLESTA : '');
     const reply = await carol(history, ctxEmail + '\n\nMensaje de la clienta: ' + emailText);
@@ -1915,7 +1932,7 @@ async function handlePostDelivery(contact, text) {
     contact.pack_selected === 'oro' ? 'SUPERPACK ORO' :
     contact.pack_selected === 'basico' ? 'PACK BASICO' : 'su pack';
   const packPriceDelivered = PACK_AMOUNTS[contact.pack_selected];
-  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. CANVA: los diseños de Canva del pack abren con CUALQUIER cuenta de Canva, aunque tenga un correo distinto al registrado. El correo registrado (${contact.email || 'el que dio'}) solo sirve para abrir la carpeta de Google Drive. Si su Canva esta con otro correo, NO hace falta cambiar nada: abre la carpeta de Drive con el correo registrado y, cuando toque un diseño de Canva, entra a Canva con la cuenta que ya usa. NUNCA le digas que entre a Drive con el correo de Canva ni con otro correo distinto al registrado. ${detallePackEntregado(contact.pack_selected)} Ayudala con su duda o solicitud actual.]`;
+  const ctxDelivered = `[CONTEXTO INTERNO: Esta clienta YA PAGÓ y YA TIENE ACCESO activo. Pack: ${packLabelDelivered}${packPriceDelivered ? ` ($${packPriceDelivered.toLocaleString('es-CO')})` : ''}. Correo registrado: ${contact.email || 'no registrado'}. Fecha de entrega: ${contact.delivered_at || 'no registrada'}. El acceso a la carpeta de Drive SOLO se entrega como un enlace en este mismo chat de WhatsApp -- NUNCA se manda ningun correo electronico. El Gmail que dio es solo la llave para abrir esa carpeta, no una direccion donde le llega algo. Si dice que no le llego nada o pide que se lo manden al correo, dile que revise arriba en este chat el mensaje con el link de Google Drive -- NUNCA le digas que revise su Gmail, spam o promociones. CANVA: los diseños de Canva del pack abren con CUALQUIER cuenta de Canva, aunque tenga un correo distinto al registrado. El correo registrado (${contact.email || 'el que dio'}) solo sirve para abrir la carpeta de Google Drive. Si su Canva esta con otro correo, NO hace falta cambiar nada: abre la carpeta de Drive con el correo registrado y, cuando toque un diseño de Canva, entra a Canva con la cuenta que ya usa. NUNCA le digas que entre a Drive con el correo de Canva ni con otro correo distinto al registrado. ${detallePackEntregado(contact.pack_selected)} ${contextoRegalo(contact)} Ayudala con su duda o solicitud actual.]`;
   const reply = await carol(history, ctxDelivered + notaMolesta + '\n\nMensaje de la clienta: ' + text);
   await sendAndSave(phone, reply);
   // Si Carol le conto que puede completar su pack, se anota como oferta hecha: asi, si responde
