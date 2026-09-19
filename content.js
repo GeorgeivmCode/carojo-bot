@@ -145,9 +145,9 @@ Quedo atenta a tu comprobante por aqui. 📲`;
 // enlace llega por este chat.
 const PAYMENT_RECEIVED_ASK_EMAIL = `Listo! 📥 Pago recibido. 🎉
 
-Ahora necesito tu correo *Gmail*. Te cuento rapido para que es:
+Ahora necesito tu correo *Gmail* para activarte el acceso.
 
-🔑 Tu Gmail es la *llave* que abre tu carpeta. Nada te va a llegar a ese correo.
+🔑 Es la *llave* con la que Google te abre tu carpeta.
 📲 El enlace de tu material te lo paso *aqui mismo, en este chat*.
 
 Escribeme tu Gmail, el que usas a diario y termina en @gmail.com, y te activo el acceso al instante 💛`;

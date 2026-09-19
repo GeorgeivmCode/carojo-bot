@@ -1549,7 +1549,9 @@ async function handleEmail(contact, emailText) {
       'NUNCA le digas que no necesita Gmail o cuenta de Google: SÍ necesita una cuenta de Google para abrir la carpeta. Lo que NO tiene que hacer es escribir su correo ni ninguna contraseña.\n' +
       guiaEnlace +
       'SI TIENE IPHONE no existe la Play Store: NUNCA le des instrucciones de Play Store ni de Ajustes de Android.\n' +
-      'TACTO, OBLIGATORIO: no repitas una instrucción que ya le diste en esta conversación. Nunca le discutas ni le digas "no funciona así". Nunca uses "te lo juro", "te apuesto" ni porcentajes como "el 99%". Mensajes cortos y cálidos.]' +
+      'TACTO, OBLIGATORIO: no repitas una instrucción que ya le diste en esta conversación. Nunca le discutas ni le digas "no funciona así". Nunca uses "te lo juro", "te apuesto" ni porcentajes como "el 99%". Mensajes cortos y cálidos.\n' +
+      'NUNCA te acuses a ti misma ni le des la razón sobre que el sistema falla: prohibido "fui confusa", "me equivoqué", "tienes razón, el mensaje está mal". Explica bien el dato UNA vez y sigue ayudándola.\n' +
+      'TODAVÍA NO TIENE SU MATERIAL (falta su Gmail o que entre con el enlace). Si pide devolución o dice que se arrepiente: PROHIBIDO decirle que ya se le entregó, que ya tiene el acceso activo o que la entrega ya está hecha, y PROHIBIDO cerrarle con la política de no devoluciones. Dile que su pago y su plata están seguros, que el material está reservado y que solo falta activarlo, y llévala al siguiente paso: su Gmail o el enlace del botón de Google.]' +
       (clsEmail.molesta ? NOTA_CLIENTA_MOLESTA : '');
     const reply = await carol(history, ctxEmail + '\n\nMensaje de la clienta: ' + emailText);
     await sendAndSave(phone, reply);
