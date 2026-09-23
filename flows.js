@@ -15,10 +15,16 @@ function generateAccessToken(phone, pack) {
   return Buffer.from(`${data}|${sig}`).toString('base64url');
 }
 
+// La marca que usa Carol para partir su respuesta en varios mensajes. El modelo a veces la escribe
+// con guiones bajos (___SPLIT___) o en minuscula; si no se reconoce sale LITERAL al chat de la
+// clienta (caso Luzmira 573175868439, 20 sep 2026). Se aceptan todas las variantes.
+const SPLIT_MARK = /[-_—–]{2,}\s*SPLIT\s*[-_—–]{2,}/i;
+const SPLIT_LEFTOVER = /[-_—–]{2,}\s*SPLIT\s*[-_—–]{2,}/gi;
+
 async function carol(history, text) {
   const golden = db.getGoldenExamples(6);
   const raw = await carolRespond(history, text, golden);
-  const parts = raw.split('---SPLIT---').map(p => p.trim()).filter(Boolean);
+  const parts = raw.split(SPLIT_MARK).map(p => p.trim()).filter(Boolean);
   return parts.length > 1 ? parts : raw;
 }
 const { grantDriveAccess } = require('./drive');
@@ -125,9 +131,29 @@ function isFechaAnterior(fechaText) {
   return false;
 }
 
+// Lee el monto que escribe la clienta en cualquier formato ("15000", "15.000", "15,000", "15 000")
+// y dice a que pack corresponde. Las listas de frases sueltas no cubrian el numero sin punto:
+// Luzmira (573175868439) escribio "15000" el 20 sep 2026, Carol le respondio el guion del Diamante
+// pero el pack NUNCA se guardo, y dos minutos despues el bot le pregunto que pack habia elegido.
+// Compara el numero COMPLETO, asi 150.000 no se confunde con 15.000.
+function packPorMonto(text) {
+  const encontrados = String(text || '').match(/\d[\d.,\s]*\d|\d/g) || [];
+  for (const n of encontrados) {
+    const valor = parseInt(n.replace(/[.,\s]/g, ''), 10);
+    if (valor === 15000) return 'diamante';
+    if (valor === 10000) return 'oro';
+    if (valor === 5000) return 'basico';
+  }
+  return null;
+}
+
 function isAskingForGift(text) {
   const t = text.toLowerCase();
-  return ['regalo', 'regalito', 'curso gratis', 'gratis', 'resina', 'globo', 'globoflexia', 'bordado', 'epoxi'].some(k => t.includes(k));
+  // "bono relampago" es como se llama el curso de regalo en el remarketing (R1). Sin esto, quien
+  // preguntaba por su bono relampago no activaba nada y Carol improvisaba (caso Karen Dayana
+  // 573168721084, 20 sep 2026: le dijo que ya venia incluido en el pack y se quedo sin su curso).
+  return ['regalo', 'regalito', 'curso gratis', 'gratis', 'resina', 'globo', 'globoflexia', 'bordado', 'epoxi',
+    'relampago', 'relámpago'].some(k => t.includes(k));
 }
 
 const GIFT_URLS = {
@@ -357,6 +383,34 @@ async function fireCapi(contact, pack) {
   } catch (e) {
     const detail = e.response?.data ? JSON.stringify(e.response.data) : e.message;
     console.error('CAPI error:', detail);
+  }
+}
+
+// Suma a la compradora al publico excluido de Meta (lista "Compradores Carojo - Historico Completo").
+// El CAPI NO alimenta esa lista: es un archivo de clientes aparte y hasta ahora se subia a mano, por
+// eso quedo sin actualizar del 28 abr al 11 sep y otra vez del 11 al 23 sep (revisado 23 sep 2026).
+// Manda telefono Y correo cifrados: las usuarias sin numero (ids CO.*) solo tienen correo y ya son
+// el 21% de las compradoras. Nunca puede tumbar una entrega: todo va dentro de try/catch.
+const META_AUDIENCIA_COMPRADORES = '120245388499280501';
+async function agregarAExcluidos(contact) {
+  try {
+    if (!META_CAPI_TOKEN) return;
+    const sha = v => crypto.createHash('sha256').update(String(v)).digest('hex');
+    const tel = String(contact.phone || '').replace(/[^0-9]/g, '');
+    const correo = String(contact.email || '').trim().toLowerCase();
+    const fila = [ /^[0-9]{10,15}$/.test(tel) ? sha(tel) : '', correo.includes('@') ? sha(correo) : '' ];
+    if (!fila[0] && !fila[1]) return;
+    const r = await axios.post(
+      'https://graph.facebook.com/v21.0/' + META_AUDIENCIA_COMPRADORES + '/users',
+      new URLSearchParams({
+        access_token: META_CAPI_TOKEN,
+        payload: JSON.stringify({ schema: ['PHONE', 'EMAIL'], data: [fila] })
+      }).toString(),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 8000 }
+    );
+    console.log('Excluidos Meta ok [' + contact.phone + ']: recibidas ' + (r.data && r.data.num_received));
+  } catch (e) {
+    console.error('Excluidos Meta error [' + contact.phone + ']:', e.response && e.response.data ? JSON.stringify(e.response.data) : e.message);
   }
 }
 
@@ -736,11 +790,14 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       }
       // Cambio de pack en medio del flujo — directo al pago, sin upsell
       const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega') ||
-        ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p));
+        ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p)) ||
+        packPorMonto(text) === 'diamante';
       const wantsOro = !wantsDiamante && (text === '2' || text.includes('oro') || text.includes('super') || text.includes('superpack') ||
-        ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)));
+        ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)) ||
+    packPorMonto(text) === 'oro');
       const wantsBasico = !wantsDiamante && !wantsOro && (text === '3' || text.includes('basico') || text.includes('básico') ||
-        ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)));
+        ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)) ||
+    packPorMonto(text) === 'basico');
       if (wantsDiamante) {
         if (contact.pack_selected !== 'diamante') {
           db.updateContact(phone, { pack_selected: 'diamante' });
@@ -902,11 +959,14 @@ async function handleChoice(contact, text) {
 
   // Seleccion por numero o keywords de pack (logica original)
   const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante') ||
-    ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p));
+    ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p)) ||
+        packPorMonto(text) === 'diamante';
   const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text.includes('oro') ||
-    ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)));
+    ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)) ||
+    packPorMonto(text) === 'oro');
   const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico' ||
-    ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)));
+    ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)) ||
+    packPorMonto(text) === 'basico');
 
   // "Si/dale/listo" sin keyword de pack → inferir del historial reciente cual pack discutia Carol
   const isShortYes = !isDiamante && !isOro && !isBasico &&
@@ -1063,7 +1123,7 @@ function contextoPackElegido(pack) {
 // un bloque de contexto mas grande o sola, segun el sitio.
 function contextoRegalo(contact) {
   if (contact.r1_sent || contact.gift_eligible) {
-    return 'REGALO: esta clienta SI tiene derecho a UN curso de regalo gratis a elegir entre Bordados Florales, Arte en Resina Epoxica y Globoflexia. Solo hablas de el si ella lo menciona primero; nunca lo ofrezcas tu.';
+    return 'REGALO: esta clienta SI tiene derecho a UN curso de regalo gratis a elegir entre Bordados Florales, Arte en Resina Epoxica y Globoflexia. OJO: en el remarketing ese premio se le ofrecio con el nombre de BONO RELAMPAGO, son la misma cosa. Si pregunta por "el bono relampago" te esta preguntando por ESE curso de regalo, NO por los bonos que ya vienen incluidos en el pack: jamas le digas que su bono relampago ya esta incluido, porque se queda sin el curso que se le prometio. Si todavia no ha elegido cual quiere, preguntale cual de los tres prefiere. Solo hablas del tema si ella lo menciona primero; nunca lo ofrezcas tu.';
   }
   return 'REGALO: esta clienta NO tiene derecho al curso de regalo (Bordados Florales, Resina Epoxica, Globoflexia): ese curso es de otra promocion y el sistema NO se lo va a entregar. PROHIBIDO mencionarlo, prometerlo o insinuarlo, aunque ella escriba "regalo", "gratis" o "bonus". Si pregunta por "los regalos gratis" se refiere a los BONOS que YA vienen incluidos en el pack (los 85.000 diseños de Canva, los moldes, las agendas, los 500 dibujos para colorear): explicale SOLO eso, que ya son suyos con su pack, y no inventes ningun curso adicional.';
 }
@@ -1193,9 +1253,9 @@ async function handleOfferedBasico(contact, text) {
   const PRECIO_DIAMANTE = ['15 mil', '15mil', 'quince mil', '15.000', '$15', 'de 15', 'los 15', 'por 15'];
   const PRECIO_ORO      = ['10 mil', '10mil', 'diez mil', '10.000', '$10', 'de 10', 'los 10', 'por 10'];
   const PRECIO_BASICO   = ['5 mil', '5mil', 'cinco mil', '5.000', '$5', 'de 5', 'los 5', 'por 5'];
-  const mentionsDiamante = text === '1' || text.includes('diamante') || PRECIO_DIAMANTE.some(p => text.includes(p));
-  const mentionsOro      = !mentionsDiamante && (text === '2' || text.includes('oro') || text.includes('superpack') || PRECIO_ORO.some(p => text.includes(p)));
-  const mentionsBasico   = !mentionsDiamante && !mentionsOro && (text === '3' || text.includes('basico') || text.includes('básico') || PRECIO_BASICO.some(p => text.includes(p)));
+  const mentionsDiamante = text === '1' || text.includes('diamante') || PRECIO_DIAMANTE.some(p => text.includes(p)) || packPorMonto(text) === 'diamante';
+  const mentionsOro      = !mentionsDiamante && (text === '2' || text.includes('oro') || text.includes('superpack') || PRECIO_ORO.some(p => text.includes(p)) || packPorMonto(text) === 'oro');
+  const mentionsBasico   = !mentionsDiamante && !mentionsOro && (text === '3' || text.includes('basico') || text.includes('básico') || PRECIO_BASICO.some(p => text.includes(p)) || packPorMonto(text) === 'basico');
 
   if (mentionsDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
@@ -1677,6 +1737,7 @@ async function entregarPack(contact, email, { reintento = false } = {}) {
     await fireCapi(updatedContact, pack);
   }
   await logSaleToSheets(contact, pack, email);
+  await agregarAExcluidos(updatedContact);
   await notifyJorge(contact,
     `ENTREGA completada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${contact.name || '-'}` +
     (mensajeEnviado ? '' : `\n\nOJO: la venta quedo registrada pero NO se le pudo mandar el mensaje de WhatsApp con su enlace. Mandaselo tu (boton "Enlace acceso" del panel).`)
@@ -2297,7 +2358,10 @@ function sanitizeOutboundText(text, estado = '') {
     return estado === 'delivered' ? EMAIL_DELIVERY_CORRECTION_MSG : EMAIL_DELIVERY_CORRECTION_PENDIENTE_MSG;
   }
 
-  let clean = text.replace(/[—–]/g, ',');
+  // Candado: la marca de dividir NUNCA puede salir al chat, en ninguna variante que invente el
+  // modelo. Va ANTES de convertir las rayas largas en comas, si no ya no quedarian guiones que ver.
+  let clean = text.replace(SPLIT_LEFTOVER, '\n\n');
+  clean = clean.replace(/[—–]/g, ',');
   for (const [pattern, replacement] of BANNED_PHRASE_REPLACEMENTS) {
     clean = clean.replace(pattern, replacement);
   }
@@ -2365,4 +2429,4 @@ async function reintentarAccesosPendientes() {
   }
 }
 
-module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, notifyTelegram, generateAccessToken, handleEmail, deliverPack, reintentarAccesosPendientes };
+module.exports = { processMessage, sendAndSave, sendGallery, fireCapi, logSaleToSheets, notifyJorge, notifyTelegram, generateAccessToken, handleEmail, deliverPack, reintentarAccesosPendientes, agregarAExcluidos };

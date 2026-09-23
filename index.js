@@ -314,7 +314,7 @@ app.listen(PORT, () => {
 
 // ── Lazy-loaded modules ────────────────────────────────────────────────────────
 let db, sendText, markRead, getMediaUrl, downloadMedia, processMessage, sendAndSave, transcribeAudio;
-let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken, notifyTelegram, handleEmail, deliverPack, reintentarAccesosPendientes;
+let fireCapi, logSaleToSheets, notifyJorge, generateAccessToken, notifyTelegram, handleEmail, deliverPack, reintentarAccesosPendientes, agregarAExcluidos;
 let R1_MESSAGE, R2_MESSAGE, DATOS_PACK_ELEGIDO_MSG, CHECK_ACCESO_MSG;
 let initialized = false;
 
@@ -339,6 +339,7 @@ async function init() {
     notifyTelegram = flows.notifyTelegram;
     handleEmail    = flows.handleEmail;
     deliverPack    = flows.deliverPack;
+    agregarAExcluidos = flows.agregarAExcluidos;
     reintentarAccesosPendientes = flows.reintentarAccesosPendientes;
     generateAccessToken = flows.generateAccessToken;
     console.log('flows OK');
@@ -784,6 +785,7 @@ app.post('/api/contacts/:phone/register-sale', adminAuth, async (req, res) => {
   const updated = db.getContact(phone);
   try { await fireCapi(updated, pack); } catch (e) { console.error('CAPI error:', e.message); }
   try { await logSaleToSheets(updated, pack, email); } catch (e) { console.error('Sheets error:', e.message); }
+  await agregarAExcluidos(updated);
   try { await notifyJorge(updated, `VENTA MANUAL registrada!\nPack: ${pack}\nEmail: ${email}\nTel: ${phone}\nNombre: ${updated.name || '-'}`); } catch {}
   broadcast('sale', { pack, name: updated.name || 'Cliente' });
   broadcast('refresh', { phone, contact: db.getContact(phone) });
