@@ -68,9 +68,8 @@ Mas de 85.000 diseños editables en Canva! Listos para usar en fiestas, eventos 
 
 Es acceso de por vida a todo! 🎉`,
 
-`Para asegurar tu MEGA PACK DIAMANTE, puedes enviar tu pago de $15.000 a nuestras cuentas autorizadas:
-🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
-🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
+`Para asegurar tu MEGA PACK DIAMANTE, puedes enviar tu pago de $15.000 a nuestra cuenta autorizada:
+🟣 Nequi, Daviplata o BRE-B: 3217239198 (Titular: Carol Apolinar)
 
 Quedo atenta a tu comprobante por aqui. 📲🚀`
 ];
@@ -99,9 +98,8 @@ Es muchisimo mas contenido por una diferencia minima.
 Te gustaria aprovechar y subir al MEGA PACK DIAMANTE por $15.000 en total? 💬`
 ];
 
-const ORO_DETAILS = `¡Perfecto! Has mejorado tu pedido al SUPERPACK ORO completo. El total a pagar es $10.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
-🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
-🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
+const ORO_DETAILS = `¡Perfecto! Has mejorado tu pedido al SUPERPACK ORO completo. El total a pagar es $10.000. Puedes enviar tu pago a nuestra cuenta autorizada:
+🟣 Nequi, Daviplata o BRE-B: 3217239198 (Titular: Carol Apolinar)
 
 ${LINEAS_CONFIANZA}
 
@@ -130,9 +128,8 @@ Es el triple de cursos por solo $5.000 mas.
 Te animas? 💬`
 ];
 
-const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con el PACK BASICO. El total a pagar es solo $5.000. Puedes enviar tu pago a nuestras cuentas autorizadas:
-🟣 Nequi o BRE-B: 3058989359 (Titular: Jorge Vanegas)
-🔴 Daviplata: 3217239198 (Titular: Carol Apolinar)
+const BASICO_DETAILS = `¡No hay problema! Respetamos tu eleccion. Te quedas con el PACK BASICO. El total a pagar es solo $5.000. Puedes enviar tu pago a nuestra cuenta autorizada:
+🟣 Nequi, Daviplata o BRE-B: 3217239198 (Titular: Carol Apolinar)
 
 ${LINEAS_CONFIANZA}
 
@@ -237,8 +234,7 @@ _(Si ya no quieres más info escríbeme "Salir" 🌸)_`;
 const PAYMENT_WRONG_RECIPIENT = `Hmm, el destinatario en tu comprobante no coincide con nuestras cuentas. 🤔
 
 Asegurate de enviar el pago exactamente a:
-• Nequi / BRE-B: *3058989359* (Jorge Vanegas)
-• Daviplata: *3217239198* (Carol Apolinar)
+• Nequi, Daviplata o BRE-B: *3217239198* (Carol Apolinar)
 
 Una vez lo confirmes, enviame el comprobante aqui. 📸`;
 
@@ -389,16 +385,14 @@ Con esto sientes mas tranquilidad para dar el paso, o todavia te queda alguna du
 const DATOS_PACK_ELEGIDO_MSG = pack => pack === 'oro'
   ? `Te dejo los datos por si prefieres quedarte con tu ✨ *SUPERPACK ORO* ($10.000) 💛
 
-🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
-🔴 Daviplata: 3217239198 (Carol Apolinar)
+🟣 Nequi, Daviplata o BRE-B: 3217239198 (Carol Apolinar)
 
 Y si te animas al 💎 *MEGA PACK DIAMANTE*, son $15.000 a las mismas cuentas.
 
 ${LINEAS_CONFIANZA}`
   : `Te dejo los datos por si prefieres quedarte con tu 📖 *PACK BÁSICO* ($5.000) 💛
 
-🟣 Nequi o BRE-B: 3058989359 (Jorge Vanegas)
-🔴 Daviplata: 3217239198 (Carol Apolinar)
+🟣 Nequi, Daviplata o BRE-B: 3217239198 (Carol Apolinar)
 
 Y si te animas al ✨ *SUPERPACK ORO*, son $10.000 a las mismas cuentas.
 
@@ -544,8 +538,7 @@ const UPGRADE_PAYMENT_DETAILS = (monto, packNuevo) =>
 `Perfecto! Para completar al ${packNuevo} el valor adicional es *$${Number(monto).toLocaleString('es-CO')}*.
 
 Puedes pagar a las mismas cuentas:
-🟣 Nequi o BRE-B: *3058989359* (Jorge Vanegas)
-🔴 Daviplata: *3217239198* (Carol Apolinar)
+🟣 Nequi, Daviplata o BRE-B: *3217239198* (Carol Apolinar)
 
 Cuando hagas el pago me mandas el comprobante y te activo el acceso al instante 📲`;
 
