@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db');
 const { sendText, sendImage } = require('./whatsapp');
-const { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago, detectarNoDaCorreo } = require('./carol');
+const { carolRespond, verifyPayment, extractEmailFromImage, detectarMedioRecibido, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago, detectarNoDaCorreo } = require('./carol');
 
 const PACK_AMOUNTS = { basico: 5000, oro: 10000, diamante: 15000 };
 const BOT_URL = 'https://bot.carojo.uk';
@@ -1502,12 +1502,23 @@ async function handleComprobante(contact, mediaContent) {
   await sendAndSave(phone, PAYMENT_RECEIVED_ASK_EMAIL);
 
   const destino = result.destino || '';
-  const paraQuien = destino.includes('3058989359') ? 'Jorge - Nequi/BRE-B' :
-                    destino.includes('3217239198') ? 'Carol - Daviplata' :
-                    result.nombre_destinatario || 'no identificado';
+  // Dueno por numero. El medio (Nequi/Daviplata/BRE-B) y el banco de origen los lee una consulta
+  // aparte (detectarMedioRecibido), SOLO para este aviso: ya se aprobo y ya se le pidio el correo.
+  // Solo digitos: el lector a veces devuelve el numero con espacios ("305 898 9359").
+  const destinoDig = (destino + ' ' + (result.numeros_vistos || '')).replace(/\D/g, '');
+  const dueno = destinoDig.includes('3058989359') ? 'Jorge' :
+                destinoDig.includes('3217239198') ? 'Carol' :
+                result.nombre_destinatario || 'no identificado';
+  let medioInfo = { medio: null, origen: null };
+  try { medioInfo = await detectarMedioRecibido(imageBuffer, mimeType); } catch (_) {}
+  const MEDIOS = { nequi: 'Nequi', daviplata: 'Daviplata', 'bre-b': 'BRE-B' };
+  const paraQuien = `${dueno} · ${MEDIOS[medioInfo.medio] || 'medio no identificado'}`;
+  // El lector de comprobantes a veces nombra la app "Bancolombia Bre-B": se limpia para no confundir el medio.
+  const appLector = String(result.app || '').replace(/\s*bre\s*-?\s*b\b/i, '').trim();
+  const appOrigen = medioInfo.origen || appLector || 'desconocida';
 
   await notifyJorge(contact,
-    `PAGO verificado!\nPack: ${pack}\nMonto: $${result.monto?.toLocaleString('es-CO') || PACK_PRICES[pack]?.toLocaleString('es-CO')}\nApp: ${result.app || 'desconocida'}\nPago a: ${paraQuien}\nCliente: ${contact.name || phone}\nTel: ${phone}` +
+    `PAGO verificado!\nPack: ${pack}\nMonto: $${result.monto?.toLocaleString('es-CO') || PACK_PRICES[pack]?.toLocaleString('es-CO')}\nApp: ${appOrigen}\nPago a: ${paraQuien}\nCliente: ${contact.name || phone}\nTel: ${phone}` +
     (result.rescatado ? `\n\nOJO: este entro por la red de seguridad. El lector no logro sacar el numero del destinatario (tirilla de corresponsal o campo con etiqueta rara) y se aprobo por el nombre y el monto. Si puedes, echale un ojo a la imagen en el panel.` : '')
   );
 }

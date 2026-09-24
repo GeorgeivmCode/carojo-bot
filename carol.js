@@ -1099,6 +1099,48 @@ Responde UNICAMENTE con JSON: {"categoria": "mostrario"} o {"categoria": "descon
 // su trabajo terminado. A una que mando un lettering hermoso el bot se le apago y quedo muda.
 // Devuelve: 'trabajo' | 'acceso' | 'comprobante' | 'otro'. Ante cualquier falla devuelve 'otro',
 // que es el comportamiento de siempre (soporte), asi que un error nunca empeora nada.
+// Solo para el aviso de Telegram: por donde LLEGO la plata (Nequi, Daviplata o BRE-B) y desde que banco.
+// Llamada aparte a proposito: NO toca verifyPayment ni interviene en aprobar o rechazar el pago.
+// Ante cualquier falla devuelve nulls y el aviso dice "medio no identificado".
+async function detectarMedioRecibido(imageBuffer, mimeType) {
+  const isPDF = mimeType === 'application/pdf';
+  const mediaBlock = isPDF
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: imageBuffer.toString('base64') } }
+    : { type: 'image', source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: imageBuffer.toString('base64') } };
+
+  try {
+    const res = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 200,
+      temperature: 0,
+      messages: [{
+        role: 'user',
+        content: [mediaBlock, {
+          type: 'text',
+          text: `Este es un comprobante de pago colombiano ya aprobado. Primero copia lo que ves, luego decide.
+
+Responde UNICAMENTE con JSON:
+{"encabezado": "texto o logo que aparece arriba del todo, tal cual", "senales_breb": "copia aqui cualquier texto de la imagen que diga Bre-B, Bre B, Via, Llave o Tipo de llave, o null", "destino_entidad": "entidad o producto destino si aparece (ej. Nequi, DaviPlata) o null", "medio": "nequi|daviplata|bre-b|null", "origen": "banco o app desde donde se pago, o null"}
+
+Reglas para "medio" (por donde LLEGO la plata):
+- Si "encabezado" o "senales_breb" contienen Bre-B, Bre B o Llave: "bre-b", aunque el destino sea Nequi o DaviPlata.
+- Si no: "nequi" si el destino es Nequi o es un envio dentro de la app Nequi; "daviplata" si el destino es DaviPlata.
+- null si no se ve claro. No lo deduzcas por el banco de origen.
+Reglas para "origen": nombre corto (Nequi, Bancolombia, Nu, DaviPlata, BBVA, Davivienda, corresponsal...). Bancolombia se reconoce por su logo de tres franjas y trazos de colores. Nunca pongas el tipo de cuenta ("Ahorros"). null si no lo reconoces.`
+        }]
+      }]
+    }), 'detectarMedioRecibido');
+    const text = res.content[0].text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+    const j = JSON.parse((text.match(/\{[\s\S]*\}/) || ['{}'])[0]);
+    const medio = ['nequi', 'daviplata', 'bre-b'].includes(String(j.medio).toLowerCase()) ? String(j.medio).toLowerCase() : null;
+    const origen = j.origen && j.origen !== 'null' ? String(j.origen).slice(0, 40) : null;
+    return { medio, origen };
+  } catch (e) {
+    console.error('detectarMedioRecibido error:', e.message);
+    return { medio: null, origen: null };
+  }
+}
+
 async function clasificarImagenPostVenta(imageBuffer, mimeType) {
   const isPDF = mimeType === 'application/pdf';
   const mediaBlock = isPDF
@@ -1260,4 +1302,4 @@ Responde UNICAMENTE con JSON: {"intencion": "elige"|"pregunta"|"ver_opciones"|"n
   }
 }
 
-module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago, detectarNoDaCorreo };
+module.exports = { carolRespond, verifyPayment, extractEmailFromImage, detectarMedioRecibido, detectUpgradeIntent, detectDistrustIntent, detectOldClientIntent, detectGalleryIntent, detectGalleryOrDistrustIntent, detectGiftIntent, clasificarImagenPostVenta, clasificarMensajePostPago, detectarNoDaCorreo };
