@@ -303,6 +303,14 @@ function getLastInboundWamid(phone) {
   return row?.wamid || null;
 }
 
+// Imagenes que mando la clienta, la mas nueva primero (la primera es la que acaba de llegar).
+// Sirve para reconocer un comprobante repetido (25 sep 2026, caso 573208653169).
+function getInboundImages(phone, limit = 20) {
+  return db.prepare(
+    `SELECT id, content, created_at FROM messages WHERE phone = ? AND direction = 'in' AND type = 'image' ORDER BY id DESC LIMIT ?`
+  ).all(phone, limit);
+}
+
 function getRecentMessages(phone, limit = 10) {
   return db.prepare(`
     SELECT * FROM (
@@ -335,6 +343,7 @@ function getContactsForR1() {
   return db.prepare(`
     SELECT * FROM contacts
     WHERE state IN ('awaiting_choice', 'offered_oro', 'offered_basico', 'awaiting_comprobante')
+    AND COALESCE(delivered_at, '') = ''
     AND r1_sent = 0
     AND bot_active = 1
     AND last_message_at != ''
@@ -399,6 +408,7 @@ function getContactsForR2() {
     WHERE r1_sent = 1
     AND r2_sent = 0
     AND state NOT IN ('delivered', 'stopped', 'awaiting_email', 'awaiting_upgrade_comprobante')
+    AND COALESCE(delivered_at, '') = ''
     AND bot_active = 1
     AND r1_sent_at != ''
     AND r1_sent_at < ?
@@ -491,7 +501,7 @@ module.exports = {
   getContact, createContact, updateContact, getAllContacts,
   searchContacts, getContactsByTag, getUnreadContacts, getContactsToday, getContactsByDate,
   getPendientes, countPendientes,
-  saveMessage, getMessages, getRecentMessages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
+  saveMessage, getMessages, getRecentMessages, getInboundImages, getLastInboundWamid, getMessageByWamid, updateMessageContent, updateMessageStatus,
   getContactsForR1, getContactsForR2, getStuckAwaitingEmail, getStuckInUpsell, getForCheckAcceso, getAccesosPendientes,
   getStats, getSetting, setSetting, now,
   markGolden, getGoldenExamples,

@@ -503,8 +503,14 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
     const esCierreCortés = CIERRE_CORTÉS.some(p => text === p || text === p + '!' || text === p + '.');
     if (esCierreCortés) return; // Ignorar — no reiniciar el flujo
 
-    // Cualquier otro mensaje = intención de compra o retomar — reiniciar flujo
-    db.updateContact(phone, { state: 'new', r1_sent: 0, r2_sent: 0 });
+    // Cualquier otro mensaje = intención de compra o retomar — reiniciar flujo.
+    // 25 sep 2026 (caso 573208653169): si ya compro Basico u Oro, se le ofrece completar su pack.
+    if (msgType !== 'image' && msgType !== 'document' && await recibirClientaQueVuelve(contact)) return;
+    // Al reiniciar por texto se olvida el pack que habia elegido antes: si no, handleNew cree que
+    // quedo a medio pagar y le pide un comprobante que nunca mando (3 casos del 20 al 25 sep 2026).
+    // Con imagen se conserva, porque puede ser justo el comprobante de ese pack.
+    const olvidarPack = (msgType === 'image' || msgType === 'document') ? {} : { pack_selected: null, upgrade_target: null };
+    db.updateContact(phone, { state: 'new', r1_sent: 0, r2_sent: 0, ...olvidarPack });
     contact = db.getContact(phone);
     if (msgType === 'image' || msgType === 'document') {
       // Imagen desde stopped: reiniciar estado y dejar caer al bloque de imagen abajo
@@ -524,6 +530,12 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       return;
     }
     if (contact.state === 'delivered') {
+      // Comprobante repetido de la compra que ya se le entrego (25 sep 2026, caso 573208653169).
+      if (esComprobanteYaUsado(contact, content)) {
+        console.log(`Comprobante repetido en post-entrega [${phone}]`);
+        await sendAndSave(phone, 'Ese es el comprobante de tu compra anterior 💛 Con ese ya te activamos tu pack. Si hiciste un pago nuevo, mándame la foto de ese comprobante y lo verifico de una. 📸');
+        return;
+      }
       // Solo tratar como comprobante de upgrade si el cliente YA confirmo por texto que quiere subir de pack
       // (upgrade_target explicito). Sin esa confirmacion, no asumir intencion — puede ser soporte post-venta.
       if (contact.upsell_sent && contact.pack_selected !== 'diamante' && contact.upgrade_target) {
@@ -673,6 +685,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // Ahora es lista blanca (solo estados realmente terminados/inactivos), no lista negra.
   if (msgType === 'text' && text === 'quiero el curso de timoteo' &&
       ['delivered', 'stopped', 'old_client'].includes(contact.state)) {
+    if (await recibirClientaQueVuelve(contact)) return;
     db.updateContact(phone, { state: 'new', bot_active: 1, r1_sent: 0, r2_sent: 0, pack_selected: null, upgrade_target: null, upsell_sent: 0 });
     contact = db.getContact(phone);
     await handleNew(contact, text);
@@ -900,6 +913,36 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       await sendAndSave(phone, 'Ya te compartí los testimonios de nuestras alumnas mas arriba, dales un vistazo cuando quieras 💛 Cualquier otra duda aquí estoy!');
     } catch (e) { console.error('Error nota testimonios:', e.message); }
   }
+}
+
+// 25 sep 2026 (caso Veronica 573208653169): quien ya compro el Basico o el Oro y vuelve (tocando el
+// anuncio o despues de escribir "Salir") no es una clienta nueva. Antes le salian los precios
+// completos, "mandame el comprobante" y el Bono Relampago por $15.000. Ahora queda como entregada y
+// se le ofrece completar su pack con la misma oferta que ya existe despues de la entrega.
+async function recibirClientaQueVuelve(contact) {
+  if (!contact || !contact.delivered_at || !['basico', 'oro'].includes(contact.pack_selected)) return false;
+  const phone = contact.phone;
+  db.updateContact(phone, { state: 'delivered', bot_active: 1, upgrade_target: '', upsell_sent: 1, r1_sent: 0, r2_sent: 0 });
+  await sendAndSave(phone, ['¡Hola de nuevo! 💛', contact.pack_selected === 'basico' ? UPSELL_BASICO : UPSELL_ORO]);
+  console.log(`Clienta que vuelve [${phone}] pack=${contact.pack_selected}: oferta de completar`);
+  return true;
+}
+
+// La foto es identica (byte por byte) a una que la clienta mando ANTES de su entrega: es el
+// comprobante de la compra que ya se le entrego, no un pago nuevo.
+function esComprobanteYaUsado(contact, mediaContent) {
+  try {
+    if (!contact || !contact.delivered_at) return false;
+    const actual = JSON.parse(mediaContent).buffer;
+    if (!actual) return false;
+    const huella = b => crypto.createHash('sha256').update(b).digest('hex');
+    const hActual = huella(actual);
+    const anteriores = db.getInboundImages(contact.phone, 20).slice(1);
+    return anteriores.some(m => {
+      if (!m.created_at || m.created_at > contact.delivered_at) return false;
+      try { const b = JSON.parse(m.content).buffer; return !!b && huella(b) === hActual; } catch { return false; }
+    });
+  } catch { return false; }
 }
 
 async function handleNew(contact, text) {
@@ -1351,6 +1394,13 @@ async function handleComprobante(contact, mediaContent) {
     ? `\nArchivo: PDF de ${docPages || '?'} pagina(s), ${Math.round(imageBuffer.length / 1024)} KB`
     : '';
 
+  // Comprobante repetido de una compra que ya se entrego (25 sep 2026, caso 573208653169).
+  if (esComprobanteYaUsado(contact, mediaContent)) {
+    console.log(`Comprobante repetido de una compra ya entregada [${phone}]`);
+    await sendAndSave(phone, 'Ese es el comprobante de tu compra anterior 💛 Con ese ya te activamos tu pack. Si hiciste un pago nuevo, mándame la foto de ese comprobante y lo verifico de una. 📸');
+    return;
+  }
+
   // Candado: un comprobante real nunca pasa de 1 pagina. Si llega un PDF de varias, es otra cosa
   // (ebook, catalogo, guia) y NO se le pregunta al verificador — ante un documento que no es un
   // comprobante el modelo puede rellenar el JSON copiando el numero y el nombre correctos del
@@ -1777,7 +1827,8 @@ async function handlePostDelivery(contact, text) {
 
   // Cliente entregado que vuelve desde un anuncio — reiniciar flujo como nuevo
   if (text === 'quiero el curso de timoteo') {
-    db.updateContact(phone, { state: 'new', bot_active: 1, r1_sent: 0, r2_sent: 0 });
+    if (await recibirClientaQueVuelve(contact)) return;
+    db.updateContact(phone, { state: 'new', bot_active: 1, r1_sent: 0, r2_sent: 0, pack_selected: null, upgrade_target: null, upsell_sent: 0 });
     contact = db.getContact(phone);
     await handleNew(contact, text);
     return;
@@ -2088,7 +2139,8 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 
     // Cliente llega desde un anuncio nuevo mientras tenia upgrade pendiente — reiniciar flujo
     if (text === 'quiero el curso de timoteo') {
-      db.updateContact(phone, { state: 'new', bot_active: 1, upgrade_target: '', r1_sent: 0, r2_sent: 0 });
+      if (await recibirClientaQueVuelve(contact)) return;
+      db.updateContact(phone, { state: 'new', bot_active: 1, upgrade_target: '', pack_selected: null, r1_sent: 0, r2_sent: 0 });
       contact = db.getContact(phone);
       await handleNew(contact, text);
       return;
@@ -2142,6 +2194,14 @@ async function handleUpgradeComprobante(contact, msgType, content) {
     mimeType    = parsedUpg.mimeType;
   } catch {
     await sendAndSave(phone, 'No pude abrir la imagen. Intentalo de nuevo. 📸');
+    return;
+  }
+
+  // Comprobante repetido de la compra que ya se entrego (25 sep 2026, caso 573208653169): lo mando
+  // otra vez para completar su pack y el bot lo leyo como un pago nuevo de $10.000.
+  if (esComprobanteYaUsado(contact, content)) {
+    console.log(`Comprobante repetido en upgrade [${phone}]`);
+    await sendAndSave(phone, `Ese es el comprobante de tu compra anterior 💛 Con ese ya te activamos tu pack. Para completar al ${packLabel} necesito la foto del comprobante del nuevo pago de $${diferencial.toLocaleString('es-CO')}. 📸`);
     return;
   }
 
