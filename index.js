@@ -1920,6 +1920,32 @@ function colombiaDateStr() {
 let lastKeepaliveDate = '';
 let ultimoDespertarGrupos = 0;
 
+
+// Mensajes automaticos (R1, R2, datos del pack, pregunta de acceso): candado doble para que NUNCA se
+// repitan. Caso real 22-23 nov 2026: con el disco lleno el R2 SI salia pero no se podia anotar como
+// enviado, y se repitio cada 2 min (hasta 77 veces a una clienta): el numero quedo en ROJO en Meta.
+// 1) Primero se ANOTA como enviado y recien despues se manda: si no se puede anotar, no se manda.
+// 2) Memoria propia de 24 h por telefono y tipo: aunque la base falle del todo, no se repite.
+// Si el envio falla despues de anotar, ese mensaje se pierde (no se reintenta): mejor perder uno que
+// mandarlo 70 veces.
+const enviadosAutomaticos = new Map();
+async function enviarAutomaticoUnaVez(phone, tipo, texto, anotar) {
+  const clave = phone + '|' + tipo;
+  const antes = enviadosAutomaticos.get(clave);
+  if (antes && Date.now() - antes < 24 * 3600e3) {
+    console.error(`[automatico] ${tipo} ya enviado a ${phone} hace ${Math.round((Date.now() - antes) / 60000)} min, NO se repite`);
+    return false;
+  }
+  try { anotar(); } catch (e) {
+    console.error(`[automatico] no se pudo anotar ${tipo} para ${phone}, NO se manda:`, e.message);
+    return false;
+  }
+  enviadosAutomaticos.set(clave, Date.now());
+  await sendText(phone, texto);
+  try { db.saveMessage(phone, 'out', 'text', texto, ''); } catch (e) { console.error(`[automatico] ${tipo} enviado a ${phone} pero no se guardo en el chat:`, e.message); }
+  return true;
+}
+
 function startScheduler() {
   // Accesos a Drive que Google tardo en dar: se reintentan cada 30 s, a cualquier hora (una clienta
   // que ya pago no tiene que esperar a la mañana). Y cada 5 min se despierta el script de grupos de
@@ -1964,9 +1990,7 @@ function startScheduler() {
     for (const c of db.getStuckInUpsell()) {
       try {
         const msgDatos = DATOS_PACK_ELEGIDO_MSG(c.pack_selected);
-        await sendText(c.phone, msgDatos);
-        db.saveMessage(c.phone, 'out', 'text', msgDatos, '');
-        db.updateContact(c.phone, { state: 'awaiting_comprobante' });
+        if (!await enviarAutomaticoUnaVez(c.phone, 'datos_pack', msgDatos, () => db.updateContact(c.phone, { state: 'awaiting_comprobante' }))) continue;
         console.log(`Datos del pack elegido enviados [${c.phone}] pack=${c.pack_selected} (no contesto la oferta)`);
         broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('Datos pack elegido error', c.phone, e.message); }
@@ -1974,9 +1998,7 @@ function startScheduler() {
 
     for (const c of db.getContactsForR1()) {
       try {
-        await sendText(c.phone, R1_MESSAGE);
-        db.saveMessage(c.phone, 'out', 'text', R1_MESSAGE, '');
-        db.updateContact(c.phone, { r1_sent: 1, r1_sent_at: db.now() });
+        if (!await enviarAutomaticoUnaVez(c.phone, 'r1', R1_MESSAGE, () => db.updateContact(c.phone, { r1_sent: 1, r1_sent_at: db.now() }))) continue;
         broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('R1 error', c.phone, e.message); }
     }
@@ -1986,9 +2008,7 @@ function startScheduler() {
     const R2_PAUSADO = true;
     for (const c of (R2_PAUSADO ? [] : db.getContactsForR2())) {
       try {
-        await sendText(c.phone, R2_MESSAGE);
-        db.saveMessage(c.phone, 'out', 'text', R2_MESSAGE, '');
-        db.updateContact(c.phone, { r2_sent: 1, r2_sent_at: db.now() });
+        if (!await enviarAutomaticoUnaVez(c.phone, 'r2', R2_MESSAGE, () => db.updateContact(c.phone, { r2_sent: 1, r2_sent_at: db.now() }))) continue;
         broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) { console.error('R2 error', c.phone, e.message); }
     }
@@ -1997,9 +2017,7 @@ function startScheduler() {
     // de los 2 minutos (1 de 113 subio). La oferta ahora sale cuando responde que si pudo abrir.
     for (const c of db.getForCheckAcceso()) {
       try {
-        await sendText(c.phone, CHECK_ACCESO_MSG);
-        db.saveMessage(c.phone, 'out', 'text', CHECK_ACCESO_MSG, '');
-        db.updateContact(c.phone, { check_acceso_sent: 1 });
+        if (!await enviarAutomaticoUnaVez(c.phone, 'check_acceso', CHECK_ACCESO_MSG, () => db.updateContact(c.phone, { check_acceso_sent: 1 }))) continue;
         console.log(`Pregunta de acceso enviada [${c.phone}] pack=${c.pack_selected}`);
         broadcast('refresh', { phone: c.phone, contact: db.getContact(c.phone) });
       } catch (e) {
