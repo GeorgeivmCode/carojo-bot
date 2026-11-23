@@ -147,6 +147,29 @@ function packPorMonto(text) {
   return null;
 }
 
+// Mensaje que es SOLO letras tecleadas al azar ("bxgf", "ygrg3n3ko4467464y44", "grg4"). Muy conservador:
+// todas las palabras del mensaje tienen que verse sin sentido, y no cuentan risas ("jsjs"), "ok", "xq",
+// "hmm", numeros solos, montos ("15mil"), correos ni enlaces.
+function esTecleoAlAzar(text) {
+  const limpio = String(text || '').toLowerCase().replace(/[^\p{L}\p{N}\s@.]/gu, ' ').trim();
+  if (!limpio || /[@]|\.com|http/.test(limpio)) return false;
+  const tokens = limpio.split(/\s+/).filter(Boolean);
+  const raro = (t) => {
+    if (/^\d+$/.test(t)) return false;                                  // numeros solos (1, 2, 3, telefonos)
+    if (/^\d+(mil|k)$/.test(t)) return false;                           // "15mil"
+    if (/^(j|s|k|x|d|a|e)+$/.test(t)) return false;                     // risas: jsjs, jajaja, xd, kkk
+    if (/^(h?m+|p?f+|b?r+|s?h+)$/.test(t)) return false;                // hmm, pff, brr, shh
+    if (['ok', 'xq', 'pq', 'tqm', 'ntp', 'grx', 'pls', 'bn', 'q', 'k', 'bb', 'mk', 'ps', 'msj', 'wpp', 'cc', 'dnd', 'tmb', 'tkm', 'bss', 'slds', 'grs', 'cdt', 'pdt', 'plz', 'thx', 'nmms', 'bnd', 'bndc', 'fds', 'ptm', 'dlc'].includes(t)) return false;
+    const letras = (t.replace(/(.)\1+/g, '$1').match(/\p{L}/gu) || []).length; // letras repetidas cuentan una vez ("tkmmm" = tkm)
+    const digitos = (t.match(/\d/g) || []).length;
+    if (letras >= 2 && digitos >= 1 && t.length >= 6) return true;       // letras y numeros revueltos
+    if (!/[aeiouáéíóúü]/.test(t) && (letras >= 4 || (letras >= 3 && digitos >= 1))) return true; // sin vocales: "bxgf", "grg4" (3 letras solas como vrd o tkm no cuentan)
+    if (/[bcdfghjklmnñpqrstvwxz]{5,}/.test(t.replace(/(.)\1+/g, '$1'))) return true; // 5 consonantes seguidas (sin contar repetidas)
+    return false;
+  };
+  return tokens.length > 0 && tokens.every(raro);
+}
+
 // La clienta habla de plata o de lo que vio en el anuncio, no esta eligiendo pack: "dice 5 mil"
 // (Monica CO.1766092591180268, 4 oct), "yo ya tengo 5 me falta un poco para los 10" (573168433720).
 function hablaDePlata(text) {
@@ -493,6 +516,22 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   // Normalizar "el 1/2/3" / "la 1/2/3" → numero (ej: "el 1" → "1")
   const elNumMatch = text.match(/^(?:el|la)\s+([123])\s*$/);
   if (elNumMatch) text = elNumMatch[1];
+
+  // Tecleo al azar, casi siempre un niño con el celular (caso 573232934776, 23 nov 2026: "Bxgf",
+  // "Ygrg3n3ko4467464y44", "Grg4"). Pedido de Jorge: apagar el bot, sin aviso al celular; queda con la
+  // etiqueta "Ruido" en el panel. Solo antes de elegir pack y solo a la SEGUNDA vez, para no dejar sin
+  // atencion a una persona que se equivoco una vez escribiendo.
+  if (msgType === 'text' && (contact.state === 'new' || contact.state === 'awaiting_choice') &&
+      !contact.pack_selected && esTecleoAlAzar(text)) {
+    const veces = db.getRecentMessages(phone, 15)
+      .filter(m => m.direction === 'in' && m.type === 'text' && esTecleoAlAzar(String(m.content || '').toLowerCase())).length;
+    if (veces >= 2) {
+      db.updateContact(phone, { bot_active: 0, tag: 'Ruido' });
+      db.logAdminAction(phone, 'bot_apagado_tecleo_azar', text.slice(0, 80));
+      console.log(`Tecleo al azar [${phone}]: bot apagado (${veces} mensajes sin sentido). Ultimo: "${text.slice(0, 40)}"`);
+      return;
+    }
+  }
 
   // Cliente antiguo sin acceso — en cualquier estado que NO sea compra comprometida
   // awaiting_email se excluye: ya pagó, solo está dando su correo; "no me llega" aquí es por Gmail lleno
