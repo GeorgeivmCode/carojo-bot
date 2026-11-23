@@ -1981,7 +1981,10 @@ function startScheduler() {
       } catch (e) { console.error('R1 error', c.phone, e.message); }
     }
 
-    for (const c of db.getContactsForR2()) {
+    // R2 PAUSADO (23 nov 2026, pedido de Jorge): el numero quedo en ROJO en Meta despues de que el R2
+    // se repitiera hasta 77 veces a la misma clienta con el disco lleno. Para reactivarlo: R2_PAUSADO = false.
+    const R2_PAUSADO = true;
+    for (const c of (R2_PAUSADO ? [] : db.getContactsForR2())) {
       try {
         await sendText(c.phone, R2_MESSAGE);
         db.saveMessage(c.phone, 'out', 'text', R2_MESSAGE, '');

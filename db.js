@@ -400,6 +400,10 @@ function getForCheckAcceso() {
 
 function getContactsForR2() {
   const cutoff = new Date(Date.now() - 11 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
+  // Tope de antiguedad (23 nov 2026): solo R1 de las ultimas 22 h. Fuera de la ventana de 24 h WhatsApp
+  // rechaza el mensaje igual, y sin tope, al reactivar el R2 tras una pausa saldria de golpe a todas las
+  // acumuladas (rafaga = riesgo de spam). En el flujo normal el R2 sale a las ~11-19 h, no cambia nada.
+  const limiteViejo = new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19);
   // awaiting_email y awaiting_upgrade_comprobante quedan afuera tambien: ahi el cliente YA pago,
   // solo falta un dato (correo) o un comprobante de un upgrade ya aceptado -- mandarle el pitch
   // de "convencete de comprar" ahi no tiene sentido, ver caso real Karen (573122745149, 20 jul).
@@ -412,7 +416,8 @@ function getContactsForR2() {
     AND bot_active = 1
     AND r1_sent_at != ''
     AND r1_sent_at < ?
-  `).all(cutoff);
+    AND r1_sent_at > ?
+  `).all(cutoff, limiteViejo);
 }
 
 // Clientes que YA PAGARON y llevan rato sin dar su correo.
