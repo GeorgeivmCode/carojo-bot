@@ -147,6 +147,12 @@ function packPorMonto(text) {
   return null;
 }
 
+// La clienta habla de plata o de lo que vio en el anuncio, no esta eligiendo pack: "dice 5 mil"
+// (Monica CO.1766092591180268, 4 oct), "yo ya tengo 5 me falta un poco para los 10" (573168433720).
+function hablaDePlata(text) {
+  return /(^|[^\wáéíóúñ])(dice|dec[ií]a|dec[ií]an|dijeron|anuncio|publicidad|aparece|aparec[ií]a|sal[eí]a|tengo|ten[ií]a|me falta|faltan?|completar?|junt[oa]|alcanza)(?![\wáéíóúñ])/i.test(String(text || ''));
+}
+
 function isAskingForGift(text) {
   const t = text.toLowerCase();
   // "bono relampago" es como se llama el curso de regalo en el remarketing (R1). Sin esto, quien
@@ -195,6 +201,33 @@ const GAS_DRIVE_URL   = process.env.GAS_URL;
 
 // Monto → pack
 const AMOUNT_TO_PACK = { 5000: 'basico', 10000: 'oro', 15000: 'diamante' };
+
+// Pago aprobado por un monto que no es de ningun pack (ej. $13.000 o $4.000). Nunca se entrega por
+// menos del precio: se suma con los pagos raros de las ultimas 24 h (por si manda la diferencia en otro
+// comprobante) y solo se entrega si con eso completa el pack. Si pago de mas, se entrega su pack.
+function decidirMontoNoValido(contact, monto) {
+  const label = { diamante: 'MEGA PACK DIAMANTE', oro: 'SUPERPACK ORO', basico: 'PACK BASICO' };
+  const pack = contact.pack_selected
+    || ['diamante', 'oro', 'basico'].find(p => PACK_AMOUNTS[p] <= monto) || 'basico';
+  const precio = PACK_AMOUNTS[pack];
+  const hace24h = Date.now() - 24 * 3600e3;
+  let previos = 0;
+  try {
+    for (const a of db.getAdminActions(contact.phone, 30)) {
+      if (a.action !== 'monto_no_valido') continue;
+      if (new Date(String(a.created_at).replace(' ', 'T') + 'Z').getTime() < hace24h) continue;
+      const m = String(a.details || '').match(/monto=(\d+)/);
+      if (m) previos += parseInt(m[1], 10);
+    }
+  } catch (_) {}
+  const suma = previos + monto;
+  if (monto >= precio || suma >= precio) return { entregar: true, pack, suma };
+  const f = n => '$' + n.toLocaleString('es-CO');
+  const mensaje = previos
+    ? `Recibí tu pago de ${f(monto)} 💛 Con el anterior ya me has enviado ${f(suma)}.\n\nEl ${label[pack]} es de ${f(precio)}, te faltan ${f(precio - suma)}. Cuando los envíes me mandas ese comprobante y te activo todo de una 📲`
+    : `Recibí tu pago de ${f(monto)} 💛\n\nEl ${label[pack]} es de ${f(precio)}, te faltan ${f(precio - suma)}. Cuando los envíes me mandas ese comprobante y te activo todo de una 📲`;
+  return { entregar: false, pack, suma, mensaje };
+}
 const PACK_PRICES    = { basico: 5000, oro: 10000, diamante: 15000 };
 
 function isValidGmail(email) {
@@ -590,19 +623,29 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         const ctxTrabajo = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE su acceso. Acaba de mandar una FOTO de un trabajo que hizo ella misma con el curso, o de los materiales que compro.${loQueMuestra} NO es un problema ni soporte. Felicitala de corazon y con detalle, con la emocion de alguien que de verdad se alegra por ella. Luego pidele permiso para compartirlo como testimonio con otras alumnas. Cierra preguntandole que quiere aprender o mejorar ahora, para poder guiarla al siguiente curso del material que ya tiene. NUNCA le pidas comprobante ni datos de pago.]`;
         const reply = await carol(history, ctxTrabajo + '\n\n(la clienta mando una foto de su trabajo)');
         await sendAndSave(phone, reply);
-        await notifyJorge(contact,
-          `TRABAJO DE UNA ALUMNA (no es soporte, el bot sigue activo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nMando una foto de lo que hizo. Miralo en el panel, sirve como testimonio.`
-        );
+        // Sin aviso al celular (23 nov 2026, Jorge: el celular suena solo por ventas). Queda en el panel.
+        db.logAdminAction(phone, 'foto_trabajo_alumna', descImg);
+        return;
+      }
+
+      if (tipoImg === 'dentro') {
+        // Ya esta ADENTRO de su carpeta (o con un PDF o un diseño de Canva abierto). No es un problema
+        // de acceso: no se le reenvia el enlace ni se avisa al celular (23 nov 2026: 1 de cada 4 fotos
+        // "de acceso" era esto). Carol le pregunta que necesita y le explica lo de las copias.
+        const history = db.getRecentMessages(phone, 8);
+        const ctxDentro = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA ENTRO a su material: la captura muestra su carpeta o un archivo abierto.${loQueMuestra} NO tiene un problema de acceso: NO le reenvies el enlace ni le expliques como entrar. Celebralo en una linea ("ya estas adentro") y preguntale que necesita: por donde empezar, descargar, imprimir o editar algo. Si la captura o el mensaje muestran que no puede descargar o editar, explicale lo de las copias segun la GUIA DE COPIAS. NUNCA describas carpetas o archivos que no se ven en la captura. NO le pidas comprobante ni datos de pago.]`;
+        const reply = await carol(history, ctxDentro + '\n\n(la clienta mando una captura de su carpeta o archivo abierto)');
+        await sendAndSave(phone, reply);
+        db.logAdminAction(phone, 'foto_ya_esta_adentro', descImg);
         return;
       }
 
       if (tipoImg === 'acceso') {
         // Primero se le reenvia su enlace con los pasos (maximo uno cada 24h). Si ya se le mando
         // hace poco, la atiende Carol mirando lo que muestra la captura.
+        // Sin avisos al celular (23 nov 2026): quedan en el historial del panel.
         if (!reenviadoHaceMenosDe24h(contact) && await reenviarEnlaceAcceso(contact)) {
-          await notifyJorge(contact,
-            `PROBLEMA DE ACCESO (se le reenvio su enlace automaticamente, el bot sigue activo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nCorreo: ${contact.email || 'no registrado'}${descImg ? `\nEn la imagen: ${descImg}` : ''}`
-          );
+          db.logAdminAction(phone, 'foto_problema_acceso', 'enlace reenviado. ' + descImg);
           return;
         }
         // Captura de Drive, de login de Google o de un error de permiso. Carol ya tiene todas
@@ -614,9 +657,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         const ctxAcceso = `[CONTEXTO INTERNO: Esta clienta YA PAGO y YA TIENE ACCESO activo a ${packLabelAcc}. Correo registrado: ${contact.email || 'no registrado'}. Acaba de mandar una CAPTURA DE PANTALLA de un problema para entrar al material (puede ser Google Drive, una pantalla de inicio de sesion de Google, que le pide contraseña, "solicitud enviada", o un error de que no tiene acceso).${loQueMuestra} Ayudala a resolverlo con pasos concretos y en orden, uno por mensaje. Lo mas comun y lo primero que debes revisar: que el celular tenga abierta la cuenta de Google correcta (la registrada), porque si tiene otra cuenta abierta Drive le niega el permiso. El segundo mas comun: que abrio el enlace dentro de WhatsApp, y ahi Google falla, tiene que abrirlo en Chrome. SI LA IMAGEN ES LA PANTALLA DE GOOGLE PIDIENDOLE LA CONTRASEÑA (accounts.google.com, un campo "Ingresa tu contraseña"): eso NO es que este perdida en su Gmail, NO la mandes a buscar el enlace en el chat ni le digas que se olvide del correo, y sobre todo NUNCA le digas que no necesita la contraseña o que Drive abre solo. Guiala asi, en este orden: (1) que abra el enlace FUERA de WhatsApp, en Chrome o Safari, donde su cuenta suele estar ya iniciada; (2) si igual se la pide, que toque "Probar otro metodo" en esa misma pantalla, que suele mandarle un codigo al celular o pedirle la huella; (3) si tampoco puede, que te de otro correo de Google suyo que si tenga abierto y le pasamos el acceso a ese. El acceso SOLO llega como enlace en este mismo chat, NUNCA por correo. Si la imagen muestra que esta metida en su Gmail o buscando un correo, lo PRIMERO que debes hacer es sacarla de ahi con cariño: explicarle que ahi no hay nada que buscar y llevarla al mensaje del chat que tiene el enlace de su carpeta. NO le pidas comprobante ni datos de pago. Cierra preguntandole que ve exactamente en la pantalla para poder seguir ayudandola.]`;
         const reply = await carol(history, ctxAcceso + '\n\n(la clienta mando una captura de un problema de acceso)');
         await sendAndSave(phone, reply);
-        await notifyJorge(contact,
-          `PROBLEMA DE ACCESO (Carol esta atendiendo, el bot sigue activo):\nTel: ${phone}\nNombre: ${contact.name || '-'}\nPack: ${contact.pack_selected || '-'}\nCorreo: ${contact.email || 'no registrado'}\nMando una captura de que no puede entrar. Si ves que no avanza, entra tu al chat.`
-        );
+        db.logAdminAction(phone, 'foto_problema_acceso', 'atiende Carol. ' + descImg);
         return;
       }
 
@@ -743,7 +784,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
   if (msgType === 'text' && (contact.r1_sent || contact.gift_eligible) && !contact.gift_sent && !contact.gift_choice && isAskingForGift(text)) {
     const giftIntent = await detectGiftIntent(db.getRecentMessages(phone, 15), text);
     if (giftIntent.intencion === 'elige' && giftIntent.curso) {
-      if (contact.state === 'delivered') {
+      if (contact.state === 'delivered' && contact.pack_selected === 'diamante') {
         const gMsg = GIFT_MSGS[giftIntent.curso];
         const gUrl = GIFT_URLS[giftIntent.curso];
         await sendAndSave(phone, `${gMsg}\n\n${gUrl}\n\nAbrelo con el correo que usaste para el pack. Cualquier cosa me cuentas aqui! 💛`);
@@ -753,7 +794,7 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
       // Todavia no paga — solo se guarda la eleccion, el mensaje sigue su curso normal
       // (puede tambien contener otra peticion, ej. pedir el Nequi)
       db.updateContact(phone, { gift_choice: giftIntent.curso });
-    } else if (giftIntent.intencion === 'ver_opciones' && contact.state === 'delivered') {
+    } else if (giftIntent.intencion === 'ver_opciones' && contact.state === 'delivered' && contact.pack_selected === 'diamante') {
       await sendAndSave(phone, GIFT_OFFER_MSG);
       return;
     }
@@ -802,15 +843,16 @@ async function processMessage(phone, msgType, content, wamidIn, opts = {}) {
         }
       }
       // Cambio de pack en medio del flujo — directo al pago, sin upsell
+      const textoPrecio = hablaDePlata(text) ? '' : text; // "dice 5 mil", "tengo 5, me falta": no es elegir pack
       const wantsDiamante = text === '1' || text.includes('diamante') || text.includes('mega') ||
-        ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p)) ||
-        packPorMonto(text) === 'diamante';
+        ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => textoPrecio.includes(p)) ||
+        packPorMonto(textoPrecio) === 'diamante';
       const wantsOro = !wantsDiamante && (text === '2' || text.includes('oro') || text.includes('super') || text.includes('superpack') ||
-        ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)) ||
-    packPorMonto(text) === 'oro');
+        ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => textoPrecio.includes(p)) ||
+    packPorMonto(textoPrecio) === 'oro');
       const wantsBasico = !wantsDiamante && !wantsOro && (text === '3' || text.includes('basico') || text.includes('básico') ||
-        ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)) ||
-    packPorMonto(text) === 'basico');
+        ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => textoPrecio.includes(p)) ||
+    packPorMonto(textoPrecio) === 'basico');
       if (wantsDiamante) {
         if (contact.pack_selected !== 'diamante') {
           db.updateContact(phone, { pack_selected: 'diamante' });
@@ -1001,15 +1043,16 @@ async function handleChoice(contact, text) {
   }
 
   // Seleccion por numero o keywords de pack (logica original)
+  const textoPrecio = hablaDePlata(text) ? '' : text; // "dice 5 mil", "tengo 5, me falta": no es elegir pack
   const isDiamante = text === '1' || /^1\b/.test(text) || text.includes('diamante') ||
-    ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => text.includes(p)) ||
-        packPorMonto(text) === 'diamante';
+    ['15 mil', '15mil', 'quince mil', '15.000', 'de 15', 'los 15', 'por 15'].some(p => textoPrecio.includes(p)) ||
+        packPorMonto(textoPrecio) === 'diamante';
   const isOro      = !isDiamante && (text === '2' || /^2\b/.test(text) || text.includes('oro') ||
-    ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => text.includes(p)) ||
-    packPorMonto(text) === 'oro');
+    ['10 mil', '10mil', 'diez mil', '10.000', 'de 10', 'los 10', 'por 10'].some(p => textoPrecio.includes(p)) ||
+    packPorMonto(textoPrecio) === 'oro');
   const isBasico   = !isDiamante && !isOro && (text === '3' || /^3\b/.test(text) || text === 'basico' || text === 'básico' ||
-    ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => text.includes(p)) ||
-    packPorMonto(text) === 'basico');
+    ['5 mil', '5mil', 'cinco mil', '5.000', 'de 5', 'los 5', 'por 5'].some(p => textoPrecio.includes(p)) ||
+    packPorMonto(textoPrecio) === 'basico');
 
   // "Si/dale/listo" sin keyword de pack → inferir del historial reciente cual pack discutia Carol
   const isShortYes = !isDiamante && !isOro && !isBasico &&
@@ -1051,8 +1094,16 @@ async function handleChoice(contact, text) {
     }
     // Inferir pack del historial RECIENTE — solo ultimos 3 mensajes del bot
     // Evita que "si si" en contexto de chitchat dispare detalles de pack por mensajes viejos
+    // Solo la ULTIMA respuesta del bot (los mensajes seguidos despues del mensaje anterior de la
+    // clienta). Antes miraba los ultimos 3 del bot y alcanzaba un R1 viejo que nombra el Diamante:
+    // un "Ok" de despedida terminaba mandando el pack completo (caso CO.845053555366592, 19 sep 2026).
+    // Si la clienta responde "si" justo al R1, el R1 SI es su ultima respuesta y todo sigue igual.
     const recent = db.getRecentMessages(phone, 12);
-    const recentBotMsgs = recent.filter(m => m.direction === 'out').slice(-3);
+    const hastaAhora = recent.slice();
+    while (hastaAhora.length && hastaAhora[hastaAhora.length - 1].direction === 'in') hastaAhora.pop(); // sin lo que acaba de escribir
+    let desde = hastaAhora.length;
+    while (desde > 0 && hastaAhora[desde - 1].direction === 'out') desde--;
+    const recentBotMsgs = hastaAhora.slice(desde);
     const hist = recentBotMsgs.map(m => m.content).join(' ').toLowerCase();
     if (hist.includes('diamante') || hist.includes('15.000') || hist.includes('quince mil')) {
       db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
@@ -1165,7 +1216,17 @@ function contextoPackElegido(pack) {
 // Devuelve la frase suelta (sin el envoltorio [CONTEXTO INTERNO: ...]) para poder meterla dentro de
 // un bloque de contexto mas grande o sola, segun el sitio.
 function contextoRegalo(contact) {
-  if (contact.r1_sent || contact.gift_eligible) {
+  // El regalo es SOLO con el Diamante (23 nov 2026: una clienta del R1 que compro el Oro recibio el
+  // curso porque aqui solo se miraba que le hubiera llegado el remarketing).
+  const vieneDePromo = contact.r1_sent || contact.gift_eligible;
+  const entregada = contact.state === 'delivered' || !!contact.delivered_at;
+  if (vieneDePromo && entregada && contact.pack_selected !== 'diamante') {
+    return 'REGALO: esta clienta compro el ' + (contact.pack_selected === 'oro' ? 'SUPERPACK ORO' : 'PACK BASICO') + ', y el curso de regalo (Bordados, Resina, Globoflexia, tambien llamado BONO RELAMPAGO) era SOLO para quien pagara el MEGA PACK DIAMANTE. NO tiene derecho a el y el sistema NO se lo va a entregar. PROHIBIDO ofrecerselo, prometerlo o decir que se activa en su carpeta. Si lo pregunta, explicale con cariño que ese bono era con el Diamante, y si quiere puede completar al Diamante pagando la diferencia y ahi si lo recibe. Si pregunta por "los regalos gratis" del pack, son los bonos que ya trae su pack.';
+  }
+  if (vieneDePromo && !entregada) {
+    return 'REGALO: a esta clienta se le ofrecio un curso de regalo gratis (Bordados Florales, Arte en Resina Epoxica o Globoflexia; en el remarketing se llamo BONO RELAMPAGO, es la misma cosa) SOLO si paga el MEGA PACK DIAMANTE ($15.000). Si elige Oro o Basico NO hay regalo: nunca le digas que lo tiene. Si pregunta por "el bono relampago" te pregunta por ESE curso, no por los bonos incluidos: jamas le digas que ya esta incluido. Usalo como motivo para que elija el Diamante. Solo hablas del tema si ella lo menciona primero.';
+  }
+  if (vieneDePromo) {
     return 'REGALO: esta clienta SI tiene derecho a UN curso de regalo gratis a elegir entre Bordados Florales, Arte en Resina Epoxica y Globoflexia. OJO: en el remarketing ese premio se le ofrecio con el nombre de BONO RELAMPAGO, son la misma cosa. Si pregunta por "el bono relampago" te esta preguntando por ESE curso de regalo, NO por los bonos que ya vienen incluidos en el pack: jamas le digas que su bono relampago ya esta incluido, porque se queda sin el curso que se le prometio. Si todavia no ha elegido cual quiere, preguntale cual de los tres prefiere. Solo hablas del tema si ella lo menciona primero; nunca lo ofrezcas tu.';
   }
   return 'REGALO: esta clienta NO tiene derecho al curso de regalo (Bordados Florales, Resina Epoxica, Globoflexia): ese curso es de otra promocion y el sistema NO se lo va a entregar. PROHIBIDO mencionarlo, prometerlo o insinuarlo, aunque ella escriba "regalo", "gratis" o "bonus". Si pregunta por "los regalos gratis" se refiere a los BONOS que YA vienen incluidos en el pack (los 85.000 diseños de Canva, los moldes, las agendas, los 500 dibujos para colorear): explicale SOLO eso, que ya son suyos con su pack, y no inventes ningun curso adicional.';
@@ -1296,9 +1357,10 @@ async function handleOfferedBasico(contact, text) {
   const PRECIO_DIAMANTE = ['15 mil', '15mil', 'quince mil', '15.000', '$15', 'de 15', 'los 15', 'por 15'];
   const PRECIO_ORO      = ['10 mil', '10mil', 'diez mil', '10.000', '$10', 'de 10', 'los 10', 'por 10'];
   const PRECIO_BASICO   = ['5 mil', '5mil', 'cinco mil', '5.000', '$5', 'de 5', 'los 5', 'por 5'];
-  const mentionsDiamante = text === '1' || text.includes('diamante') || PRECIO_DIAMANTE.some(p => text.includes(p)) || packPorMonto(text) === 'diamante';
-  const mentionsOro      = !mentionsDiamante && (text === '2' || text.includes('oro') || text.includes('superpack') || PRECIO_ORO.some(p => text.includes(p)) || packPorMonto(text) === 'oro');
-  const mentionsBasico   = !mentionsDiamante && !mentionsOro && (text === '3' || text.includes('basico') || text.includes('básico') || PRECIO_BASICO.some(p => text.includes(p)) || packPorMonto(text) === 'basico');
+  const textoPrecio = hablaDePlata(text) ? '' : text; // "tengo 5, me falta para los 10": no es elegir pack
+  const mentionsDiamante = text === '1' || text.includes('diamante') || PRECIO_DIAMANTE.some(p => textoPrecio.includes(p)) || packPorMonto(textoPrecio) === 'diamante';
+  const mentionsOro      = !mentionsDiamante && (text === '2' || text.includes('oro') || text.includes('superpack') || PRECIO_ORO.some(p => textoPrecio.includes(p)) || packPorMonto(textoPrecio) === 'oro');
+  const mentionsBasico   = !mentionsDiamante && !mentionsOro && (text === '3' || text.includes('basico') || text.includes('básico') || PRECIO_BASICO.some(p => textoPrecio.includes(p)) || packPorMonto(textoPrecio) === 'basico');
 
   if (mentionsDiamante) {
     db.updateContact(phone, { state: 'awaiting_comprobante', pack_selected: 'diamante' });
@@ -1537,7 +1599,23 @@ async function handleComprobante(contact, mediaContent) {
   const normalizedMonto = rawMonto != null
     ? parseInt(String(rawMonto).replace(/,\d*$/, '').replace(/\./g, ''), 10) || null
     : null;
-  const packByAmount = normalizedMonto ? AMOUNT_TO_PACK[normalizedMonto] : undefined;
+  let packByAmount = normalizedMonto ? AMOUNT_TO_PACK[normalizedMonto] : undefined;
+
+  // Monto que no es de ningun pack (23 nov 2026: se entregaron Diamantes pagados con $13.000 y
+  // $4.000 porque aqui solo se miraba el pack elegido). Precios fijos: nunca se entrega por menos.
+  if (normalizedMonto && !packByAmount) {
+    const decision = decidirMontoNoValido(contact, normalizedMonto);
+    if (!decision.entregar) {
+      db.logAdminAction(phone, 'monto_no_valido', `monto=${normalizedMonto} pack=${decision.pack || '-'} suma=${decision.suma}`);
+      await sendAndSave(phone, decision.mensaje);
+      await notifyJorge(contact,
+        `PAGO CON MONTO QUE NO ES DE NINGUN PACK (no se entrego):\nRecibio: $${normalizedMonto.toLocaleString('es-CO')}\nPack: ${decision.pack || 'sin elegir'}\nTel: ${phone}\nNombre: ${contact.name || '-'}\nSi lo apruebas, usa "Registrar venta" en el panel.${archivoInfo}`
+      );
+      return;
+    }
+    packByAmount = decision.pack;
+    db.logAdminAction(phone, 'monto_completado', `monto=${normalizedMonto} suma=${decision.suma} pack=${decision.pack}`);
+  }
   const pack = packByAmount || contact.pack_selected || null;
 
   // Si no se puede determinar el pack, pedir confirmacion en lugar de entregar basico por defecto
@@ -2333,7 +2411,35 @@ async function handleUpgradeComprobante(contact, msgType, content) {
 const BOT_ADMISSION_MSG = `¡Hola! Soy Carol y estoy aquí detrás de la pantalla con toda la energía para ayudarte a emprender. 💖🎨
 No te preocupes, estás hablando con la experta. ¡Cuéntame qué necesitas y lo resolvemos ya!`;
 
+const GUIDE_LEAK_PATTERNS = [
+  /^\s*#{1,4}\s/m,                       // titulos de markdown (# Titulo, ## Seccion)
+  /TABLA DE CONTENIDOS/i,
+  /GU[IÍ]A COMPLETA DE VENTAS/i,
+  /bas[aá]ndome en (la|mi) gu[ií]a/i,
+  /\[CONTEXTO INTERNO/i,
+  /SYSTEM_PROMPT|system prompt/i,
+  /\]\(#[a-z]/i,                         // enlaces internos de markdown [Seccion](#seccion)
+];
+const GUIDE_LEAK_REPLACEMENT_MSG = 'Cuéntame un poquito más qué necesitas y te ayudo de una 💛';
+
+// Voseo argentino (caso 573172803706, 10 oct 2026: "¿Vos querés aprender...?"). En Colombia se tutea.
+// \b no sirve con letras con tilde, por eso los limites van escritos a mano.
+const L = '[\\wáéíóúñÁÉÍÓÚÑ]';
+const voseo = (palabra, reemplazo) => [new RegExp(`(^|[^\\wáéíóúñÁÉÍÓÚÑ])${palabra}(?!${L})`, 'gi'), `$1${reemplazo}`];
+
 const BANNED_PHRASE_REPLACEMENTS = [
+  voseo('vos quer[eé]s', 'quieres'),
+  voseo('vos ten[eé]s', 'tienes'),
+  voseo('vos pod[eé]s', 'puedes'),
+  voseo('vos', 'tú'),
+  voseo('querés', 'quieres'),
+  voseo('tenés', 'tienes'),
+  voseo('podés', 'puedes'),
+  voseo('sabés', 'sabes'),
+  voseo('necesitás', 'necesitas'),
+  voseo('contame', 'cuéntame'),
+  voseo('decime', 'dime'),
+  voseo('mirá', 'mira'),
   [/\b(te|le)\s+late\b/gi, '$1 parece'],
   [/una pasada/gi, 'una maravilla'],
   [/\bchido\b/gi, 'bacano'],
@@ -2417,6 +2523,14 @@ Tu material no se manda por correo electronico. El enlace de tu carpeta te lo pa
 
 function sanitizeOutboundText(text, estado = '') {
   if (typeof text !== 'string' || !text) return text;
+
+  // Candado: Carol NUNCA puede mandar su guion interno ni texto con formato de documento.
+  // Caso real 22 nov 2026 (573184455650): ante "todo en pdf? impresas?" mando "# 📄 CAROL, GUIA COMPLETA
+  // DE VENTAS... TABLA DE CONTENIDOS" con 2.289 caracteres y otros 2 mensajes "basandome en la guia".
+  if (GUIDE_LEAK_PATTERNS.some(p => p.test(text))) {
+    console.error('BLOQUEADO mensaje con el guion interno de Carol. Texto original: ' + JSON.stringify(text.slice(0, 300)));
+    return GUIDE_LEAK_REPLACEMENT_MSG;
+  }
 
   if (AI_ADMISSION_PATTERNS.some(p => p.test(text))) {
     return BOT_ADMISSION_MSG;
